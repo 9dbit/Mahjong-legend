@@ -1,0 +1,84 @@
+/* UI 0.8.1: preserve approved artwork; animate its pixels, not duplicate text. */
+.title-lockup{opacity:0!important;pointer-events:none}
+.logo-fx{position:absolute;left:29.521277%;top:4.484305%;width:41.223404%;height:9.641256%;z-index:3;pointer-events:none;contain:layout}
+.logo-fx i{position:absolute;inset:0;display:block;pointer-events:none}
+.logo-emission{background:url('/assets/locked-v08/effects/logo-emission.webp') center/100% 100% no-repeat;mix-blend-mode:screen;filter:drop-shadow(0 0 3px #ffbd35);animation:logo-emissive 5s ease-in-out infinite}
+.logo-shine{-webkit-mask:url('/assets/locked-v08/effects/logo-mask.webp') center/100% 100% no-repeat;mask:url('/assets/locked-v08/effects/logo-mask.webp') center/100% 100% no-repeat;overflow:hidden}
+.logo-shine::after{content:'';position:absolute;inset:-20% -50%;background:linear-gradient(110deg,transparent 42%,#fffbd8aa 48%,#fffefbe8 50%,#ffe99d77 53%,transparent 58%);animation:logo-shine 6.5s ease-in-out infinite}
+.game-stage::after{content:'';position:absolute;inset:20% 8% 30%;pointer-events:none;background:radial-gradient(ellipse at 50% 20%,#20d5bb15,transparent 60%),radial-gradient(ellipse at 50% 100%,#ffb12d12,transparent 70%);mix-blend-mode:screen;z-index:1;animation:board-emission 6s ease-in-out infinite}
+.game-header{z-index:5}
+.reel-window{height:100%;overflow:hidden;position:relative;min-width:0;min-height:0}
+.reel-window.short{height:calc(80% - .4px);margin:auto 0}
+.reel-strip{display:flex;flex-direction:column;width:100%;will-change:transform}
+.board .reel-strip .tile{height:auto;flex-shrink:0}
+.reel-theatre{z-index:2}
+.board-frame{z-index:1}
+.effects-layer{z-index:20;overflow:visible;pointer-events:none;clip-path:inset(-3% -4%)}
+.board .tile{transition:none;isolation:isolate}
+.board .tile::before{display:block!important;content:'';position:absolute;inset:4%;border-radius:11%;box-shadow:0 0 4px #18cfb324,inset 0 0 4px #25dbbb22;pointer-events:none;z-index:0}
+.tile-image{position:relative;z-index:1;filter:drop-shadow(0 1px 1px #0008)}
+.symbol-emission{position:absolute;inset:0;width:100%;height:100%;object-fit:fill;mix-blend-mode:screen;opacity:.22;filter:brightness(1.35) drop-shadow(0 0 2px #28d9c9);pointer-events:none;z-index:2}
+.tile[data-symbol='M'] .symbol-emission,.tile[data-symbol='I'] .symbol-emission,.tile[data-symbol='K'] .symbol-emission{filter:brightness(1.3) drop-shadow(0 0 2px #ff4224)}
+.tile[data-symbol='O'] .symbol-emission{filter:brightness(1.3) drop-shadow(0 0 2px #5985ff)}
+.tile.marked .symbol-emission{opacity:.36;filter:brightness(1.5) drop-shadow(0 0 3px #ffd15b)}
+.tile.marked .tile-image{filter:brightness(1.12) drop-shadow(0 0 3px #ffe579)}
+.tile.wild .tile-image,.tile.enhanced .tile-image{filter:brightness(1.04) drop-shadow(0 0 3px #ffc33e)}
+.tile .win-border{z-index:4;border-width:1px;box-shadow:0 0 5px #ffce4e,inset 0 0 4px #ffe281}
+.tile .crack{z-index:6;mix-blend-mode:normal;opacity:1;filter:drop-shadow(1px 0 0 #ffdf92)}
+.tile.cracked{animation:crack-impact .185s ease-out both}
+.tile.morph-charge{filter:brightness(1.15);box-shadow:0 0 7px #ffe478!important}
+.tile.removed{visibility:hidden}
+.tile.wild-pop{animation:wild-pop .5s ease-out both}
+.effects-layer .tile-fragment{position:absolute;background-repeat:no-repeat;object-fit:initial;pointer-events:none;filter:drop-shadow(0 1px 1px #211008cc);will-change:transform,opacity}
+.effects-layer .shockwave{position:absolute;border:1px solid #ffe9a3b3;border-radius:30%;box-shadow:0 0 6px #ffac4a88;pointer-events:none}
+.effects-layer .spark{position:absolute;border-radius:50%;background:#ffefb8;box-shadow:0 0 5px #ffd340;pointer-events:none}
+.effects-layer .flash{background:radial-gradient(ellipse,#ffe9ac88,transparent 70%);pointer-events:none}
+#spin-btn.busy .spin-disk,#spin-btn .spin-disk{animation:none!important;transition:none;will-change:transform;filter:drop-shadow(0 0 2px #ffe48b66)}
+#spin-btn{transition:filter .2s ease;isolation:isolate}
+#spin-btn::after{content:'';position:absolute;left:16%;top:13%;width:68%;aspect-ratio:1;border-radius:50%;box-shadow:0 0 7px #ffc54866,inset 0 0 5px #40f5d24d;pointer-events:none;animation:button-emission 3.5s ease-in-out infinite}
+#spin-btn.busy::after{box-shadow:0 0 9px #ffd55a99,inset 0 0 5px #3affdb88}
+#spin-btn .spin-label{pointer-events:none}
+.play-controls button:not(#spin-btn):active,.header-icon:active{transform:scale(.96)}
+@media(hover:hover){.play-controls button:hover,.header-icon:hover{filter:drop-shadow(0 0 4px #ffe7a699)}}
+/* Reset inherited gap/padding: both text lines stay inside each jade meter. */
+.credits-strip .meter{gap:1px;padding:0 5% 0 21%;height:100%;justify-content:center;overflow:hidden}
+.credits-strip .meter small{display:block;margin:0;padding:0;line-height:1;font-size:1.8cqw;letter-spacing:.08em;white-space:nowrap}
+.credits-strip .meter-value{display:block;width:100%;min-width:0;max-width:100%;margin:0;padding:0;font:600 3.5cqw/1.06 Arial,sans-serif;white-space:nowrap;overflow:hidden;font-variant-numeric:tabular-nums;text-align:center;letter-spacing:-.025em}
+#stage-notice{display:block;width:100%;max-width:100%;padding:0 1%;white-space:nowrap;overflow:hidden;line-height:1.1}
+.announcement.winning #stage-notice{font-size:5cqw}
+.game-bottom-bar{left:20%;width:60%;height:2.1%;padding:0 1%;gap:3%;box-sizing:border-box}
+.game-bottom-bar button{min-width:0;flex:0 0 27%;padding:0;line-height:1.2;font-size:1.6cqw}
+.game-bottom-bar .round-phase{flex:1;min-width:0;text-align:center;font-size:1.5cqw;letter-spacing:.015em;white-space:nowrap}
+.game-bottom-bar .footer-icon span{font-size:inherit}
+.virtual-note{font-size:1.35cqw;letter-spacing:.08em}
+.game-dialog,.auto-dialog{box-sizing:border-box;overflow:hidden}
+.dialog-body{box-sizing:border-box;max-height:65dvh;overflow:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;scroll-behavior:smooth}
+.dialog-tabs{scroll-behavior:smooth;overscroll-behavior:contain;flex-wrap:wrap;overflow:visible;gap:4px}
+.dialog-tabs .tab{flex:1 1 28%;min-width:0;font-size:11px;min-height:36px;padding:7px}
+.dialog-head{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.dialog-head .close-dialog{flex:0 0 40px;padding:0;position:static}
+.setting-row{display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px;min-height:46px}
+.setting-row>span,.setting-row>label{flex:1 1 40%;min-width:0}
+.setting-row>strong{max-width:50%;overflow-wrap:anywhere}
+.volume-control{max-width:55%;width:55%;min-width:0;gap:5px}
+.volume-control input{min-width:0;width:70%;flex:1}
+.volume-control output{font-size:12px;min-width:32px}
+#music-volume{width:50%;min-width:0}
+.game-rule-row{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.2fr);gap:10px;align-items:center}
+.game-rule-row b{text-align:right;overflow-wrap:anywhere}
+.fairness-actions{display:flex;gap:8px;flex-wrap:wrap}
+.fairness-actions button{flex:1;min-width:100px;min-height:40px}
+.paytable-item,.paytable-head{display:grid;grid-template-columns:minmax(0,1.6fr) repeat(3,minmax(0,1fr));gap:5px;align-items:center}
+.symbol-label{display:flex;align-items:center;gap:8px;min-width:0}
+.paytable-tile{width:30px;height:33px;object-fit:contain}
+.history-entry{gap:10px;align-items:center}.history-entry span{min-width:0;overflow-wrap:anywhere}.history-entry strong{flex:0 1 auto;overflow-wrap:anywhere}
+@keyframes logo-emissive{0%,100%{opacity:.13}50%{opacity:.3}}
+@keyframes logo-shine{0%,25%{transform:translateX(-90%);opacity:0}30%{opacity:.55}58%{transform:translateX(90%);opacity:.55}65%,100%{transform:translateX(90%);opacity:0}}
+@keyframes board-emission{0%,100%{opacity:.5}50%{opacity:1}}
+@keyframes button-emission{0%,100%{opacity:.55}50%{opacity:1}}
+@keyframes crack-impact{0%,100%{transform:translateX(0)}30%{transform:translateX(-1.5px)}65%{transform:translateX(1.5px)}}
+@keyframes wild-pop{0%{filter:brightness(1.3)}100%{filter:brightness(1)}}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}.logo-shine{display:none}.logo-emission{opacity:.15}}
+/* Exact native disk crop alignment, plus bounded skip label. */
+#spin-btn .spin-disk{left:21.3265%;top:20.6473%;width:56.9315%;height:auto;aspect-ratio:1}
+#spin-btn .spin-label{transform:none!important;left:24%;width:52%;bottom:6%;line-height:1.25;font-size:2.2cqw;letter-spacing:.08em}
