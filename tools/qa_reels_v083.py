@@ -9,8 +9,9 @@ from mahjong_legend.engine import verify_round
 from playwright.sync_api import sync_playwright,expect
 OUT=ROOT/'qa/reel-v083'
 PROBE=r'''() => {
- window.reelQA={events:[],frames:0,blank:0,undecoded:0,maxCanvases:0,invalidAtlas:0,minimumTiles:23,slowFrames:0,previous:0};
+ window.reelQA={events:[],frames:0,blank:0,undecoded:0,maxCanvases:0,invalidAtlas:0,minimumTiles:23,slowFrames:0,previous:0,shards:0};
  document.addEventListener('mahjong:reel',e=>reelQA.events.push(e.detail));
+ new MutationObserver(records=>{for(const r of records)for(const n of r.addedNodes)if(n.nodeType===1){if(n.matches?.('.tile-fragment'))reelQA.shards++;reelQA.shards+=n.querySelectorAll?.('.tile-fragment').length||0;}}).observe(document.querySelector('#game-stage'),{childList:true,subtree:true});
  const sample=(time)=>{
   const q=reelQA, canvases=[...document.querySelectorAll('.reel-canvas')];
   q.maxCanvases=Math.max(q.maxCanvases,canvases.length);
@@ -36,15 +37,15 @@ def main():
  try:
   with sync_playwright() as p:
    browser=getattr(p,args.engine).launch(headless=True,**({'executable_path':args.browser} if args.browser else {}))
-   cases=['normal','slow-decode','repeat','turbo','skip','resize','reduced-motion','decode-error']
+   cases=['normal','slow-decode','repeat','turbo','skip','resize','reduced-motion','decode-error','winning-cascade']
    for case in (cases if args.case=='all' else [args.case]):
     print('CASE',case,flush=True)
-    session.reset();session.seed=f'{2:064x}'
+    session.reset();session.seed=f'{148 if case=="winning-cascade" else 2:064x}'
     page=browser.new_page(viewport={'width':390,'height':844},device_scale_factor=3,is_mobile=True,has_touch=True,reduced_motion='reduce' if case=='reduced-motion' else 'no-preference',service_workers='block')
     errors=[];page.on('pageerror',lambda e:errors.append(str(e)))
     if args.offline:
      from local_preview import offline
-     session=offline(page,seed=2)
+     session=offline(page,seed=148 if case=='winning-cascade' else 2)
     else:page.goto(f'http://127.0.0.1:{server.server_port}',wait_until='networkidle')
     expect(page.locator('#stage-notice')).to_have_text('SIAP BERMAIN')
     expect(page.locator('#soft-tech-continue')).to_be_enabled(timeout=10000)
@@ -72,7 +73,7 @@ def main():
     assert qa['undecoded']==0,qa
     assert qa['maxCanvases']<=5,qa
     assert page.locator('.reel-canvas').count()==0
-    if case not in ['skip','reduced-motion','decode-error']:
+    if case not in ['skip','reduced-motion','decode-error','winning-cascade']:
      assert motion['starts']==motion['stops']==[1,2,3,4,5],motion
      assert motion['atlasPixels']<5000000 and motion['mode']=='gpu-composited-atlas',motion
      assert motion['completed'] and not motion['cancelled'],motion
@@ -89,6 +90,7 @@ def main():
      rendered=page.locator('#board').evaluate('(e)=>[...e.children].map(c=>[...c.children].map(t=>t._tile))')
      assert rendered==lastboard,(case,rendered,lastboard)
     if case=='decode-error':assert page.evaluate('MahjongReels.diagnostics().errors.length')>=1, 'Expected recorded decode fallback'
+    if case=='winning-cascade':assert qa['shards']>=9, 'Visible shard animation did not run: '+str(qa)
     assert verify_round(session.last_round,session.cfg)['valid']
     assert not errors,errors
     page.evaluate('cancelAnimationFrame(window.reelSampleFrame)')
