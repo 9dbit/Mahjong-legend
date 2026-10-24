@@ -24,7 +24,8 @@ def main():
             expect(page.locator('#stage-notice')).to_have_text('SIAP BERMAIN');expect(page.locator('#game-stage')).to_have_attribute('data-release','0.8.2')
             assert not page.evaluate('window.MahjongWildAudio.state.unlocked'), 'No autoplay before gesture'
             geom=page.locator('body').evaluate('(e)=>({w:e.getBoundingClientRect().width,h:e.getBoundingClientRect().height,ow:document.documentElement.scrollWidth-innerWidth,oh:document.documentElement.scrollHeight-innerHeight})')
-            assert geom['w']==w and geom['h']==h and geom['ow']<=1 and geom['oh']<=1,geom
+            # WebKit rounds dynamic viewport units to 1/64 CSS pixel.
+            assert abs(geom['w']-w)<=.1 and abs(geom['h']-h)<=.1 and geom['ow']<=1 and geom['oh']<=1,geom
             assert page.locator('#board .tile').count()==23
             # Live counters fit even after a large virtual payout, without changing state.
             previous_balance=page.locator('#balance').inner_text()
