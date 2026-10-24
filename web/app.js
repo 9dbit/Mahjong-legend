@@ -20,8 +20,17 @@
   let busy = false;
   let skip = false;
   let turbo = false;
-  let sound = false;
+  // Sound is enabled for gameplay by default, but a browser gesture is required to unlock audio.
+  // Only lightweight synthesized original effects are used (no third-party assets).
+  let sound = true;
   let audio = null;
+  let volume = 0.65;
+  try {
+    const savedSound = localStorage.getItem('mahjong-legend-sfx');
+    sound = savedSound !== 'off';
+    const savedVolume = Number(localStorage.getItem('mahjong-legend-volume'));
+    if (Number.isFinite(savedVolume) && savedVolume >= 0 && savedVolume <= 1 && localStorage.getItem('mahjong-legend-volume') !== null) volume = savedVolume;
+  } catch (_) { /* Privacy mode may disable storage. */ }
   let lastRecord = null;
   let latestWin = 0;
   let selectedBet = 1;
@@ -29,8 +38,13 @@
   let autoRemaining = 0;
   let autoTimer = null;
   let recentRounds = [];
+  let animatedWin = 0;
+  let winAnimation = 0;
 
-  const delay = ms => new Promise(resolve => setTimeout(resolve, (skip || window.matchMedia('(prefers-reduced-motion: reduce)').matches) ? 0 : Math.max(45,Math.round(ms*(turbo?.32:1)))));
+  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+  const reduced = () => reduceMotion.matches;
+  const motionMs = ms => (skip || reduced()) ? 0 : Math.max(28, Math.round(ms * (turbo ? .36 : 1)));
+  const delay = ms => new Promise(resolve => setTimeout(resolve, motionMs(ms)));
   const format = (v,d=2) => Number.isFinite(Number(v)) ? Number(v).toLocaleString('en-US',{minimumFractionDigits:d,maximumFractionDigits:d}) : '0.00';
   const create = (tag,className,textContent) => {
     const el=document.createElement(tag);
@@ -109,49 +123,185 @@
     if(symbol==='O')return 'char-indigo';
     return '';
   }
+  function makeTile(tile, opts={}) {
+    const el=create('div',`tile ${classFor(tile.symbol)}${tile.enhanced?' enhanced':''}${opts.marked?' marked':''}${opts.falling?' falling':''}`);
+    el.title=tile.symbol==='W'?'Wild':tile.symbol==='S'?'Scatter':`Mahjong Legend symbol ${tile.symbol}`;
+    el.appendChild(tileFace(tile.symbol));
+    if (opts.row !== undefined) el.style.setProperty('--row', String(opts.row));
+    return el;
+  }
+  function makeReel(col,reelIndex,opts={}) {
+    const reel=create('div',`reel${col.length===4?' short':''}`);
+    reel.setAttribute('aria-label',`Reel ${reelIndex+1}`);
+    col.forEach((tile,index)=>reel.appendChild(makeTile(tile,{
+      row:index, marked:opts.marked?.includes(index), falling:opts.falling
+    })));
+    return reel;
+  }
   function renderBoard(board,opts={}) {
     const root=$('board');root.replaceChildren();
-    board.forEach((col,reelIndex)=>{
-      const reel=create('div',`reel${col.length===4?' short':''}`);
-      reel.setAttribute('aria-label',`Reel ${reelIndex+1}`);
-      col.forEach((tile,index)=>{
-        const marked=opts.marked?.[reelIndex]?.includes(index);
-        const el=create('div',`tile ${classFor(tile.symbol)}${tile.enhanced?' enhanced':''}${marked?' marked':''}${opts.falling?' falling':''}`);
-        el.title=tile.symbol==='W'?'Wild':tile.symbol==='S'?'Scatter':`Mahjong Legend symbol ${tile.symbol}`;
-        el.appendChild(tileFace(tile.symbol));
-        reel.appendChild(el);
-      });
-      root.appendChild(reel);
-    });
+    board.forEach((col,reelIndex)=>root.appendChild(makeReel(col,reelIndex,{
+      marked:opts.marked?.[reelIndex],falling:opts.falling
+    })));
     root.setAttribute('aria-label','Reels: '+board.map(col=>col.map(tile=>tile.symbol).join('')).join(' / '));
   }
+  // Spin preview is strictly decorative. Its tiles never feed the RNG or payout.
+  async function spinReels(finalBoard) {
+    if(skip||reduced()) {renderBoard(finalBoard);return;}
+    const preview=finalBoard.map((col,i)=>col.map((_,row)=>({
+      ...col[(row+i+2)%col.length], enhanced:col[(row+i+2)%col.length].enhanced
+    })));
+    renderBoard(preview);
+    const board=$('board');
+    board.classList.add('rolling-board');
+    [...board.children].forEach((reel,i)=>{
+      reel.classList.add('rolling');
+      reel.style.setProperty('--reel-lag',`${i*-37}ms`);
+    });
+    await delay(290);
+    for(let i=0;i<finalBoard.length;i++) {
+      if(skip){renderBoard(finalBoard);break;}
+      const finished=makeReel(finalBoard[i],i);
+      finished.classList.add('settled');
+      board.replaceChild(finished,board.children[i]);
+      playSound('stop',i);
+      await delay(93);
+    }
+    board.classList.remove('rolling-board');
+    board.setAttribute('aria-label','Reels: '+finalBoard.map(col=>col.map(tile=>tile.symbol).join('')).join(' / '));
+    await delay(120);
+  }
+  // Match each surviving tile to its previous row so falling tiles actually move
+  // from their old position. Winning gold tiles become Wild in the same motion.
+  function cascadeDrop(event) {
+    const board=$('board');
+    const oldHeights=[...board.children].map((el,i)=>el.getBoundingClientRect().height/event.before[i].length);
+    board.replaceChildren();
+    let morphCount=0;
+    event.after.forEach((col,reelIndex)=>{
+      const marked=new Set(event.marked[reelIndex]);
+      const survivors=[];
+      event.before[reelIndex].forEach((tile,idx)=>{
+        if(!marked.has(idx))survivors.push({row:idx,morph:false});
+        else if(tile.enhanced && tile.symbol!=='W' && tile.symbol!=='S')survivors.push({row:idx,morph:true});
+      });
+      const missing=col.length-survivors.length;
+      const reel=makeReel(col,reelIndex);
+      [...reel.children].forEach((tile,targetRow)=>{
+        const isNew=targetRow<missing;
+        const survivor=isNew?null:survivors[targetRow-missing];
+        const pitch=oldHeights[reelIndex] || 70;
+        const from=isNew?-(missing-targetRow+1.5)*pitch:(survivor.row-targetRow)*pitch;
+        tile.style.setProperty('--enter-from',`${from.toFixed(1)}px`);
+        tile.style.setProperty('--drop-delay',`${Math.round((isNew ? targetRow : targetRow-missing)*38)}ms`);
+        tile.classList.add(isNew?'new-drop':'tile-drop');
+        if(survivor?.morph){tile.classList.add('morphed-wild');morphCount++;}
+      });
+      board.appendChild(reel);
+    });
+    board.setAttribute('aria-label','Reels: '+event.after.map(col=>col.map(tile=>tile.symbol).join('')).join(' / '));
+    if(morphCount)playSound('wild',morphCount);
+  }
+  function burstWin(text,tier='regular') {
+    if(skip||reduced())return;
+    const fx=$('effects-layer');
+    const floating=create('div',`win-floating ${tier}`,text);
+    fx.replaceChildren(floating);
+    floating.addEventListener('animationend',()=>floating.remove(),{once:true});
+  }
+  function animateWinValue(value,ms=310) {
+    cancelAnimationFrame(winAnimation);
+    const start=animatedWin,end=Number(value);
+    if(reduced()||skip||Math.abs(end-start)<.00001){
+      animatedWin=end;$('last-win').textContent=format(end);return;
+    }
+    const duration=motionMs(ms),startTime=performance.now();
+    function tick(now){
+      const t=Math.min(1,(now-startTime)/Math.max(1,duration));
+      const eased=1-(1-t)**3;
+      animatedWin=start+(end-start)*eased;
+      $('last-win').textContent=format(animatedWin);
+      if(t<1)winAnimation=requestAnimationFrame(tick);else animatedWin=end;
+    }
+    winAnimation=requestAnimationFrame(tick);
+    $('last-win').closest('.meter').classList.remove('meter-flash');
+    void $('last-win').offsetWidth;
+    $('last-win').closest('.meter').classList.add('meter-flash');
+  }
   function updateMult(isBonus,index=0) {
-    const values=isBonus?[2,3,5,8]:[1,2,3,4];
+    const values=(isBonus?state?.rules?.bonus_multipliers:state?.rules?.base_multipliers) || (isBonus?[2,3,5,8]:[1,2,3,4]);
     const track=$('mult-track');track.replaceChildren();
-    values.forEach((v,i)=>track.appendChild(create('span',`mult${i===Math.min(index,3)?' active':''}`,`x${v}`)));
+    values.forEach((v,i)=>track.appendChild(create('span',`mult${i===Math.min(index,3)?' active mult-glow':''}`,`x${v}`)));
+    $('machine').classList.toggle('bonus-mode',isBonus);
   }
   function showBanner(text,detail) {
     const el=$('overlay-banner');el.replaceChildren();
     el.appendChild(create('div','',text));el.appendChild(create('small','',detail));
-    el.classList.remove('hidden');
+    el.className='overlay-banner '+(Number(detail?.match?.(/\d+/)?.[0])>=30?'major':'');
   }
   function hideBanner(){$('overlay-banner').classList.add('hidden');}
   function status(message){$('stage-notice').textContent=message;}
   function phase(text){$('phase-tag').textContent=text;}
-  function playSound(tone) {
-    if(!sound)return;
+  // Original procedural effects, authored for Mahjong Legend.
+  // AudioContext is unlocked from direct user interactions, as iOS Safari requires.
+  function playSound(type,variation=0) {
+    if(!sound||skip||volume<=0)return;
     try {
-      const ctx=audio||(audio=new (window.AudioContext||window.webkitAudioContext)());
-      if(ctx.state==='suspended')ctx.resume();
-      const osc=ctx.createOscillator();const gain=ctx.createGain();
-      osc.type=tone==='win'?'sine':'triangle';
-      osc.frequency.setValueAtTime(tone==='win'?540:tone==='bonus'?750:280,ctx.currentTime);
-      osc.frequency.exponentialRampToValueAtTime(tone==='win'?750:tone==='bonus'?1020:220,ctx.currentTime+.13);
-      gain.gain.setValueAtTime(.0001,ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(.055,ctx.currentTime+.018);
-      gain.gain.exponentialRampToValueAtTime(.0001,ctx.currentTime+.19);
-      osc.connect(gain);gain.connect(ctx.destination);osc.start();osc.stop(ctx.currentTime+.2);
-    }catch(e){/* Audio is optional and can be unavailable in locked-down contexts. */}
+      const AudioContextClass=window.AudioContext||window.webkitAudioContext;
+      if(!AudioContextClass)return;
+      const ctx=audio||(audio=new AudioContextClass());
+      if(ctx.state==='suspended')void ctx.resume();
+      const start=ctx.currentTime+0.005;
+      const master=Math.min(1,volume);
+      const tone=(pitch,duration=.14,at=0,gain=.035,shape='sine',endPitch=pitch)=>{
+        const osc=ctx.createOscillator(),amp=ctx.createGain();
+        osc.type=shape;
+        osc.frequency.setValueAtTime(Math.max(30,pitch),start+at);
+        osc.frequency.exponentialRampToValueAtTime(Math.max(30,endPitch),start+at+duration);
+        amp.gain.setValueAtTime(.0001,start+at);
+        amp.gain.exponentialRampToValueAtTime(Math.max(.0002,master*gain),start+at+.012);
+        amp.gain.exponentialRampToValueAtTime(.0001,start+at+duration);
+        osc.connect(amp).connect(ctx.destination);
+        osc.start(start+at);osc.stop(start+at+duration+.012);
+      };
+      const clack=(duration=.065,at=0,gain=.027,frequency=1450)=>{
+        const frames=Math.max(64,Math.floor(ctx.sampleRate*duration));
+        const buffer=ctx.createBuffer(1,frames,ctx.sampleRate);
+        const data=buffer.getChannelData(0);
+        for(let i=0;i<frames;i++)data[i]=(Math.random()*2-1)*Math.pow(1-i/frames,1.75);
+        const source=ctx.createBufferSource(),filter=ctx.createBiquadFilter(),amp=ctx.createGain();
+        source.buffer=buffer;filter.type='bandpass';filter.frequency.value=frequency;
+        filter.Q.value=.75;amp.gain.setValueAtTime(master*gain,start+at);
+        amp.gain.exponentialRampToValueAtTime(.0001,start+at+duration);
+        source.connect(filter).connect(amp).connect(ctx.destination);
+        source.start(start+at);source.stop(start+at+duration);
+      };
+      switch(type){
+        case 'tap': tone(490,.07,0,.012,'triangle',425); break;
+        case 'spin':
+          clack(.14,0,.022,480);tone(170,.23,0,.027,'sawtooth',420);
+          tone(280,.27,.04,.017,'triangle',540);break;
+        case 'stop':
+          clack(.072,0,.039,900+variation*160);
+          tone(220+variation*16,.09,0,.021,'triangle',160);break;
+        case 'win':
+          clack(.085,0,.025,1870);tone(540,.22,.005,.030,'sine',700);
+          tone(800,.28,.065,.022,'sine',910);break;
+        case 'cascade':
+          clack(.13,0,.03,2450);tone(400,.22,0,.025,'triangle',600);break;
+        case 'multiplier':
+          tone(780,.14,0,.024,'sine',1040);tone(1180,.22,.07,.018,'sine',1400);break;
+        case 'wild':
+          tone(640,.28,0,.027,'sine',1000);tone(1040,.32,.05,.020,'triangle',1570);
+          clack(.11,.03,.015,3650);break;
+        case 'bonus':
+          [392,523,659,784].forEach((v,i)=>{tone(v,.31,i*.11,.036,'triangle',v*1.06);tone(v*2,.22,i*.11,.012,'sine');});break;
+        case 'bigwin':
+          [392,494,587,784,988].forEach((v,i)=>tone(v,.44,i*.075,.032,'sine',v*1.025));
+          clack(.13,.08,.025,3200);break;
+        default: tone(330,.07,0,.012,'triangle',270);
+      }
+    }catch(_){/* Sound may be blocked by browser settings. Gameplay still works. */}
   }
   async function req(path,payload){
     const options=payload===undefined?{}:{method:'POST',headers:{'Content-Type':'application/json','X-ML-Request':'local-demo'},body:JSON.stringify(payload)};
@@ -178,6 +328,8 @@
     $('turbo-btn').setAttribute('aria-pressed',String(turbo));
     $('setting-turbo').textContent=turbo?'ON':'OFF';
     $('setting-sound').textContent=sound?'ON':'OFF';
+    $('sfx-volume').value=String(Math.round(volume*100));
+    $('sfx-value').textContent=`${Math.round(volume*100)}%`;
     $('sound-btn').setAttribute('aria-label',sound?'Turn sound off':'Turn sound on');
     $('sound-btn').title=sound?'Sound on':'Sound off';
     $('sound-btn').classList.toggle('sound-on',sound);
@@ -191,7 +343,7 @@
     $('spin-count').textContent=String(next.spin_count);
     $('next-commit').textContent=next.next_seed_commitment_sha256;
     $('config-hash').textContent=next.config_sha256;
-    updateControls();renderPaytable();
+    updateControls();updateMult(false,0);renderPaytable();
   }
   function renderPaytable(){
     if(!state?.rules?.paytable)return;
@@ -207,8 +359,12 @@
     const idx=Math.max(0,Math.min(index,betOptions.length-1));selectedBet=betOptions[idx];updateControls();
   }
   function stepBet(direction){setBet(betOptions.indexOf(selectedBet)+direction);}
-  function toggleTurbo(){turbo=!turbo;updateControls();playSound('tick');}
-  function toggleSound(){sound=!sound;updateControls();playSound('tick');}
+  function toggleTurbo(){turbo=!turbo;updateControls();playSound('tap');}
+  function toggleSound(){
+    sound=!sound;
+    try{localStorage.setItem('mahjong-legend-sfx',sound?'on':'off');}catch(_){}
+    updateControls();playSound('tap');
+  }
   function cancelAuto(){
     autoRemaining=0;
     if(autoTimer){clearTimeout(autoTimer);autoTimer=null;}
@@ -225,35 +381,58 @@
     }
   }
   async function animateRound(round,creditWin){
+    let cumulative=0;
     for(const evt of round.events){
       if(evt.type==='screen_start'){
         const bonus=evt.phase==='bonus';
-        phase(bonus?`FREE SPIN ${evt.number}`:'BASE GAME');
+        phase(bonus?`FREE SPIN ${evt.number} / ${round.free_spins_played}`:'BASE GAME');
         updateMult(bonus,0);
         status(bonus?`FREE SPIN ${evt.number}`:'SPINNING...');
-        renderBoard(evt.board,{falling:!skip});
-        playSound('spin');await delay(bonus?135:220);
+        await spinReels(evt.board);
       }else if(evt.type==='cascade'){
-        updateMult(evt.phase==='bonus',evt.step-1);
+        const phaseBonus=evt.phase==='bonus';
+        updateMult(phaseBonus,evt.step-1);
         renderBoard(evt.before,{marked:evt.marked});
-        status(`CASCADE ${evt.step}  /  x${evt.multiplier}  /  +${format(Number(evt.awarded_x)*selectedBet)}`);
-        playSound('win');await delay(330);
-        if(evt.after){renderBoard(evt.after,{falling:!skip});await delay(275);}
+        const credit=Number(evt.awarded_x)*selectedBet;
+        cumulative+=credit;
+        status(`CASCADE ${evt.step}  /  x${evt.multiplier}  /  +${format(credit)}`);
+        burstWin(`+${format(credit)}`);
+        playSound(evt.step>1?'multiplier':'win');
+        animateWinValue(cumulative);
+        await delay(355);
+        if(evt.after){
+          for(const [reelIndex,indices] of evt.marked.entries()){
+            const reel=$('board').children[reelIndex];
+            indices.forEach(row=>{
+              const tile=reel?.children[row];
+              if(tile)tile.classList.add(tile.classList.contains('enhanced')?'gold-burst':'dissolving');
+            });
+          }
+          playSound('cascade');
+          await delay(160);
+          cascadeDrop(evt);
+          await delay(455);
+        }
       }else if(evt.type==='bonus_trigger'){
         showBanner('FREE SPINS',`+${evt.awarded_spins} SPINS`);
-        playSound('bonus');await delay(970);hideBanner();
+        playSound('bonus');await delay(1000);hideBanner();
       }else if(evt.type==='bonus_retrigger'){
         showBanner('EXTRA SPINS',`+${evt.added_spins} SPINS`);
-        playSound('bonus');await delay(730);hideBanner();
+        playSound('bonus');await delay(760);hideBanner();
       }else if(evt.type==='cap_reached'){
-        showBanner('LEGENDARY WIN',`MAX  ${evt.cap_x}x BET`);
-        await delay(1100);hideBanner();
+        showBanner('LEGENDARY WIN',`MAX ${evt.cap_x}x BET`);
+        playSound('bigwin');await delay(1200);hideBanner();
       }else if(evt.type==='round_end'){
+        animateWinValue(creditWin,180);
         if(Number(evt.payout_x)>0){
-          showBanner(Number(evt.payout_x)>=25?'BIG WIN':'YOU WIN',`${format(creditWin)} CREDITS`);
-          playSound('win');await delay(Number(evt.payout_x)>=25?1000:560);hideBanner();
+          const amount=Number(evt.payout_x);
+          const tier=amount>=50?'LEGENDARY WIN':amount>=20?'BIG WIN':'TOTAL WIN';
+          showBanner(tier,`${format(creditWin)} CREDITS`);
+          playSound(amount>=20?'bigwin':'win');
+          await delay(amount>=20?1050:580);hideBanner();
         }
-        phase('BASE GAME');status(Number(evt.payout_x)>0?`TOTAL WIN  ${format(creditWin)} CREDIT`:'GOLD TILES TRANSFORM INTO WILD');
+        phase('BASE GAME');
+        status(Number(evt.payout_x)>0?`TOTAL WIN  ${format(creditWin)} CREDITS`:'GOLD TILES TRANSFORM INTO WILD');
         updateMult(false,0);
       }
     }
@@ -273,11 +452,13 @@
     if(!betAffordable()){status('NOT ENOUGH VIRTUAL CREDITS');cancelAuto();return;}
     if(fromAuto){if(autoRemaining<=0)return;autoRemaining--;}
     busy=true;skip=false;updateControls();
-    status('SPINNING...');$('last-win').textContent='0.00';latestWin=0;
+    status('SPINNING...');cancelAnimationFrame(winAnimation);animatedWin=0;latestWin=0;
+    $('last-win').textContent='0.00';$('effects-layer').replaceChildren();
+    if(state)$('balance').textContent=format(Number(state.balance)-selectedBet);
     $('board').classList.add('spinning');playSound('spin');
     try{
       const promised=state?.next_seed_commitment_sha256;
-      const [data]=await Promise.all([req('/api/spin',{bet:String(selectedBet)}),delay(380)]);
+      const [data]=await Promise.all([req('/api/spin',{bet:String(selectedBet)}),delay(290)]);
       $('board').classList.remove('spinning');
       lastRecord=data.round;
       await validateCommitment(lastRecord,promised);
@@ -290,9 +471,9 @@
       $('verification-result').className='verification-result';
       recordHistory({number:data.state.spin_count,bet:Number(data.stake_virtual_credits ?? selectedBet),win,id:lastRecord.round_id.slice(0,8)});
       refresh(data.state);
-    }catch(err){status(`ERROR: ${err.message}`);cancelAuto();}
+    }catch(err){status(`ERROR: ${err.message}`);cancelAuto();if(state)$('balance').textContent=format(state.balance);}
     finally{
-      hideBanner();$('board').classList.remove('spinning');busy=false;updateControls();
+      hideBanner();$('board').classList.remove('spinning','rolling-board');busy=false;updateControls();
       if(autoRemaining>0){
         if(!betAffordable()){status('AUTO STOP: INSUFFICIENT CREDITS');cancelAuto();}
         else autoTimer=setTimeout(()=>{autoTimer=null;spin(true);},turbo?95:380);
@@ -334,6 +515,7 @@
       $('verification-result').textContent='No completed spin to verify.';
       $('verification-result').className='verification-result';
       renderBoard(demoBoard);updateMult(false,0);phase('BASE GAME');status('GOLD TILES TRANSFORM INTO WILD');
+      cancelAnimationFrame(winAnimation);animatedWin=0;$('effects-layer').replaceChildren();
       refresh(next);$('game-dialog').close();
     }catch(e){status(`ERROR: ${e.message}`);}
   }
@@ -360,6 +542,12 @@
   $('bet-display-btn').addEventListener('click',()=>stepBet(1));
   $('turbo-btn').addEventListener('click',toggleTurbo);
   $('sound-btn').addEventListener('click',toggleSound);
+  $('sfx-volume').addEventListener('input',e=>{
+    volume=Math.min(1,Math.max(0,Number(e.target.value)/100));
+    $('sfx-value').textContent=`${Math.round(volume*100)}%`;
+    try{localStorage.setItem('mahjong-legend-volume',String(volume));}catch(_){}
+  });
+  $('sfx-volume').addEventListener('change',()=>playSound('tap'));
   $('auto-btn').addEventListener('click',openAuto);
   $('menu-btn').addEventListener('click',()=>openPanel('rules'));
   $('info-shortcut').addEventListener('click',()=>openPanel('paytable'));

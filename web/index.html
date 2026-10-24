@@ -3,11 +3,11 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-  <meta name="theme-color" content="#783228">
+  <meta name="theme-color" content="#602b27">
   <meta name="description" content="Mahjong Legend virtual-credit cascade game demo">
   <title>Mahjong Legend</title>
-  <link rel="stylesheet" href="/style.css">
-  <script src="/app.js" defer></script>
+  <link rel="stylesheet" href="/style.css?v=05">
+  <script src="/app.js?v=05" defer></script>
 </head>
 <body>
   <div class="scene" aria-hidden="true">
@@ -44,6 +44,7 @@
       <div class="board-frame">
         <div id="board" class="board" role="img" aria-label="Mahjong Legend tile reels"></div>
       </div>
+      <div id="effects-layer" class="effects-layer" aria-hidden="true"></div>
       <div id="overlay-banner" class="overlay-banner hidden" aria-live="polite"></div>
       <div class="reel-corner reel-corner-tl" aria-hidden="true"></div>
       <div class="reel-corner reel-corner-tr" aria-hidden="true"></div>
@@ -151,7 +152,8 @@
       </section>
       <section id="panel-settings" class="info-panel hidden">
         <h2>SETTINGS</h2>
-        <div class="setting-row"><span>Sound</span><button type="button" id="setting-sound">OFF</button></div>
+        <div class="setting-row"><span>Sound effects</span><button type="button" id="setting-sound">ON</button></div>
+      <div class="setting-row"><label for="sfx-volume">SFX volume</label><div class="volume-control"><input id="sfx-volume" type="range" min="0" max="100" value="65" step="5" aria-label="Sound effect volume"><output id="sfx-value" for="sfx-volume">65%</output></div></div>
         <div class="setting-row"><span>Turbo animations</span><button type="button" id="setting-turbo">OFF</button></div>
         <div class="setting-row"><span>Rounds in this session</span><strong id="spin-count">0</strong></div>
         <div class="setting-row"><span>Current virtual bet</span><strong id="setting-bet">1.00</strong></div>
