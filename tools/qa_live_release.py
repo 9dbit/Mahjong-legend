@@ -44,9 +44,23 @@ with sync_playwright() as p:
     page.locator('#menu-btn').click();page.locator('[data-panel="fairness"]').click();page.locator('#verify-btn').click()
     expect(page.locator('#verification-result')).to_have_text(re.compile('^PASS'))
     page.locator('#close-dialog').click()
+    # A skip completes the logical round before newly inserted WebP elements
+    # necessarily finish decoding. Verify the final painted board, not a partial
+    # loading frame captured immediately after the replay HTTP response.
+    page.locator('#board').evaluate('''async b=>{
+      await Promise.all([...b.querySelectorAll('img')].map(i=>i.decode()));
+      await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));
+    }''')
+    final_board=[e['board'] for e in result['round']['events'] if e['type']=='screen_end'][-1]
+    painted=page.locator('#board .reel').evaluate_all('(es)=>es.map(e=>[...e.children].map(t=>t.dataset.symbol))')
+    assert painted==[[t['symbol'] for t in col] for col in final_board]
+    assert page.locator('#board .tile').evaluate_all('''es=>es.every(e=>{
+      const i=e.querySelector('.tile-image');
+      return i.complete&&i.naturalWidth>0&&getComputedStyle(e).visibility==='visible'&&Number(getComputedStyle(i).opacity)>.99;
+    })''')
     assert not errors,errors
     out=ROOT/'qa';out.mkdir(exist_ok=True)
     page.screenshot(path=str(out/'v082_live_mobile.png'))
-    report={'url':URL,'ui_release':'0.8.2','math_release':state['version'],'files_sha256':actual,'base_multipliers':[1,2,3,5],'real_https_spin':'PASS','replay':'PASS','page_errors':errors,'audio':page.evaluate('window.MahjongWildAudio.state')}
+    report={'url':URL,'ui_release':'0.8.2','math_release':state['version'],'files_sha256':actual,'base_multipliers':[1,2,3,5],'real_https_spin':'PASS','replay':'PASS','final_painted_board':'PASS','page_errors':errors,'audio':page.evaluate('window.MahjongWildAudio.state')}
     (out/'live_results.json').write_text(json.dumps(report,indent=2)+'\n')
     print(json.dumps(report));browser.close()

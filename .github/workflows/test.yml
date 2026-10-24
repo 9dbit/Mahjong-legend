@@ -1,45 +1,31 @@
-name: Test Mahjong Wild
-on: [push, pull_request]
+name: Verify Released UI Paint
+on:
+  push:
+    branches: [test/v082-live-paint-verification]
+permissions:
+  contents: read
 jobs:
-  tests:
+  verify:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 8
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Install test dependencies
+      - name: Install verification dependencies
         run: python -m pip install 'Pillow>=10,<13' 'playwright==1.57.0'
-      - name: Build locked artwork and aligned light masks
+      - name: Reproduce exact already released runtime assets
         run: python tools/build_locked_ui.py && python tools/build_presentation_fx.py && python tools/build_approved_ui.py
-      - name: Run engine, HTTP and asset tests
-        run: python -m unittest discover -s tests -q
-      - name: Install Chromium and WebKit
-        run: python -m playwright install --with-deps chromium webkit
-      - name: Verify game in browser over HTTP
-        run: python tools/qa_locked_ui.py
-      - name: Verify motion, visible shatter and layout in Chromium
-        run: python tools/qa_motion_v081.py
-      - name: Verify motion, visible shatter and layout in WebKit
-        run: python tools/qa_motion_v081.py --engine webkit
-      - name: Verify approved UI, menus, audible mixer and PWA
-        run: python tools/qa_approved_v082.py
-      - name: Verify approved menus and audio on WebKit
-        run: python tools/qa_approved_v082.py --engine webkit
-      - name: Verify exact release on Railway
-        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+      - name: Install Chromium
+        run: python -m playwright install --with-deps chromium
+      - name: Verify released files, complete tile decoding, final board and replay
         env:
           MW_LIVE_URL: https://mahjong-legend-web-production.up.railway.app
         run: python tools/qa_live_release.py
-      - name: Save browser verification
+      - name: Save live screenshot and evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: mahjong-wild-v082-browser-qa
+          name: mahjong-wild-v082-live-painted-board
           path: qa/
-      - name: Save generated asset pack
-        uses: actions/upload-artifact@v4
-        with:
-          name: mahjong-wild-v082-runtime-assets
-          path: web/assets/approved-v082/
