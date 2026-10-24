@@ -172,7 +172,7 @@ async def run(args):
                 **({'executable_path':args.browser} if args.browser else {}))
 
             async def exercise(name, repeats=1, turbo=False, skip=False,
-                               asset_delay=False, api_delay=False):
+                               asset_delay=False, api_delay=False, paint=False):
                 session.reset()
                 context = await browser.new_context(viewport={'width':390,'height':844},
                     device_scale_factor=2, is_mobile=True, has_touch=True,
@@ -202,31 +202,47 @@ async def run(args):
                         await page.locator('#turbo-btn').click()
                     for turn in range(repeats):
                         await page.evaluate(PROBE)
-                        initial = await page.evaluate(BOARD)
-                        click = asyncio.create_task(page.locator('#spin-btn').click(timeout=7000))
-                        if asset_delay or api_delay:
-                            await asyncio.wait_for(intercepted.wait(), timeout=5)
-                            await asyncio.sleep(.45)
-                            assert await page.evaluate(BOARD) == initial, 'Pending response/asset discarded visible board'
-                            assert not await page.evaluate('qaContinuity.violations')
-                            gate.set()
-                        await click
-                        await expect(page.locator('.reel-window').first).to_be_visible(timeout=7000)
-                        if skip:
-                            # Multiple skip taps while busy must not debit another spin.
-                            await page.evaluate("""() => {
-                                const b=document.querySelector('#spin-btn'); b.click(); b.click();
-                            }""")
-                        painted = None
-                        if name == 'normal-repeat' and turn == 0:
-                            await asyncio.sleep(.48)
-                            shot = await page.locator('#board').screenshot(
-                                path=str(OUT/f'{args.engine}-unpaused-spin.png'), animations='allow')
-                            painted = check_painted_columns(shot)
-                        await expect(page.locator('#spin-count')).to_have_text(str(turn+1), timeout=12000)
-                        await expect(page.locator('#spin-btn')).to_have_attribute('aria-label','Spin')
-                        await asyncio.sleep(.08)
-                        result = await page.evaluate('() => { qaContinuity.active=false; return qaContinuity; }')
+                        initial, pending_board, shot, result, click = None, None, None, None, None
+                        try:
+                            initial = await page.evaluate(BOARD)
+                            click = asyncio.create_task(page.locator('#spin-btn').click(timeout=7000))
+                            if asset_delay or api_delay:
+                                await asyncio.wait_for(intercepted.wait(), timeout=5)
+                                await asyncio.sleep(.45)
+                                pending_board = await page.evaluate(BOARD)
+                                assert pending_board == initial, 'Pending response/asset discarded visible board'
+                                assert not await page.evaluate('qaContinuity.violations')
+                                gate.set()
+                            await click
+                            await expect(page.locator('.reel-window').first).to_be_visible(timeout=7000)
+                            if skip:
+                                # Multiple skip taps while busy must not debit another spin.
+                                await page.evaluate("""() => {
+                                    const b=document.querySelector('#spin-btn'); b.click(); b.click();
+                                }""")
+                            if paint:
+                                # Screenshots can stall software WebKit's paint pipeline.
+                                # Keep paint evidence on a separate unpaused round so it
+                                # cannot contaminate the strict live timing measurements.
+                                await asyncio.sleep(.48)
+                                shot = await page.locator('#board').screenshot(
+                                    path=str(OUT/f'{args.engine}-unpaused-spin.png'), animations='allow')
+                            await expect(page.locator('#spin-count')).to_have_text(str(turn+1), timeout=12000)
+                            await expect(page.locator('#spin-btn')).to_have_attribute('aria-label','Spin')
+                            await asyncio.sleep(.08)
+                        finally:
+                            # Save raw observations even if an earlier wait or pending-
+                            # response assertion fails. Never lose the failing round's
+                            # samples merely because the summary has not been appended.
+                            result = await page.evaluate('() => { qaContinuity.active=false; return qaContinuity; }')
+                            (OUT/f'{args.engine}-{name}-{turn+1}-trace.json').write_text(
+                                json.dumps({'case':name,'turn':turn+1,'paint_case':paint,
+                                    'initial_board':initial,'pending_board':pending_board,
+                                    'requests':requests,'page_errors':errors,
+                                    'observations':result},indent=2)+'\n')
+                            if click is not None and not click.done():
+                                click.cancel()
+                                await asyncio.gather(click,return_exceptions=True)
                         assert result['frames'] >= 3, result
                         assert not result['violations'], result['violations']
                         assert result['maxTiles'] <= 33, ('Unbounded rolling tile allocation', result['maxTiles'])
@@ -234,8 +250,9 @@ async def run(args):
                             assert result['starts'] == [0,1,2,3,4], result['starts']
                             assert result['stops'] == [0,1,2,3,4], result['stops']
                         speeds = None
-                        if not turbo and not skip:
+                        if not turbo and not skip and not paint:
                             speeds = [speed_profile(s,t) for s,t in zip(result['samples'], result['stopTimes'])]
+                        painted = check_painted_columns(shot) if paint else None
                         expected = [e['board'] for e in session.last_round['events'] if e['type']=='screen_end'][-1]
                         assert await page.evaluate(BOARD) == expected, 'Visual board differs from server result'
                         assert session.spins == turn+1 == len(requests), 'Duplicate or missing paid spin'
@@ -252,6 +269,7 @@ async def run(args):
                     await context.close()
 
             await exercise('normal-repeat', repeats=2)
+            await exercise('painted-spin', paint=True)
             await exercise('turbo', turbo=True)
             await exercise('skip', skip=True)
             await exercise('cold-delayed-result-image', asset_delay=True)
