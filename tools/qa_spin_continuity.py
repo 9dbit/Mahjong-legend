@@ -46,13 +46,17 @@ class FixtureSession(DemoSession):
         return result
 
 
-PROBE = r"""() => {
+PROBE = r"""fullCoverage => {
     const board = document.querySelector('#board');
     const p = window.qaContinuity = {
+        mode: fullCoverage ? 'coverage' : 'timing',
         active: true, frames: 0, violations: [], starts: [], stops: [],
         samples: [[], [], [], [], []], maxTiles: 0, maxFrameGap: 0,
         started: [false,false,false,false,false], rolling: [false,false,false,false,false],
-        stopTimes: [null,null,null,null,null], lastTime: null
+        lastStationary: [null,null,null,null,null],
+        stopTimes: [null,null,null,null,null], lastTime: null,
+        expectedSpin: Number(document.querySelector('#spin-count').textContent)+1,
+        settledSample: false, settledAt: null
     };
     const fail = (kind, col, extra={}) => {
         if (p.violations.length < 15) p.violations.push({kind,col,...extra});
@@ -67,17 +71,42 @@ PROBE = r"""() => {
         if (columns.length !== 5) fail('column-count', -1, {count:columns.length});
         columns.forEach((col,i) => {
             const isRolling = col.classList.contains('reel-window');
+            if (isRolling && col.dataset.started !== 'true') {
+                p.lastStationary[i] = [now,0];
+            }
             if (isRolling && col.dataset.started === 'true') {
-                if (!p.started[i]) { p.started[i]=true; p.starts.push(i); }
+                if (!p.started[i]) {
+                    p.started[i]=true; p.starts.push(i);
+                    // Retain the last actually observed zero-travel frame. Starting
+                    // the measurement at the first nonzero sample drops the slow
+                    // beginning when a software-rendered frame arrives late.
+                    const zero = p.lastStationary[i];
+                    if (zero && zero[0] < now) p.samples[i].push(zero);
+                }
                 const travel = Number(col.dataset.travel);
                 if (Number.isFinite(travel)) p.samples[i].push([now,travel]);
             }
             if (p.rolling[i] && !isRolling) { p.stops.push(i); p.stopTimes[i]=now; }
             p.rolling[i] = isRolling;
+            const images = [...col.querySelectorAll('.tile-image')];
+            if (!fullCoverage) {
+                // Readiness and structure are cheap and do not force style/layout.
+                // Geometry/style inspection belongs to the separate coverage round;
+                // reading every moving tile's box here distorts software WebKit FPS.
+                if (images.length < (i===0 || i===4 ? 4 : 5)) {
+                    fail('missing-tile-images',i,{count:images.length});
+                }
+                for (const img of images) {
+                    if (!img.complete || img.naturalWidth === 0) {
+                        fail('undecoded-pool-image',i,{src:img.getAttribute('src')});
+                    }
+                }
+                return;
+            }
             const box = col.getBoundingClientRect();
             if (box.width < 1 || box.height < 1) return fail('collapsed-column',i);
             const intervals = [];
-            for (const img of col.querySelectorAll('.tile-image')) {
+            for (const img of images) {
                 const tile = img.closest('.tile');
                 const r = img.getBoundingClientRect();
                 const lo = Math.max(box.top,r.top), hi = Math.min(box.bottom,r.bottom);
@@ -100,6 +129,12 @@ PROBE = r"""() => {
             // Intentional 1px seams are allowed; a missing tile row is not.
             if (covered/box.height < .90) fail('uncovered-column',i,{coverage:covered/box.height});
         });
+        if (!p.rolling.some(Boolean) &&
+            Number(document.querySelector('#spin-count').textContent) >= p.expectedSpin &&
+            document.querySelector('#spin-btn').getAttribute('aria-label') === 'Spin') {
+            p.settledSample = true;
+            p.settledAt = now;
+        }
         requestAnimationFrame(tick);
     };
     requestAnimationFrame(tick);
@@ -120,6 +155,17 @@ async def wait_for_initial_pixels(page):
             return
         await asyncio.sleep(.04)
     raise AssertionError('Initial board pixels never became available')
+
+
+async def wait_for_settled_sample(page):
+    # A software-rendered frame can take longer than a fixed 80ms sleep. Wait for
+    # the probe to observe the completed board on an actual animation frame.
+    deadline = asyncio.get_running_loop().time()+5
+    while asyncio.get_running_loop().time() < deadline:
+        if await page.evaluate('() => qaContinuity.settledSample'):
+            return
+        await asyncio.sleep(.05)
+    raise AssertionError('No real sampling frame observed after the round settled')
 
 
 def check_painted_columns(data):
@@ -201,7 +247,7 @@ async def run(args):
                     if turbo:
                         await page.locator('#turbo-btn').click()
                     for turn in range(repeats):
-                        await page.evaluate(PROBE)
+                        await page.evaluate(PROBE, paint)
                         initial, pending_board, shot, result, click = None, None, None, None, None
                         try:
                             initial = await page.evaluate(BOARD)
@@ -229,7 +275,7 @@ async def run(args):
                                     path=str(OUT/f'{args.engine}-unpaused-spin.png'), animations='allow')
                             await expect(page.locator('#spin-count')).to_have_text(str(turn+1), timeout=12000)
                             await expect(page.locator('#spin-btn')).to_have_attribute('aria-label','Spin')
-                            await asyncio.sleep(.08)
+                            await wait_for_settled_sample(page)
                         finally:
                             # Save raw observations even if an earlier wait or pending-
                             # response assertion fails. Never lose the failing round's
@@ -246,7 +292,7 @@ async def run(args):
                         assert result['frames'] >= 3, result
                         assert not result['violations'], result['violations']
                         assert result['maxTiles'] <= 33, ('Unbounded rolling tile allocation', result['maxTiles'])
-                        if not skip:
+                        if not skip and not paint:
                             assert result['starts'] == [0,1,2,3,4], result['starts']
                             assert result['stops'] == [0,1,2,3,4], result['stops']
                         speeds = None
@@ -263,7 +309,9 @@ async def run(args):
                             'start_order':result['starts'],'stop_order':result['stops'],
                             'speed':speeds,'painted_bright_fractions':painted,
                             'max_frame_gap_ms':result['maxFrameGap'],
-                            'visible_coverage':'PASS','server_board':'PASS','one_request':'PASS'})
+                            'probe_mode':result['mode'],
+                            'visible_coverage':'PASS' if paint else 'separate coverage round',
+                            'decoded_images':'PASS','server_board':'PASS','one_request':'PASS'})
                 finally:
                     gate.set()
                     await context.close()

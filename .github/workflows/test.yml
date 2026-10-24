@@ -16,7 +16,7 @@ jobs:
       - name: Run engine, HTTP and asset tests
         run: python -m unittest discover -s tests -q
       - name: Install Chromium and WebKit
-        run: python -m playwright install --with-deps chromium webkit
+        run: python -m playwright install --with-deps --only-shell chromium webkit
       - name: Verify unpaused spin continuity in Chromium
         run: python tools/qa_spin_continuity.py
       - name: Verify unpaused spin continuity in WebKit

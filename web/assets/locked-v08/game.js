@@ -137,7 +137,7 @@
     }
     $('machine').classList.add('is-spinning');$('game-stage').dataset.motionPhase='roll';sfx('spin');
     await new Promise(resolve=>{
-      const epoch=performance.now();let frame=0,finished=false;
+      let epoch=null,frame=0,finished=false;
       const advance=(c,step)=>{while(c.step<step){c.strip.lastElementChild.remove();c.strip.prepend(c.incoming[++c.step]);}};
       const settle=c=>{
         if(c.done)return;advance(c,c.steps);
@@ -154,6 +154,7 @@
       finishReels=finish;
       const tick=now=>{
         if(finished)return;
+        if(epoch===null)epoch=now;
         for(const c of columns){
           if(c.done)continue;
           const t=Math.max(0,Math.min(1,(now-epoch-c.i*100*speed)/((1400+c.i*60)*speed)));
@@ -166,7 +167,9 @@
         }
         if(columns.every(c=>c.done))finish();else frame=requestAnimationFrame(tick);
       };
-      frame=requestAnimationFrame(tick);
+      // Paint the mounted old tiles once before starting the shared clock.
+      // First-frame layer setup must not consume the slow acceleration phase.
+      frame=requestAnimationFrame(()=>{if(!finished)frame=requestAnimationFrame(tick);});
     });
   }
   // Fragments contain the actual winning tile pixels, including its symbol.
