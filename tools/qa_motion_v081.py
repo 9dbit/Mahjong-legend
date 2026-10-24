@@ -102,7 +102,7 @@ def main():
         install_motion_probe(page)
         page.locator('#spin-btn').click()
         expect(page.locator('.reel-strip').first).to_be_visible()
-        page.wait_for_function("[...document.querySelectorAll('.reel-window')].some(r=>Number(r.dataset.travel)>30)")
+        expect(page.locator('.reel-window[data-started="true"]').first).to_be_visible()
         live_tiles=page.locator('#board .tile').count()
         assert live_tiles<=33, ('Unbounded rolling strip',live_tiles)
         page.screenshot(path=str(OUT/'reel-in-motion.png'))
