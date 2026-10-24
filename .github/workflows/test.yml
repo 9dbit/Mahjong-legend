@@ -16,7 +16,15 @@ jobs:
       - name: Run engine, HTTP and asset tests
         run: python -m unittest discover -s tests -q
       - name: Install Chromium and WebKit
-        run: python -m playwright install --with-deps --only-shell chromium webkit
+        run: |
+          # The runner's Azure apt mirror has stalled browser dependency downloads.
+          # Use Ubuntu's canonical archive without changing the package versions.
+          for source in /etc/apt/sources.list /etc/apt/sources.list.d/ubuntu.sources; do
+            if [ -f "$source" ]; then
+              sudo sed -i 's|azure.archive.ubuntu.com|archive.ubuntu.com|g' "$source"
+            fi
+          done
+          python -m playwright install --with-deps --only-shell chromium webkit
       - name: Verify unpaused spin continuity in Chromium
         run: python tools/qa_spin_continuity.py
       - name: Verify unpaused spin continuity in WebKit

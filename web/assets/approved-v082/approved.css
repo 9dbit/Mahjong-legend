@@ -114,3 +114,9 @@ input[type=range]{accent-color:#e9b84f;min-height:32px;max-width:100%}
 .board .reel-strip .tile{transform:none!important;backface-visibility:visible;-webkit-backface-visibility:visible;isolation:auto;animation:none!important;filter:none!important;contain:layout}
 .board .reel-strip .tile::before,.board .reel-strip .tile::after,.board .reel-strip .symbol-emission{display:none!important;animation:none!important}
 .board .reel-strip .tile-image{filter:none!important;transform:none!important;backface-visibility:visible;-webkit-backface-visibility:visible}
+/* Reserve compositing for the moving reels. The approved metallic artwork stays
+   visible; procedural light/filter layers resume as soon as the last reel lands. */
+body.reels-active::after,.reels-active .game-stage::after,.reels-active .logo-fx{visibility:hidden}
+.reels-active *,.reels-active *::before,.reels-active *::after{animation-play-state:paused!important;filter:none!important;backdrop-filter:none!important;box-shadow:none!important;mix-blend-mode:normal!important}
+.reels-active .board .tile{transform:none!important;isolation:auto;backface-visibility:visible;-webkit-backface-visibility:visible}
+.reels-active .board .tile::before,.reels-active .board .tile::after,.reels-active .symbol-emission{display:none!important}

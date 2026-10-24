@@ -100,7 +100,7 @@
   // One clock drives all five columns, with zero speed/acceleration at both ends.
   const rollProgress=t=>t*t*t*(t*(t*6-15)+10);
   async function spinReels(board){
-    const root=$('board'),speed=turbo?.38:1;
+    const root=$('board'),speed=turbo?.38:1,frameCap=turbo?24:40;
     const columns=board.map((col,i)=>{
       const original=root.children[i],old=[...original.children].filter(t=>t._tile);
       const steps=col.length+(turbo?7:14);
@@ -125,6 +125,7 @@
       root.replaceChildren(...columns.map(c=>{const e=settledReel(c);c.col.forEach((_,r)=>{const t=c.incoming[c.steps-1-r];t.dataset.row=String(r);e.append(t);});return e;}));label();return;
     }
     // Batch geometry reads before mounting, including the shorter outer columns.
+    document.body.classList.add('reels-active');
     for(const c of columns){c.height=c.original.getBoundingClientRect().height;c.gap=parseFloat(getComputedStyle(c.original).rowGap)||0;c.pitch=(c.height+c.gap)/c.col.length;}
     for(const c of columns){
       c.window=node('div',`reel-window${c.col.length===4?' short':''}`);c.strip=node('div','reel-strip');
@@ -137,7 +138,7 @@
     }
     $('machine').classList.add('is-spinning');$('game-stage').dataset.motionPhase='roll';sfx('spin');
     await new Promise(resolve=>{
-      let epoch=null,frame=0,finished=false;
+      let lastFrame=null,elapsed=0,frame=0,finished=false;
       const advance=(c,step)=>{while(c.step<step){c.strip.lastElementChild.remove();c.strip.prepend(c.incoming[++c.step]);}};
       const settle=c=>{
         if(c.done)return;advance(c,c.steps);
@@ -149,15 +150,19 @@
       const finish=()=>{
         if(finished)return;finished=true;cancelAnimationFrame(frame);columns.forEach(settle);label();
         if(finishReels===finish)finishReels=null;
-        $('machine').classList.remove('is-spinning');$('game-stage').dataset.motionPhase='settled';resolve();
+        document.body.classList.remove('reels-active');$('machine').classList.remove('is-spinning');$('game-stage').dataset.motionPhase='settled';resolve();
       };
       finishReels=finish;
       const tick=now=>{
         if(finished)return;
-        if(epoch===null)epoch=now;
+        // A delayed frame must not skip the visible acceleration/deceleration.
+        // Normal devices retain the same timing; slower ones finish gracefully
+        // instead of jumping several rows when the renderer catches up.
+        if(lastFrame!==null)elapsed+=Math.min(frameCap,Math.max(0,now-lastFrame));
+        lastFrame=now;
         for(const c of columns){
           if(c.done)continue;
-          const t=Math.max(0,Math.min(1,(now-epoch-c.i*100*speed)/((1400+c.i*60)*speed)));
+          const t=Math.max(0,Math.min(1,(elapsed-c.i*100*speed)/((1400+c.i*60)*speed)));
           if(t===0)continue;
           c.window.dataset.started='true';
           const travel=t===1?c.steps:Math.min(c.steps,c.steps*rollProgress(t)),step=Math.floor(travel);
@@ -295,7 +300,7 @@
       // Never retry a paid request automatically. Read back the server balance.
       try{refresh(await req('/api/state'));const recovered=await req('/api/last-round');last=recovered.round;$('last-round-id').textContent=last.round_id;$('verify-btn').disabled=false;$('download-btn').disabled=false;}catch{}
     }finally{
-      finishReels?.();for(const a of animations)a.cancel();$('effects-layer').replaceChildren();$('overlay-banner').classList.add('hidden');busy=false;skip=false;controls();$('phase-tag').textContent='BASE GAME';$('game-stage').dataset.motionPhase='idle';$('machine').classList.remove('is-spinning');
+      finishReels?.();document.body.classList.remove('reels-active');for(const a of animations)a.cancel();$('effects-layer').replaceChildren();$('overlay-banner').classList.add('hidden');busy=false;skip=false;controls();$('phase-tag').textContent='BASE GAME';$('game-stage').dataset.motionPhase='idle';$('machine').classList.remove('is-spinning');
       if(auto&&!document.hidden&&Number(state?.balance)>=stake)autoTimer=setTimeout(()=>spin(true),turbo?180:550);else if(auto)cancelAuto();
     }
   }

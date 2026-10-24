@@ -47,9 +47,13 @@ class FixtureSession(DemoSession):
 
 
 PROBE = r"""fullCoverage => {
+    window.stopQaContinuity?.();
     const board = document.querySelector('#board');
+    const nativeRequest = window.requestAnimationFrame;
+    const nativeCancel = window.cancelAnimationFrame;
     const p = window.qaContinuity = {
         mode: fullCoverage ? 'coverage' : 'timing',
+        observer: fullCoverage ? 'once-per-frame-geometry' : 'post-native-rAF-coalesced',
         active: true, frames: 0, violations: [], starts: [], stops: [],
         samples: [[], [], [], [], []], maxTiles: 0, maxFrameGap: 0,
         started: [false,false,false,false,false], rolling: [false,false,false,false,false],
@@ -58,41 +62,21 @@ PROBE = r"""fullCoverage => {
         expectedSpin: Number(document.querySelector('#spin-count').textContent)+1,
         settledSample: false, settledAt: null
     };
-    const fail = (kind, col, extra={}) => {
-        if (p.violations.length < 15) p.violations.push({kind,col,...extra});
-    };
-    const tick = now => {
-        if (!p.active) return;
-        p.frames++;
-        if (p.lastTime !== null) p.maxFrameGap = Math.max(p.maxFrameGap, now-p.lastTime);
-        p.lastTime = now;
-        const columns = [...board.children];
-        p.maxTiles = Math.max(p.maxTiles, board.querySelectorAll('.tile').length);
-        if (columns.length !== 5) fail('column-count', -1, {count:columns.length});
-        columns.forEach((col,i) => {
-            const isRolling = col.classList.contains('reel-window');
-            if (isRolling && col.dataset.started !== 'true') {
-                p.lastStationary[i] = [now,0];
-            }
-            if (isRolling && col.dataset.started === 'true') {
-                if (!p.started[i]) {
-                    p.started[i]=true; p.starts.push(i);
-                    // Retain the last actually observed zero-travel frame. Starting
-                    // the measurement at the first nonzero sample drops the slow
-                    // beginning when a software-rendered frame arrives late.
-                    const zero = p.lastStationary[i];
-                    if (zero && zero[0] < now) p.samples[i].push(zero);
-                }
-                const travel = Number(col.dataset.travel);
-                if (Number.isFinite(travel)) p.samples[i].push([now,travel]);
-            }
-            if (p.rolling[i] && !isRolling) { p.stops.push(i); p.stopTimes[i]=now; }
-            p.rolling[i] = isRolling;
+    let observerFrame = 0, pending = null, wrappedRequest = null;
+    const readFrame = now => {
+        const elements = [...board.children], violations = [];
+        const fail = (kind,col,extra={}) => violations.push({kind,col,...extra});
+        if (elements.length !== 5) fail('column-count',-1,{count:elements.length});
+        const columns = elements.map((col,i) => {
+            const state = {
+                rolling: col.classList.contains('reel-window'),
+                started: col.dataset.started === 'true',
+                travel: Number(col.dataset.travel)
+            };
             const images = [...col.querySelectorAll('.tile-image')];
             if (!fullCoverage) {
-                // Readiness and structure are cheap and do not force style/layout.
-                // Geometry/style inspection belongs to the separate coverage round;
-                // reading every moving tile's box here distorts software WebKit FPS.
+                // No geometry/style reads in timing observations. Check all pool
+                // images, including guards, without forcing browser layout.
                 if (images.length < (i===0 || i===4 ? 4 : 5)) {
                     fail('missing-tile-images',i,{count:images.length});
                 }
@@ -101,10 +85,13 @@ PROBE = r"""fullCoverage => {
                         fail('undecoded-pool-image',i,{src:img.getAttribute('src')});
                     }
                 }
-                return;
+                return state;
             }
             const box = col.getBoundingClientRect();
-            if (box.width < 1 || box.height < 1) return fail('collapsed-column',i);
+            if (box.width < 1 || box.height < 1) {
+                fail('collapsed-column',i);
+                return state;
+            }
             const intervals = [];
             for (const img of images) {
                 const tile = img.closest('.tile');
@@ -128,16 +115,78 @@ PROBE = r"""fullCoverage => {
             }
             // Intentional 1px seams are allowed; a missing tile row is not.
             if (covered/box.height < .90) fail('uncovered-column',i,{coverage:covered/box.height});
+            return state;
         });
-        if (!p.rolling.some(Boolean) &&
-            Number(document.querySelector('#spin-count').textContent) >= p.expectedSpin &&
-            document.querySelector('#spin-btn').getAttribute('aria-label') === 'Spin') {
-            p.settledSample = true;
-            p.settledAt = now;
-        }
-        requestAnimationFrame(tick);
+        return {now,columns,violations,tiles:board.querySelectorAll('.tile').length,
+            settled: !columns.some(c=>c.rolling) &&
+                Number(document.querySelector('#spin-count').textContent) >= p.expectedSpin &&
+                document.querySelector('#spin-btn').getAttribute('aria-label') === 'Spin'};
     };
-    requestAnimationFrame(tick);
+    const consume = frame => {
+        const now = frame.now;
+        p.frames++;
+        if (p.lastTime !== null) p.maxFrameGap = Math.max(p.maxFrameGap,now-p.lastTime);
+        p.lastTime = now;
+        p.maxTiles = Math.max(p.maxTiles,frame.tiles);
+        p.violations.push(...frame.violations.slice(0,Math.max(0,15-p.violations.length)));
+        frame.columns.forEach((col,i) => {
+            if (col.rolling && !col.started) p.lastStationary[i]=[now,0];
+            if (col.rolling && col.started) {
+                if (!p.started[i]) {
+                    p.started[i]=true; p.starts.push(i);
+                    // Keep only a zero-travel sample that was actually observed
+                    // on an earlier native frame; never invent a start timestamp.
+                    const zero=p.lastStationary[i];
+                    if (zero && zero[0]<now) p.samples[i].push(zero);
+                }
+                if (Number.isFinite(col.travel)) p.samples[i].push([now,col.travel]);
+            }
+            if (p.rolling[i] && !col.rolling) { p.stops.push(i); p.stopTimes[i]=now; }
+            p.rolling[i]=col.rolling;
+        });
+        if (frame.settled) { p.settledSample=true; p.settledAt=now; }
+    };
+    const observe = now => {
+        if (!p.active) return;
+        const frame=readFrame(now);
+        if (fullCoverage) {
+            consume(frame);
+            return;
+        }
+        // Native callbacks in one rendering cycle share their timestamp. Keep
+        // the last POST-callback state, then consume it when a new frame arrives.
+        // This avoids pairing previous-frame travel with the next frame's time.
+        if (pending && pending.now!==now) consume(pending);
+        pending=frame;
+    };
+    if (!fullCoverage) {
+        wrappedRequest = function(callback) {
+            // Forward the callback, native timestamp, native return ID and `this`
+            // unchanged. No delays, clock control, extra app callbacks or pauses.
+            return nativeRequest.call(window,function(now) {
+                try { callback.call(this,now); }
+                finally { observe(now); }
+            });
+        };
+        window.requestAnimationFrame=wrappedRequest;
+    }
+    const tick = now => {
+        if (!p.active) return;
+        observe(now);
+        // A single native observer also samples pending requests and the idle
+        // handoff, when the application may no longer request animation frames.
+        observerFrame=nativeRequest.call(window,tick);
+    };
+    window.stopQaContinuity = () => {
+        if (!p.active) return;
+        if (pending) { consume(pending); pending=null; }
+        p.active=false;
+        nativeCancel.call(window,observerFrame);
+        if (wrappedRequest && window.requestAnimationFrame===wrappedRequest) {
+            window.requestAnimationFrame=nativeRequest;
+        }
+    };
+    observerFrame=nativeRequest.call(window,tick);
 }"""
 
 BOARD = """() => [...document.querySelector('#board').children].map(c =>
@@ -280,16 +329,19 @@ async def run(args):
                             # Save raw observations even if an earlier wait or pending-
                             # response assertion fails. Never lose the failing round's
                             # samples merely because the summary has not been appended.
-                            result = await page.evaluate('() => { qaContinuity.active=false; return qaContinuity; }')
+                            result = await page.evaluate('() => { stopQaContinuity(); return qaContinuity; }')
+                            reels_active = await page.evaluate("() => document.body.classList.contains('reels-active')")
                             (OUT/f'{args.engine}-{name}-{turn+1}-trace.json').write_text(
                                 json.dumps({'case':name,'turn':turn+1,'paint_case':paint,
                                     'initial_board':initial,'pending_board':pending_board,
                                     'requests':requests,'page_errors':errors,
+                                    'body_reels_active':reels_active,
                                     'observations':result},indent=2)+'\n')
                             if click is not None and not click.done():
                                 click.cancel()
                                 await asyncio.gather(click,return_exceptions=True)
                         assert result['frames'] >= 3, result
+                        assert not reels_active, 'Reel rendering mode persisted after the round settled'
                         assert not result['violations'], result['violations']
                         assert result['maxTiles'] <= 33, ('Unbounded rolling tile allocation', result['maxTiles'])
                         if not skip and not paint:
