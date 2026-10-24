@@ -69,24 +69,58 @@ def main():
                 expect(page.locator('#panel-'+tab)).to_be_visible()
                 overflow=page.locator('#panel-'+tab).evaluate('(e)=>e.scrollWidth-e.clientWidth')
                 assert overflow<=1,(w,tab,overflow)
+            page.locator('#reset-btn').scroll_into_view_if_needed()
+            rb=page.locator('#reset-btn').bounding_box();db=page.locator('.dialog-body').bounding_box()
+            assert rb['y']+rb['height']<=db['y']+db['height']+1,(w,rb,db)
+            page.locator('.dialog-body').evaluate('(e)=>e.scrollTop=0')
             if w==320:page.screenshot(path=str(OUT/'settings-small.png'))
             assert not errors,errors
             report['viewports'].append({'width':w,'height':h,**g});page.close()
+        def install_motion_probe(page, hold_shards=True):
+            # Capture native Animation evidence synchronously at creation. A slow
+            # WebKit runner may otherwise inspect a reel after runtime cancellation.
+            # Only test screenshot clocks are held; keyframes/easing are unchanged.
+            page.evaluate('''holdShards=>{
+                const native=Element.prototype.animate;
+                const probe=window.qaMotion={holdRoll:true,holdShards,roll:null,reels:[],shards:[]};
+                Element.prototype.animate=function(frames,options){
+                    const a=native.call(this,frames,options);
+                    const timing=a.effect.getTiming();
+                    if(this.classList.contains('reel-strip')){
+                        if(!probe.roll)probe.roll=a.effect.getKeyframes().map(k=>({t:k.offset,y:parseFloat(k.transform.split(',')[1])}));
+                        probe.reels.push(a);
+                        if(probe.holdRoll){a.pause();a.currentTime=timing.delay+timing.duration*.4;}
+                    }
+                    if(this.classList.contains('tile-fragment')){
+                        probe.shards.push(a);
+                        if(probe.holdShards){a.pause();a.currentTime=timing.delay+timing.duration*.4;}
+                    }
+                    return a;
+                };
+            }''', hold_shards)
+        def release_probe(page, phase):
+            page.evaluate('''phase=>{
+                const p=window.qaMotion;
+                p[phase==='reels'?'holdRoll':'holdShards']=false;
+                for(const a of p[phase])if(a.playState==='paused')a.play();
+            }''', phase)
         page,errors=load()
+        install_motion_probe(page)
         page.locator('#spin-btn').click()
         expect(page.locator('.reel-strip').first).to_be_visible()
-        keys=page.locator('.reel-strip').first.evaluate('(e)=>e.getAnimations()[0].effect.getKeyframes().map(k=>({t:k.offset,y:parseFloat(k.transform.split(",")[1])}))')
+        keys=page.evaluate('()=>window.qaMotion.roll')
+        assert keys and len(keys)==61, 'Native reel keyframe evidence missing'
         # Strong speed increase in the middle, deceleration at the end.
         start=abs(keys[6]['y']-keys[0]['y']);middle=abs(keys[33]['y']-keys[27]['y']);end=abs(keys[60]['y']-keys[54]['y'])
         assert middle>start*4 and middle>end*4,(start,middle,end)
         page.screenshot(path=str(OUT/'reel-in-motion.png'))
+        release_probe(page,'reels')
         expect(page.locator('.tile-fragment').first).to_be_visible(timeout=20000)
-        # Stop only test clocks at a visible midpoint for a reproducible evidence image.
-        page.evaluate('''()=>{for(const e of document.querySelectorAll('.tile-fragment'))for(const a of e.getAnimations()){a.pause();a.currentTime=a.effect.getTiming().duration*.4}}''')
+        # Fragments were paused atomically at native animation creation.
         count=page.locator('.tile-fragment').count();assert count>=9
         visible=page.locator('.tile-fragment').evaluate_all('(es)=>es.filter(e=>getComputedStyle(e).opacity>.5&&e.getBoundingClientRect().width>6).length');assert visible>=9
         page.screenshot(path=str(OUT/'visible-shatter.png'))
-        page.evaluate('''()=>{for(const e of document.querySelectorAll('.tile-fragment'))for(const a of e.getAnimations())a.play()}''')
+        release_probe(page,'shards')
         expect(page.locator('#spin-count')).to_have_text('1',timeout=90000)
         expect(page.locator('#spin-btn')).to_have_attribute('aria-label','Spin')
         assert abs(float(page.locator('#balance').inner_text().replace('.','').replace(',','.'))-float(session.state()['balance']))<.011
@@ -97,6 +131,7 @@ def main():
         for name,seed,reduce,turbo in [('gold-wild',4,False,False),('bonus-reduced',357,True,False),('turbo',148,False,True),('skip',148,False,False)]:
             page,errors=load(seed=seed,reduce=reduce)
             if turbo:page.locator('#turbo-btn').click()
+            if name=='skip':install_motion_probe(page,hold_shards=False)
             page.locator('#spin-btn').click()
             if name=='skip':
                 expect(page.locator('.reel-strip').first).to_be_visible();page.locator('#spin-btn').click()
