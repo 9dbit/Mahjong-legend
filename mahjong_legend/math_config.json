@@ -1,123 +1,15 @@
 {
-  "project": "Mahjong Legend",
-  "version": "0.3.0",
+  "project": "Mahjong Wild",
+  "version": "0.8.0",
   "license_scope": "local virtual-credit demonstration only; no money, top-ups, prize redemption or external accounts",
-  "grid": [
-    4,
-    5,
-    5,
-    5,
-    4
-  ],
-  "symbols": {
-    "A": 11,
-    "B": 10,
-    "C": 9,
-    "D": 8,
-    "E": 8,
-    "F": 7,
-    "G": 7,
-    "H": 7,
-    "I": 7,
-    "J": 6,
-    "K": 6,
-    "L": 5,
-    "M": 4,
-    "N": 3,
-    "O": 2
-  },
-  "paytable": {
-    "A": [
-      0.045,
-      0.16,
-      0.46
-    ],
-    "B": [
-      0.055,
-      0.18,
-      0.51
-    ],
-    "C": [
-      0.06,
-      0.2,
-      0.57
-    ],
-    "D": [
-      0.07,
-      0.23,
-      0.65
-    ],
-    "E": [
-      0.075,
-      0.25,
-      0.7
-    ],
-    "F": [
-      0.085,
-      0.28,
-      0.8
-    ],
-    "G": [
-      0.095,
-      0.32,
-      0.89
-    ],
-    "H": [
-      0.105,
-      0.34,
-      0.93
-    ],
-    "I": [
-      0.115,
-      0.38,
-      1.05
-    ],
-    "J": [
-      0.125,
-      0.42,
-      1.15
-    ],
-    "K": [
-      0.135,
-      0.44,
-      1.22
-    ],
-    "L": [
-      0.16,
-      0.53,
-      1.5
-    ],
-    "M": [
-      0.2,
-      0.68,
-      1.95
-    ],
-    "N": [
-      0.27,
-      0.92,
-      2.7
-    ],
-    "O": [
-      0.44,
-      1.5,
-      4.3
-    ]
-  },
+  "grid": [4,5,5,5,4],
+  "symbols": {"A":11,"B":10,"C":9,"D":8,"E":8,"F":7,"G":7,"H":7,"I":7,"J":6,"K":6,"L":5,"M":4,"N":3,"O":2},
+  "paytable": {"A":[0.045,0.16,0.46],"B":[0.055,0.18,0.51],"C":[0.06,0.2,0.57],"D":[0.07,0.23,0.65],"E":[0.075,0.25,0.7],"F":[0.085,0.28,0.8],"G":[0.095,0.32,0.89],"H":[0.105,0.34,0.93],"I":[0.115,0.38,1.05],"J":[0.125,0.42,1.15],"K":[0.135,0.44,1.22],"L":[0.16,0.53,1.5],"M":[0.2,0.68,1.95],"N":[0.27,0.92,2.7],"O":[0.44,1.5,4.3]},
   "scatter_probability_per_reel": 0.08,
   "enhanced_probability_reels_2_to_4": 0.085,
   "bonus_all_enhanced_reel": 3,
-  "base_multipliers": [
-    1,
-    2,
-    3,
-    4
-  ],
-  "bonus_multipliers": [
-    2,
-    3,
-    5,
-    8
-  ],
+  "base_multipliers": [1,2,3,5],
+  "bonus_multipliers": [2,3,5,8],
   "free_spins_for_3_scatters": 8,
   "extra_free_spins_per_additional_scatter": 2,
   "paytable_scale_base": "2.1484646242424628",
@@ -129,6 +21,7 @@
     "Payout cap is applied as soon as cumulative award reaches 1000x; a capped round ends without future cascades/free spins.",
     "A round is independently seeded. RNG Python MT19937 is deterministic but not a certified gaming RNG.",
     "RTP is a statistical estimate; a cap changes theoretical RTP and requires separate validation.",
-    "No player-specific odds modification or adaptive payout controls."
+    "No player-specific odds modification or adaptive payout controls.",
+    "Base multiplier ladder changed from 1,2,3,4 to 1,2,3,5 at user request. Prior RTP estimates do not apply; recalibration pending. Bonus ladder unchanged."
   ]
 }

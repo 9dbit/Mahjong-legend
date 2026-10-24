@@ -25,8 +25,8 @@ class MathEngineV03Tests(unittest.TestCase):
         cls.cfg = GameConfig()
 
     def test_identity_configuration(self):
-        self.assertEqual(self.cfg.raw['project'], 'Mahjong Legend')
-        self.assertEqual(self.cfg.raw['version'], '0.3.0')
+        self.assertEqual(self.cfg.raw['project'], 'Mahjong Wild')
+        self.assertEqual(self.cfg.raw['version'], '0.8.0')
         self.assertEqual(math.prod(self.cfg.heights), 2000)
         self.assertEqual(self.cfg.cap, Decimal('1000'))
 
@@ -81,7 +81,6 @@ class MathEngineV03Tests(unittest.TestCase):
         modified=copy.deepcopy(self.cfg.raw)
         modified['max_round_payout_x']='0.01'
         cfg=GameConfig(modified)
-        # At least one tested seed must produce winning paths.
         capped=next(play_round(f'{i:064x}',cfg) for i in range(1,100)
                     if play_round(f'{i:064x}',cfg)['capped'])
         self.assertEqual(Decimal(capped['total_payout_x']),Decimal('0.01'))
@@ -113,8 +112,8 @@ class MathEngineV03Tests(unittest.TestCase):
         mod=importlib.util.module_from_spec(spec)
         sys.modules['tile_cascade_math']=mod
         spec.loader.exec_module(mod)
-        # The original implementation and v0.3 must agree on both RNG sequence
-        # and total payouts for ordinary uncapped rounds.
+        # Preserve the independent legacy comparison under its original x4 rules.
+        # The new x5 ladder is tested separately in test_locked_ui_v08.py.
         for i in range(200):
             seed=100000+i
             rng=random.Random(seed)
@@ -128,7 +127,7 @@ class MathEngineV03Tests(unittest.TestCase):
                 free=mod.run_spin(rng,True,float(self.cfg.bonus_scale))
                 total+=free.win
                 pending+=mod.scatter_bonus_spins(free.scatters)
-            current=play_round(f'{seed:064x}',self.cfg)
+            current=play_round(f'{seed:064x}',GameConfig({**self.cfg.raw, 'base_multipliers':[1,2,3,4]}))
             self.assertAlmostEqual(float(current['total_payout_x']),total,places=8)
             self.assertEqual(current['free_spins_played'],bonus_count)
 

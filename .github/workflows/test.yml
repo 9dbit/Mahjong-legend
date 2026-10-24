@@ -3,12 +3,25 @@ on: [push, pull_request]
 jobs:
   tests:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Install image QA dependency
-        run: python -m pip install 'Pillow>=10,<13'
-      - name: Run math, API and asset tests
+      - name: Install test dependencies
+        run: python -m pip install 'Pillow>=10,<13' 'playwright==1.57.0'
+      - name: Build locked artwork
+        run: python tools/build_locked_ui.py
+      - name: Run engine, HTTP and asset tests
         run: python -m unittest discover -s tests -q
+      - name: Install Chromium
+        run: python -m playwright install --with-deps chromium
+      - name: Verify game in browser over HTTP
+        run: python tools/qa_locked_ui.py
+      - name: Save browser verification
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mahjong-wild-v08-browser-qa
+          path: qa/
