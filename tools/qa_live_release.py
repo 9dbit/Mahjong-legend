@@ -1,4 +1,4 @@
-"""Verify exact UI 0.8.2 and a real virtual-credit round on the authorized URL."""
+"""Verify exact UI 0.8.3 and a real virtual-credit round on the authorized URL."""
 from pathlib import Path
 import hashlib, json, os, time, re
 from urllib.request import urlopen
@@ -14,10 +14,10 @@ for attempt in range(48):
     try:
         actual={}
         for p in paths:
-            with urlopen(URL+'/'+p+'?release=082',timeout=10) as r:actual[p]=hashlib.sha256(r.read()).hexdigest()
+            with urlopen(URL+'/'+p+'?release=083',timeout=10) as r:actual[p]=hashlib.sha256(r.read()).hexdigest()
         with urlopen(URL+'/api/state',timeout=10) as r:state=json.load(r)
         with urlopen(URL+'/assets/approved-v082/release.json',timeout=10) as r:release=json.load(r)
-        if actual==expected and state['version']=='0.8.0' and release['release']=='0.8.2' and state['rules']['base_multipliers']==[1,2,3,5]:break
+        if actual==expected and state['version']=='0.8.0' and release['release']=='0.8.3' and state['rules']['base_multipliers']==[1,2,3,5]:break
         last_error='Previous release still serving'
     except Exception as exc:last_error=str(exc)
     time.sleep(5)
@@ -28,7 +28,7 @@ with sync_playwright() as p:
     page=context.new_page();errors=[];page.on('pageerror',lambda e:errors.append(str(e)))
     page.goto(URL,wait_until='networkidle')
     expect(page.locator('#stage-notice')).to_have_text('SIAP BERMAIN')
-    expect(page.locator('#game-stage')).to_have_attribute('data-release','0.8.2')
+    expect(page.locator('#game-stage')).to_have_attribute('data-release','0.8.3')
     page.locator('#board').evaluate('(b)=>Promise.all([...b.querySelectorAll("img")].map(i=>i.decode()))')
     assert page.locator('#board .tile').count()==23
     assert page.locator('#mult-track').inner_text().split()==['x1','x2','x3','x5']
@@ -46,7 +46,7 @@ with sync_playwright() as p:
     page.locator('#close-dialog').click()
     assert not errors,errors
     out=ROOT/'qa';out.mkdir(exist_ok=True)
-    page.screenshot(path=str(out/'v082_live_mobile.png'))
-    report={'url':URL,'ui_release':'0.8.2','math_release':state['version'],'files_sha256':actual,'base_multipliers':[1,2,3,5],'real_https_spin':'PASS','replay':'PASS','page_errors':errors,'audio':page.evaluate('window.MahjongWildAudio.state')}
+    page.screenshot(path=str(out/'v083_live_mobile.png'))
+    report={'url':URL,'ui_release':'0.8.3','math_release':state['version'],'files_sha256':actual,'base_multipliers':[1,2,3,5],'real_https_spin':'PASS','replay':'PASS','page_errors':errors,'audio':page.evaluate('window.MahjongWildAudio.state')}
     (out/'live_results.json').write_text(json.dumps(report,indent=2)+'\n')
     print(json.dumps(report));browser.close()

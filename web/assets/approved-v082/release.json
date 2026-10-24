@@ -1,1 +1,1 @@
-{"release": "0.8.2", "math_version": "0.8.0", "base_multipliers": [1, 2, 3, 5], "bonus_multipliers": [2, 3, 5, 8], "rtp_status": "not_revalidated_after_base_multiplier_change", "virtual_credits_only": true}
+{"release": "0.8.3", "math_version": "0.8.0", "base_multipliers": [1, 2, 3, 5], "bonus_multipliers": [2, 3, 5, 8], "rtp_status": "not_revalidated_after_base_multiplier_change", "virtual_credits_only": true}

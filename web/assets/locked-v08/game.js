@@ -1,4 +1,4 @@
-/* Mahjong Wild UI 0.8.2. Presentation consumes server outcomes; it never draws gameplay RNG. */
+/* Mahjong Wild UI 0.8.3. Presentation consumes server outcomes; it never draws gameplay RNG. */
 (() => {
   'use strict';
   const $=id=>document.getElementById(id);
@@ -9,7 +9,8 @@
   const audio=()=>window.MahjongWildAudio;
   const demo=[['M','D','G','O'],['B','L','M','D','E'],['D','W','N','W','E'],['G','E','M','L','O'],['D','G','B','M']].map((c,ci)=>c.map((symbol,r)=>({symbol,enhanced:ci>=1&&ci<=3&&r===2})));
   let state=null,stake=1,options=[.2,.5,1,2,5,10],busy=false,skip=false,turbo=false,auto=0,autoTimer=null,last=null,history=[],displayWin=0,winFrame=0;
-  const animations=new Set(),waiters=new Set();
+  const animations=new Set(),waiters=new Set(),imageCache=new Map();
+  let finishReels=null;
   const duration=ms=>(skip||reduced.matches)?0:Math.round(ms*(turbo?.38:1));
   function wait(ms){return new Promise(resolve=>{const done=()=>{clearTimeout(id);waiters.delete(done);resolve();};const id=setTimeout(done,duration(ms));waiters.add(done);});}
   function motion(el,frames,ms,delay=0,easing='cubic-bezier(.22,.65,.32,1)'){
@@ -17,7 +18,7 @@
     const a=el.animate(frames,{duration:duration(ms),delay:duration(delay),easing,fill:'both'});animations.add(a);
     return a.finished.catch(()=>{}).finally(()=>{animations.delete(a);a.cancel();});
   }
-  function skipAnimation(){skip=true;stopDisc(true);for(const a of animations)a.cancel();for(const done of [...waiters])done();audio()?.stop();}
+  function skipAnimation(){skip=true;finishReels?.();stopDisc(true);for(const a of animations)a.cancel();for(const done of [...waiters])done();audio()?.stop();}
   function sfx(type,variant=0){if(!skip)void audio()?.play(type,variant);}
   function notice(text,win=false){const e=$('stage-notice');e.replaceChildren();if(win&&text.startsWith('MENANG ')){e.append(document.createTextNode('MENANG '),node('strong','win-amount',text.slice(7)));}else e.textContent=text;e.parentElement.classList.toggle('winning',win);fitMeters();}
   function mult(bonus,index=0){
@@ -26,11 +27,11 @@
     (values||(bonus?[2,3,5,8]:[1,2,3,5])).forEach((v,i)=>{const el=node('span',`mult${i===Math.min(index,3)?' active':''}`,`x${v}`);el.dataset.value=String(v);if([1,2,3,5].includes(v)){const im=node('img','mult-glyph');im.alt='';im.src=`${assets}multiplier/${v}-${i===Math.min(index,3)?'active':'idle'}.webp`;el.append(im);el.classList.add('art-mult');}root.append(el);});
     $('machine').classList.toggle('bonus-mode',bonus);
   }
-  function tile(data,row){
+  function tile(data,row,compact=false){
     const el=node('div',`tile${data.enhanced?' enhanced':''}${data.symbol==='W'?' wild':''}${data.symbol==='S'?' scatter':''}`);
     el.dataset.symbol=data.symbol;el.dataset.row=String(row);el._tile={...data};
-    const img=node('img','tile-image');img.src=`${assets}tiles/${data.symbol}-${data.enhanced?'gold':'normal'}.webp`;img.alt=data.symbol==='W'?'Wild':data.symbol==='S'?'Scatter':`Tile ${data.symbol}`;img.draggable=false;img.decoding='async';el.append(img);
-    if(!['W','S'].includes(data.symbol)){const glow=node('img','symbol-emission');glow.src=`${assets}symbols/${data.symbol}.webp`;glow.alt='';glow.draggable=false;el.append(glow);}
+    const img=node('img','tile-image');img.decoding='sync';img.src=`${assets}tiles/${data.symbol}-${data.enhanced?'gold':'normal'}.webp`;img.alt=data.symbol==='W'?'Wild':data.symbol==='S'?'Scatter':`Tile ${data.symbol}`;img.draggable=false;el.append(img);
+    if(!compact&&!['W','S'].includes(data.symbol)){const glow=node('img','symbol-emission');glow.decoding='sync';glow.src=`${assets}symbols/${data.symbol}.webp`;glow.alt='';glow.draggable=false;el.append(glow);}
     return el;
   }
   function reel(col,index){const e=node('div',`reel${col.length===4?' short':''}`);e.setAttribute('aria-label',`Reel ${index+1}`);col.forEach((t,row)=>e.append(tile(t,row)));return e;}
@@ -84,33 +85,89 @@
     cancelAnimationFrame(winFrame);const start=displayWin,begin=performance.now(),ms=duration(290);
     const tick=now=>{const t=ms?Math.min(1,(now-begin)/ms):1;displayWin=start+(value-start)*(1-(1-t)**3);$('last-win').textContent=format(displayWin);fitMeters();if(t<1)winFrame=requestAnimationFrame(tick);};winFrame=requestAnimationFrame(tick);
   }
-  // Smootherstep has zero velocity/acceleration at both ends. The full strip
-  // moves downward: previous screen -> decorative tiles -> server result.
-  function rollFrames(distance){
-    return Array.from({length:61},(_,i)=>{const t=i/60,p=t*t*t*(t*(t*6-15)+10);return {offset:t,transform:`translate3d(0,${(-distance*(1-p)).toFixed(3)}px,0)`};});
+  function decoded(image){
+    if(image.decode)return image.decode().catch(()=>{if(!image.complete||!image.naturalWidth)throw Error('Gambar balok belum termuat. Muat ulang game.');});
+    if(image.complete&&image.naturalWidth)return Promise.resolve();
+    return new Promise((resolve,reject)=>{image.addEventListener('load',resolve,{once:true});image.addEventListener('error',()=>reject(Error('Gambar balok belum termuat. Muat ulang game.')),{once:true});});
   }
+  function warmImage(src){
+    if(imageCache.has(src))return;
+    const image=new Image();image.decoding='sync';image.src=src;
+    imageCache.set(src,image);void decoded(image).catch(()=>imageCache.delete(src));
+  }
+  // Only visible rows plus two guards are mounted. Incoming nodes are decoded
+  // offscreen first; no image URLs, layout reads or effect layers change per frame.
+  // One clock drives all five columns, with zero speed/acceleration at both ends.
+  const rollProgress=t=>t*t*t*(t*(t*6-15)+10);
   async function spinReels(board){
-    if(skip||reduced.matches){render(board);return;}
-    const root=$('board');$('machine').classList.add('is-spinning');$('game-stage').dataset.motionPhase='roll';sfx('spin');
-    const previous=[...root.children].map(el=>[...el.children].map(t=>t._tile).filter(Boolean));
-    render(board);
-    await Promise.all(board.map(async(col,i)=>{
-      const finalReel=root.children[i],h=finalReel.getBoundingClientRect().height;
-      const gap=parseFloat(getComputedStyle(finalReel).rowGap)||2,pitch=(h+gap)/col.length;
-      const windowEl=node('div',`reel-window${col.length===4?' short':''}`),strip=node('div','reel-strip');
-      windowEl.setAttribute('aria-label',`Reel ${i+1}`);windowEl.append(strip);
-      const filler=Array.from({length:turbo?9:17},(_,j)=>demo[(i+j)%5][j%demo[(i+j)%5].length]);
-      const old=previous[i]?.length===col.length?previous[i]:col;
-      for(const t of [...col,...filler,...old]){const el=tile(t,0);el.style.height=`${pitch-gap}px`;el.style.flex=`0 0 ${pitch-gap}px`;strip.append(el);}
-      strip.style.gap=`${gap}px`;
-      const distance=(col.length+filler.length)*pitch;
-      strip.style.transform=`translate3d(0,${-distance}px,0)`;
-      root.replaceChild(windowEl,finalReel);
-      await motion(strip,rollFrames(distance),1120+i*105,i*45,'linear');
-      if(windowEl.isConnected)windowEl.replaceWith(reel(col,i));
-      sfx('stop',i);
-    }));
-    $('machine').classList.remove('is-spinning');$('game-stage').dataset.motionPhase='settled';
+    const root=$('board'),speed=turbo?.38:1;
+    const columns=board.map((col,i)=>{
+      const original=root.children[i],old=[...original.children].filter(t=>t._tile);
+      const steps=col.length+(turbo?7:14);
+      const incoming=Array.from({length:steps+1},(_,q)=>{
+        const landing=q>=steps-col.length&&q<steps;
+        const data=landing?col[steps-1-q]:demo[(i+q)%5][q%demo[(i+q)%5].length];
+        return tile(data,0,!landing);
+      });
+      return {i,col,original,old,incoming,steps,step:0,done:false,bottom:tile(old.at(-1)?._tile||col.at(-1),0,true)};
+    });
+    // Keep every original reel painted while network/decoding work finishes.
+    let decodeTimer;
+    try{
+      await Promise.race([
+        Promise.all(columns.flatMap(c=>[...c.incoming,c.bottom,...c.old].flatMap(t=>[...t.querySelectorAll('img')].map(decoded)))),
+        new Promise((_,reject)=>{decodeTimer=setTimeout(()=>reject(Error('Gambar balok belum termuat. Muat ulang game.')),10000);})
+      ]);
+    }finally{clearTimeout(decodeTimer);}
+    const label=()=>root.setAttribute('aria-label',board.map(c=>c.map(t=>t.symbol).join(' ')).join(' / '));
+    const settledReel=c=>{const e=node('div',`reel${c.col.length===4?' short':''}`);e.setAttribute('aria-label',`Reel ${c.i+1}`);return e;};
+    if(skip||reduced.matches){
+      root.replaceChildren(...columns.map(c=>{const e=settledReel(c);c.col.forEach((_,r)=>{const t=c.incoming[c.steps-1-r];t.dataset.row=String(r);e.append(t);});return e;}));label();return;
+    }
+    // Batch geometry reads before mounting, including the shorter outer columns.
+    for(const c of columns){c.height=c.original.getBoundingClientRect().height;c.gap=parseFloat(getComputedStyle(c.original).rowGap)||0;c.pitch=(c.height+c.gap)/c.col.length;}
+    for(const c of columns){
+      c.window=node('div',`reel-window${c.col.length===4?' short':''}`);c.strip=node('div','reel-strip');
+      c.window.setAttribute('aria-label',`Reel ${c.i+1}`);c.window.dataset.reelIndex=String(c.i);c.window.dataset.travel='0';c.window.dataset.started='false';
+      c.window.style.height=`${c.height}px`;c.strip.style.gap=`${c.gap}px`;
+      for(const t of [...c.incoming,...c.old,c.bottom]){t.style.height=`${c.pitch-c.gap}px`;t.style.flex=`0 0 ${c.pitch-c.gap}px`;}
+      for(const t of c.old){t.className=`tile${t._tile.enhanced?' enhanced':''}${t._tile.symbol==='W'?' wild':''}${t._tile.symbol==='S'?' scatter':''}`;t.querySelectorAll('.crack,.win-border').forEach(e=>e.remove());}
+      c.strip.append(c.incoming[0],...c.old,c.bottom);c.strip.style.transform=`translate3d(0,${-c.pitch}px,0)`;
+      c.window.append(c.strip);c.original.replaceWith(c.window);
+    }
+    $('machine').classList.add('is-spinning');$('game-stage').dataset.motionPhase='roll';sfx('spin');
+    await new Promise(resolve=>{
+      const epoch=performance.now();let frame=0,finished=false;
+      const advance=(c,step)=>{while(c.step<step){c.strip.lastElementChild.remove();c.strip.prepend(c.incoming[++c.step]);}};
+      const settle=c=>{
+        if(c.done)return;advance(c,c.steps);
+        const e=settledReel(c);
+        // Reuse the exact decoded tiles that landed; there is no final image swap.
+        [...c.strip.children].slice(1,c.col.length+1).forEach((t,r)=>{t.style.height='';t.style.flex='';t.dataset.row=String(r);e.append(t);});
+        c.window.replaceWith(e);c.done=true;sfx('stop',c.i);
+      };
+      const finish=()=>{
+        if(finished)return;finished=true;cancelAnimationFrame(frame);columns.forEach(settle);label();
+        if(finishReels===finish)finishReels=null;
+        $('machine').classList.remove('is-spinning');$('game-stage').dataset.motionPhase='settled';resolve();
+      };
+      finishReels=finish;
+      const tick=now=>{
+        if(finished)return;
+        for(const c of columns){
+          if(c.done)continue;
+          const t=Math.max(0,Math.min(1,(now-epoch-c.i*100*speed)/((1400+c.i*60)*speed)));
+          if(t===0)continue;
+          c.window.dataset.started='true';
+          const travel=t===1?c.steps:Math.min(c.steps,c.steps*rollProgress(t)),step=Math.floor(travel);
+          advance(c,step);c.strip.style.transform=`translate3d(0,${((travel-step-1)*c.pitch).toFixed(3)}px,0)`;
+          c.window.dataset.travel=(travel*c.pitch).toFixed(3);
+          if(t===1)settle(c);
+        }
+        if(columns.every(c=>c.done))finish();else frame=requestAnimationFrame(tick);
+      };
+      frame=requestAnimationFrame(tick);
+    });
   }
   // Fragments contain the actual winning tile pixels, including its symbol.
   // All work is awaited/cancellable; refill cannot hide the break after 200ms.
@@ -235,7 +292,7 @@
       // Never retry a paid request automatically. Read back the server balance.
       try{refresh(await req('/api/state'));const recovered=await req('/api/last-round');last=recovered.round;$('last-round-id').textContent=last.round_id;$('verify-btn').disabled=false;$('download-btn').disabled=false;}catch{}
     }finally{
-      for(const a of animations)a.cancel();$('effects-layer').replaceChildren();$('overlay-banner').classList.add('hidden');busy=false;skip=false;controls();$('phase-tag').textContent='BASE GAME';$('game-stage').dataset.motionPhase='idle';$('machine').classList.remove('is-spinning');
+      finishReels?.();for(const a of animations)a.cancel();$('effects-layer').replaceChildren();$('overlay-banner').classList.add('hidden');busy=false;skip=false;controls();$('phase-tag').textContent='BASE GAME';$('game-stage').dataset.motionPhase='idle';$('machine').classList.remove('is-spinning');
       if(auto&&!document.hidden&&Number(state?.balance)>=stake)autoTimer=setTimeout(()=>spin(true),turbo?180:550);else if(auto)cancelAuto();
     }
   }
@@ -268,10 +325,10 @@
   reduced.addEventListener?.('change',()=>{if(reduced.matches&&busy)skipAnimation();});
   window.addEventListener('pagehide',()=>{cancelAuto();skipAnimation();});
   new ResizeObserver(fitMeters).observe($('game-stage'));
-  window.addEventListener('resize',fitMeters);
+  window.addEventListener('resize',()=>{finishReels?.();fitMeters();});
   $('board').addEventListener('pointerdown',e=>{if(busy)return;const el=e.target.closest('.tile');if(el)void motion(el,[{transform:'scale(1)'},{transform:'scale(1.045)',offset:.4},{transform:'scale(1)'}],300);});
   render(demo);mult(false);controls();$('last-win').textContent=format(0);notice('MEMUAT GAME');
-  for(const file of ['effects/crack.webp']){const im=new Image();im.src=assets+file;}
-  for(const id of 'ABCDEFGHIJKLMNOWS')for(const state of ['normal','gold']){const im=new Image();im.src=`${assets}tiles/${id}-${state}.webp`;}
+  warmImage(assets+'effects/crack.webp');
+  for(const id of 'ABCDEFGHIJKLMNOWS'){for(const state of ['normal','gold'])warmImage(`${assets}tiles/${id}-${state}.webp`);if(!['W','S'].includes(id))warmImage(`${assets}symbols/${id}.webp`);}
   req('/api/state').then(next=>{refresh(next);mult(false);notice('SIAP BERMAIN');const root=$('paytable-list');root.replaceChildren();for(const[s,values]of Object.entries(next.rules.paytable)){const row=node('div','paytable-item');const label=node('span','symbol-label'),icon=node('img','paytable-tile');icon.src=`${assets}tiles/${s}-normal.webp`;icon.alt=`Tile ${s}`;label.append(icon,node('b','',s));row.append(label,...values.map(v=>node('span','',String(v))));root.append(row);}}).catch(e=>{notice('KONEKSI GAGAL. MUAT ULANG.');$('spin-btn').disabled=true;console.error(e.message);});
 })();

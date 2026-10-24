@@ -190,8 +190,8 @@ def build():
         icon=ref.crop((354,48,511,205)).resize((n,n),Image.Resampling.LANCZOS)
         icon.save(OUT/f'icon-{n}.png')
     files={str(p.relative_to(OUT)):{'sha256':hashlib.sha256(p.read_bytes()).hexdigest(),'bytes':p.stat().st_size} for p in sorted(OUT.rglob('*')) if p.is_file() and p.suffix in ['.webp','.png','.m4a','.ogg','.wav']}
-    manifest={'ui_version':'0.8.2','math_version':'0.8.0','source':str(SOURCE.relative_to(ROOT)),'source_sha256':hashlib.sha256(SOURCE.read_bytes()).hexdigest(),'coordinate_size':SIZE,'note':'Exact source frame outside live placeholders. Symbols remain distinct. Device status indicators are native, never baked.','files':files}
+    manifest={'ui_version':'0.8.3','math_version':'0.8.0','source':str(SOURCE.relative_to(ROOT)),'source_sha256':hashlib.sha256(SOURCE.read_bytes()).hexdigest(),'coordinate_size':SIZE,'note':'Exact source frame outside live placeholders. Symbols remain distinct. Device status indicators are native, never baked.','files':files}
     (OUT/'manifest.json').write_text(json.dumps(manifest,indent=2)+'\n')
-    (OUT/'release.json').write_text(json.dumps({'release':'0.8.2','math_version':'0.8.0','base_multipliers':[1,2,3,5],'bonus_multipliers':[2,3,5,8],'rtp_status':'not_revalidated_after_base_multiplier_change','virtual_credits_only':True})+'\n')
+    (OUT/'release.json').write_text(json.dumps({'release':'0.8.3','math_version':'0.8.0','base_multipliers':[1,2,3,5],'bonus_multipliers':[2,3,5,8],'rtp_status':'not_revalidated_after_base_multiplier_change','virtual_credits_only':True})+'\n')
     print('Approved source compiled:',len(files),'assets; math unchanged.')
 if __name__=='__main__':build()

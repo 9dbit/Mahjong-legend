@@ -105,3 +105,12 @@ input[type=range]{accent-color:#e9b84f;min-height:32px;max-width:100%}
 .play-controls button{min-width:0;min-height:0}
 #minus-btn{left:22%;width:12.6%}#plus-btn{left:65.3%;width:12.6%}
 #turbo-btn{left:5.3%;width:14%}#auto-btn{left:81.2%;width:14%}
+
+/* UI 0.8.3: five small moving surfaces, with only two guard rows per reel.
+   Moving tiles keep the approved bitmap; idle shine resumes after landing. */
+.board{grid-template-rows:minmax(0,1fr)}
+.reel-window{contain:layout paint;isolation:isolate}
+.reel-strip{will-change:transform}
+.board .reel-strip .tile{transform:none!important;backface-visibility:visible;-webkit-backface-visibility:visible;isolation:auto;animation:none!important;filter:none!important;contain:layout}
+.board .reel-strip .tile::before,.board .reel-strip .tile::after,.board .reel-strip .symbol-emission{display:none!important;animation:none!important}
+.board .reel-strip .tile-image{filter:none!important;transform:none!important;backface-visibility:visible;-webkit-backface-visibility:visible}
