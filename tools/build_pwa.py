@@ -13,11 +13,12 @@ OUT = ROOT / 'web/assets/locked-v08'
 
 
 def build():
-    # The logo already exists in the approved runtime source pack.
-    logo = Image.open(ROOT / 'web/assets/ui/logo.webp').convert('RGBA')
+    # A large real ceramic tile stays recognizable at Home Screen icon size.
+    # Reuse the approved green-dragon tile, as in the themed menu emblem.
+    logo = Image.open(OUT / 'tiles/N-normal.webp').convert('RGBA')
     for size in (180, 192, 512):
-        canvas = Image.new('RGBA', (size, size), '#160507')
-        art = ImageOps.contain(logo, (round(size * .9), round(size * .9)), Image.Resampling.LANCZOS)
+        canvas = Image.new('RGBA', (size, size), '#420b0d')
+        art = ImageOps.contain(logo, (round(size * .78), round(size * .82)), Image.Resampling.LANCZOS)
         canvas.alpha_composite(art, ((size-art.width)//2, (size-art.height)//2))
         buffer = io.BytesIO()
         canvas.convert('RGB').save(buffer, 'PNG', optimize=True)

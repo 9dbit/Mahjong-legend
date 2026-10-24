@@ -22,8 +22,18 @@ for attempt in range(48):
     except Exception as exc:last_error=str(exc)
     time.sleep(5)
 else:raise RuntimeError('Release not verified: '+last_error)
+with urlopen(URL+'/assets/audio/oriental-v082/manifest.json',timeout=10) as r:audio_manifest=json.load(r)
+assert audio_manifest['version']=='0.8.2' and len(audio_manifest['assets'])==14
+audio_hashes={}
+for name,asset in audio_manifest['assets'].items():
+    assert asset['file'].startswith('assets/audio/oriental-v082/') and '..' not in asset['file']
+    with urlopen(URL+'/'+asset['file'],timeout=10) as r:
+        body=r.read();audio_hashes[name]=hashlib.sha256(body).hexdigest()
+    assert audio_hashes[name]==asset['sha256'] and len(body)==asset['bytes'],name
+with urlopen(URL+'/assets/locked-v08/manifest.webmanifest',timeout=10) as r:pwa_manifest=json.load(r)
+assert pwa_manifest['display']=='standalone' and pwa_manifest['scope']=='/' and pwa_manifest['theme_color']=='#160507'
 with sync_playwright() as p:
-    browser=p.chromium.launch(headless=True)
+    browser=p.chromium.launch(headless=True,**({'executable_path':os.environ['MW_BROWSER']} if os.environ.get('MW_BROWSER') else {}))
     context=browser.new_context(viewport={'width':390,'height':844},device_scale_factor=2,is_mobile=True,has_touch=True)
     page=context.new_page();errors=[];page.on('pageerror',lambda e:errors.append(str(e)))
     page.goto(URL,wait_until='networkidle')
@@ -44,9 +54,11 @@ with sync_playwright() as p:
     page.locator('#menu-btn').click();page.locator('[data-panel="fairness"]').click();page.locator('#verify-btn').click()
     expect(page.locator('#verification-result')).to_have_text(re.compile('^PASS'))
     page.locator('#close-dialog').click()
+    audio=page.evaluate('window.MahjongWildAudio.state')
+    assert audio['unlocked'] and audio['context']=='running' and audio['musicLoops']==1 and not audio['lastError'],audio
     assert not errors,errors
     out=ROOT/'qa';out.mkdir(exist_ok=True)
     page.screenshot(path=str(out/'v082_live_mobile.png'))
-    report={'url':URL,'ui_release':'0.8.2','math_release':state['version'],'files_sha256':actual,'base_multipliers':[1,2,3,5],'real_https_spin':'PASS','replay':'PASS','page_errors':errors,'audio':page.evaluate('window.MahjongWildAudio.state')}
+    report={'url':URL,'ui_release':'0.8.2','math_release':state['version'],'files_sha256':actual,'audio_files_sha256':audio_hashes,'pwa_manifest':'PASS','base_multipliers':[1,2,3,5],'real_https_spin':'PASS','replay':'PASS','page_errors':errors,'audio':audio}
     (out/'live_results.json').write_text(json.dumps(report,indent=2)+'\n')
     print(json.dumps(report));browser.close()
