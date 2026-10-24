@@ -1,0 +1,12 @@
+{
+  "title": "Jade Serenity",
+  "composer": "Mahjong Wild original procedural composition",
+  "bpm": 76,
+  "seconds": 50.526315789473685,
+  "style": "soft pentatonic plucked strings, flute-like melody and light bells",
+  "source": "tools/compose_jade_music.py",
+  "files": {
+    "jade_serenity.m4a": "8438ff681ca74fbfe496d46160215763f3a20ccf2e8e483fccd1be1d7403cf1f",
+    "jade_serenity.ogg": "ff3f734c473fe404841767db530ff885609f2fccc92240aa17613ba02f38c58c"
+  }
+}

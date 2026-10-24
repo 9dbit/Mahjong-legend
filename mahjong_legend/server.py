@@ -22,7 +22,8 @@ from .engine import GameConfig, display_decimal, play_round, verify_round, sha25
 
 WEB = Path(__file__).resolve().parent.parent / 'web'
 ROUTES = {'/': 'index.html', '/index.html': 'index.html',
-          '/app.js': 'app.js', '/style.css': 'style.css'}
+          '/app.js': 'app.js', '/style.css': 'style.css',
+          '/manifest.webmanifest': 'manifest.webmanifest', '/sw.js': 'sw.js'}
 BET_OPTIONS = (Decimal('0.2'), Decimal('0.5'), Decimal('1'),
                Decimal('2'), Decimal('5'), Decimal('10'))
 
@@ -203,7 +204,7 @@ class DemoHandler(BaseHTTPRequestHandler):
         if path in ROUTES:
             file = WEB / ROUTES[path]
             body = file.read_bytes()
-            content_type = mimetypes.guess_type(file.name)[0] or 'application/octet-stream'
+            content_type = 'application/manifest+json' if file.suffix == '.webmanifest' else ('application/javascript' if file.suffix == '.js' else mimetypes.guess_type(file.name)[0] or 'application/octet-stream')
             if content_type.startswith('text/') or content_type == 'application/javascript':
                 content_type += '; charset=utf-8'
             return self._send(200, body, content_type)

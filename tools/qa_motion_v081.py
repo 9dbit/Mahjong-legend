@@ -21,8 +21,8 @@ def main():
         return 'data:'+(mimetypes.guess_type(f.name)[0] or 'application/octet-stream')+';base64,'+base64.b64encode(f.read_bytes()).decode()
     html=(WEB/'index.html').read_text();asset_map={}
     if args.offline:
-        asset_map={'/'+str(f.relative_to(WEB)):uri('/'+str(f.relative_to(WEB))) for f in WEB.rglob('*') if f.suffix in ('.webp','.wav','.m4a')}
-        css='\n'.join((WEB/p).read_text() for p in ['style.css','assets/locked-v08/game.css','assets/locked-v08/polish.css'])
+        asset_map={'/'+str(f.relative_to(WEB)):uri('/'+str(f.relative_to(WEB))) for f in WEB.rglob('*') if f.suffix in ('.webp','.png','.wav','.m4a','.ogg')}
+        css='\n'.join((WEB/p).read_text() for p in ['style.css','assets/locked-v08/game.css','assets/locked-v08/polish.css','assets/approved-v082/approved.css'])
         css=re.sub(r"url\(['\"]?([^)\"']+)['\"]?\)",lambda m:'url("'+uri(m[1])+'")' if m[1].startswith('/') else m[0],css)
         html=re.sub(r'<script[^>]*src="[^"]+"[^>]*></script>','',html)
         html=re.sub(r'<link[^>]+rel="stylesheet"[^>]+>','',html).replace('</head>','<style>'+css+'</style></head>')
@@ -59,7 +59,7 @@ def main():
             assert abs(s['w']/s['h']-9/16)<.001 and g['overflow']<=1
             assert g['logoTextOpacity']=='0', 'Duplicate live logo lettering'
             for m in g['meters']:
-                assert m['label']['bottom']<=m['value']['y']+.6,m
+                assert m['label']['h']<=1.1, 'Accessible labels are visually hidden to match the approved counters'
                 assert m['value']['bottom']<=m['box']['bottom']+.6,m
                 assert m['value']['x']>=m['box']['x']-.6 and m['value']['right']<=m['box']['right']+.6,m
             page.screenshot(path=str(OUT/f'{args.engine}_{w}x{h}.png'))

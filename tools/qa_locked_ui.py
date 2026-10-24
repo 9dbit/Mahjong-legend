@@ -26,9 +26,9 @@ def main():
         return 'data:'+(mimetypes.guess_type(f.name)[0] or 'application/octet-stream')+';base64,'+base64.b64encode(f.read_bytes()).decode()
     asset_map={};offline_html=''
     if args.offline:
-        asset_map={'/'+str(f.relative_to(WEB)):uri('/'+str(f.relative_to(WEB))) for f in WEB.rglob('*') if f.suffix in ('.webp','.wav','.m4a')}
+        asset_map={'/'+str(f.relative_to(WEB)):uri('/'+str(f.relative_to(WEB))) for f in WEB.rglob('*') if f.suffix in ('.webp','.png','.wav','.m4a','.ogg')}
         offline_html=re.sub(r'<script[^>]*src="[^"]+"[^>]*></script>','',(WEB/'index.html').read_text())
-        css='\n'.join((WEB/p).read_text() for p in ['style.css','assets/locked-v08/game.css'])
+        css='\n'.join((WEB/p).read_text() for p in ['style.css','assets/locked-v08/game.css','assets/locked-v08/polish.css','assets/approved-v082/approved.css'])
         css=re.sub(r"url\(['\"]?([^)\"']+)['\"]?\)",lambda m:'url("'+uri(m[1])+'")' if m[1].startswith('/') else m[0],css)
         offline_html=re.sub(r'<link[^>]+rel="stylesheet"[^>]+>','',offline_html).replace('</head>','<style>'+css+'</style></head>')
         offline_html=re.sub(r'src="(/[^\"]+)"',lambda m:'src="'+uri(m[1])+'"',offline_html)
