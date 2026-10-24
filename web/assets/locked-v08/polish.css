@@ -82,3 +82,8 @@
 /* Exact native disk crop alignment, plus bounded skip label. */
 #spin-btn .spin-disk{left:21.3265%;top:20.6473%;width:56.9315%;height:auto;aspect-ratio:1}
 #spin-btn .spin-label{transform:none!important;left:24%;width:52%;bottom:6%;line-height:1.25;font-size:2.2cqw;letter-spacing:.08em}
+/* Modal body, not the whole dialog, owns scrolling on short mobile screens. */
+.game-dialog[open]{display:flex;flex-direction:column;height:min(88dvh,760px)}
+.game-dialog .dialog-head,.game-dialog .dialog-tabs{flex:0 0 auto}
+.game-dialog .dialog-body{flex:1 1 auto;min-height:0;max-height:none}
+#minus-btn{left:20.4%;width:13.2%}#plus-btn{left:66.4%;width:13.2%}
