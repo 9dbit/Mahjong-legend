@@ -83,6 +83,8 @@ def main():
             page.evaluate('''holdShards=>{
                 const native=Element.prototype.animate;
                 const probe=window.qaMotion={holdRoll:true,holdShards,roll:null,reels:[],shards:[]};
+                window.qaLifecycle=[];
+                for(const type of ['visibilitychange','pageshow','pagehide'])window.addEventListener(type,()=>qaLifecycle.push({type,hidden:document.hidden,at:performance.now()}));
                 Element.prototype.animate=function(frames,options){
                     const a=native.call(this,frames,options);
                     const timing=a.effect.getTiming();
@@ -107,7 +109,12 @@ def main():
         page,errors=load()
         install_motion_probe(page)
         page.locator('#spin-btn').click()
-        expect(page.locator('.reel-strip').first).to_be_visible()
+        try:
+            expect(page.locator('.reel-strip').first).to_be_visible()
+        except Exception:
+            print(json.dumps({'phase':'expected-reel-start','engine':args.engine,'server_spins':session.spins,'page_errors':errors,'state':page.evaluate('''()=>({notice:document.querySelector('#stage-notice').textContent,phase:document.querySelector('#game-stage').dataset.motionPhase,spinLabel:document.querySelector('#spin-btn').getAttribute('aria-label'),spinCount:document.querySelector('#spin-count').textContent,reduced:matchMedia('(prefers-reduced-motion:reduce)').matches,hidden:document.hidden,lifecycle:window.qaLifecycle,reels:window.qaMotion?.reels.length,shards:window.qaMotion?.shards.length,audio:window.MahjongWildAudio.state})''')}),flush=True)
+            page.screenshot(path=str(OUT/f'{args.engine}_reel_start_failure.png'))
+            raise
         keys=page.evaluate('()=>window.qaMotion.roll')
         assert keys and len(keys)==61, 'Native reel keyframe evidence missing'
         # Strong speed increase in the middle, deceleration at the end.
