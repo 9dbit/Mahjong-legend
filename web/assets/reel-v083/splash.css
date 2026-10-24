@@ -1,0 +1,15 @@
+/* Full-device Soft Tech boot. Inspired by UNO LUCK startup, audio unlocked by tap. */
+#soft-tech-splash{position:fixed;inset:0;z-index:999999;display:grid;place-items:center;padding:env(safe-area-inset-top) 24px env(safe-area-inset-bottom);background:#030303;color:#ffe8ab;text-align:center;overflow:hidden;opacity:1;transition:opacity .3s ease}
+#soft-tech-splash[hidden]{display:none!important}
+#soft-tech-splash.dismissed{opacity:0;pointer-events:none}
+.soft-tech-card{width:min(100%,360px);display:flex;align-items:center;flex-direction:column;gap:20px}
+.soft-tech-logo-image{display:block;width:min(75vw,300px);height:auto;max-height:39dvh;object-fit:contain}
+.soft-tech-logo-fallback{font:bold clamp(31px,9vw,61px)/1.1 system-ui,Arial,sans-serif;letter-spacing:.13em;color:#f2c879;text-shadow:0 0 18px #c08b32;position:relative}
+.soft-tech-caption{letter-spacing:.34em;font-size:12px;font-weight:bold;color:#c4a374}
+.soft-tech-status{font:600 11px/1.5 Arial,sans-serif;letter-spacing:.18em;color:#bfb1a1}
+.soft-tech-progress-track{width:min(72vw,260px);height:5px;background:#4b3021;border-radius:5px;overflow:hidden;box-shadow:0 0 7px #87642255}
+#soft-tech-progress{display:block;width:10%;height:100%;background:linear-gradient(90deg,#915521,#ffe6a0);transition:width .18s ease}
+#soft-tech-continue{min-height:50px;min-width:210px;padding:13px 24px;border:2px solid #eac16a;border-radius:40px;background:linear-gradient(160deg,#046b60,#00302d);color:#fff3c7;font:bold 16px/1 Arial,sans-serif;box-shadow:0 0 23px #bd8a3559;touch-action:manipulation;cursor:pointer}
+#soft-tech-continue:disabled{opacity:.5;cursor:wait}
+#soft-tech-splash:not(.is-ready) #soft-tech-continue{visibility:hidden}
+@media(prefers-reduced-motion:reduce){#soft-tech-splash,#soft-tech-progress{transition:none!important}}

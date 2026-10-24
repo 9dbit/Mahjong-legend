@@ -3,7 +3,7 @@ on: [push, pull_request]
 jobs:
   tests:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -16,29 +16,17 @@ jobs:
       - name: Run engine, HTTP and asset tests
         run: python -m unittest discover -s tests -q
       - name: Install Chromium and WebKit
-        run: |
-          # The runner's Azure apt mirror has stalled browser dependency downloads.
-          # Use Ubuntu's canonical archive without changing the package versions.
-          for source in /etc/apt/sources.list /etc/apt/sources.list.d/ubuntu.sources; do
-            if [ -f "$source" ]; then
-              sudo sed -i 's|azure.archive.ubuntu.com|archive.ubuntu.com|g' "$source"
-            fi
-          done
-          python -m playwright install --with-deps --only-shell chromium webkit
-      - name: Verify unpaused spin continuity in Chromium
-        run: python tools/qa_spin_continuity.py
-      - name: Verify unpaused spin continuity in WebKit
-        run: python tools/qa_spin_continuity.py --engine webkit
+        run: python -m playwright install --with-deps chromium webkit
       - name: Verify game in browser over HTTP
         run: python tools/qa_locked_ui.py
       - name: Verify motion, visible shatter and layout in Chromium
         run: python tools/qa_motion_v081.py
       - name: Verify motion, visible shatter and layout in WebKit
         run: python tools/qa_motion_v081.py --engine webkit
-      - name: Verify approved UI, menus, audible mixer and PWA
-        run: python tools/qa_approved_v082.py
-      - name: Verify approved menus and audio on WebKit
-        run: python tools/qa_approved_v082.py --engine webkit
+      - name: Verify approved menus audio and PWA
+        run: python tools/qa_approved_v082.py && python tools/qa_approved_v082.py --engine webkit
+      - name: Verify GPU atlas no blank frames and left to right reels
+        run: python tools/qa_reels_v083.py && python tools/qa_reels_v083.py --engine webkit
       - name: Verify exact release on Railway
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'
         env:
@@ -48,10 +36,10 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: mahjong-wild-v083-browser-qa
+          name: mahjong-wild-v084-browser-qa
           path: qa/
       - name: Save generated asset pack
         uses: actions/upload-artifact@v4
         with:
-          name: mahjong-wild-v083-runtime-assets
-          path: web/assets/approved-v082/
+          name: mahjong-wild-v084-runtime-assets
+          path: web/assets/

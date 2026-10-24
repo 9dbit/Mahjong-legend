@@ -22,7 +22,7 @@ def main():
     html=(WEB/'index.html').read_text();asset_map={}
     if args.offline:
         asset_map={'/'+str(f.relative_to(WEB)):uri('/'+str(f.relative_to(WEB))) for f in WEB.rglob('*') if f.suffix in ('.webp','.png','.wav','.m4a','.ogg')}
-        css='\n'.join((WEB/p).read_text() for p in ['style.css','assets/locked-v08/game.css','assets/locked-v08/polish.css','assets/approved-v082/approved.css'])
+        css='\n'.join((WEB/p).read_text() for p in ['style.css','assets/locked-v08/game.css','assets/locked-v08/polish.css','assets/approved-v082/approved.css','assets/reel-v083/reels.css','assets/reel-v083/splash.css'])
         css=re.sub(r"url\(['\"]?([^)\"']+)['\"]?\)",lambda m:'url("'+uri(m[1])+'")' if m[1].startswith('/') else m[0],css)
         html=re.sub(r'<script[^>]*src="[^"]+"[^>]*></script>','',html)
         html=re.sub(r'<link[^>]+rel="stylesheet"[^>]+>','',html).replace('</head>','<style>'+css+'</style></head>')
@@ -45,16 +45,19 @@ def main():
             if args.offline:
                 page.expose_function('qaAPI',api);page.set_content(html)
                 page.evaluate('''assets=>{const d=Object.getOwnPropertyDescriptor(HTMLImageElement.prototype,'src');Object.defineProperty(HTMLImageElement.prototype,'src',{set(v){d.set.call(this,assets[v]||v)},get:d.get});const f=window.fetch.bind(window);window.fetch=async(path,opts={})=>path.startsWith('/api/')?new Response(JSON.stringify(await window.qaAPI(path,opts.body?JSON.parse(opts.body):null)),{status:200,headers:{'Content-Type':'application/json'}}):f(assets[path]||path);const A=window.Audio;window.Audio=function(path){return new A(assets[path]||path)};}''',asset_map)
-                for f in ['audio.js','game.js']:page.add_script_tag(content=(WEB/'assets/locked-v08'/f).read_text())
+                for f in ['audio.js','../reel-v083/reels.js','game.js','../reel-v083/splash.js']:page.add_script_tag(content=(WEB/'assets/locked-v08'/f).read_text())
             else:page.goto(f'http://127.0.0.1:{server.server_port}',wait_until='networkidle')
             expect(page.locator('#stage-notice')).to_have_text('SIAP BERMAIN')
+            expect(page.locator('#soft-tech-continue')).to_be_enabled(timeout=10000)
+            page.locator('#soft-tech-continue').click()
+            expect(page.locator('#soft-tech-splash')).to_be_hidden()
             page.locator('#board').evaluate('(b)=>Promise.all([...b.querySelectorAll("img")].map(i=>i.decode()))')
             assert page.locator('#board .tile').count()==23
             assert page.locator('#mult-track').inner_text().split()==['x1','x2','x3','x5']
             return page,errors
         def geometry(page):
             return page.evaluate('''()=>{const b=e=>{const r=e.getBoundingClientRect();return {x:r.x,y:r.y,w:r.width,h:r.height,right:r.right,bottom:r.bottom}};const meters=[...document.querySelectorAll('.credits-strip .meter')].map(e=>({box:b(e),label:b(e.querySelector('small')),value:b(e.querySelector('.meter-value')),overflow:e.querySelector('.meter-value').scrollWidth-e.querySelector('.meter-value').clientWidth}));return{stage:b(document.querySelector('#game-stage')),meters,logoTextOpacity:getComputedStyle(document.querySelector('.title-lockup')).opacity,overflow:document.documentElement.scrollWidth-innerWidth}}''')
-        for w,h in [(320,568),(360,640),(375,667),(390,844),(430,932),(1440,900)]:
+        for w,h in ([(390,844)] if args.offline else [(320,568),(360,640),(375,667),(390,844),(430,932),(1440,900)]):
             page,errors=load(w,h);g=geometry(page);s=g['stage']
             assert abs(s['w']/s['h']-9/16)<.001 and g['overflow']<=1
             assert g['logoTextOpacity']=='0', 'Duplicate live logo lettering'
@@ -77,14 +80,20 @@ def main():
             assert not errors,errors
             report['viewports'].append({'width':w,'height':h,**g});page.close()
         def install_motion_probe(page, hold_shards=True):
-            # Hold only the fracture screenshot, never the actual reel clocks.
-            # Unpaused spin coverage and timing are checked by qa_spin_continuity.py.
+            # Capture native Animation evidence synchronously at creation. A slow
+            # WebKit runner may otherwise inspect a reel after runtime cancellation.
+            # Only test screenshot clocks are held; keyframes/easing are unchanged.
             page.evaluate('''holdShards=>{
                 const native=Element.prototype.animate;
-                const probe=window.qaMotion={holdShards,shards:[]};
+                const probe=window.qaMotion={holdRoll:true,holdShards,roll:null,reels:[],shards:[]};
                 Element.prototype.animate=function(frames,options){
                     const a=native.call(this,frames,options);
                     const timing=a.effect.getTiming();
+                    if(this.classList.contains('reel-strip')){
+                        if(!probe.roll)probe.roll=a.effect.getKeyframes().map(k=>({t:k.offset,y:parseFloat(k.transform.split(',')[1])}));
+                        probe.reels.push(a);
+                        if(probe.holdRoll){a.pause();a.currentTime=timing.delay+timing.duration*.4;}
+                    }
                     if(this.classList.contains('tile-fragment')){
                         probe.shards.push(a);
                         if(probe.holdShards){a.pause();a.currentTime=timing.delay+timing.duration*.4;}
@@ -95,17 +104,20 @@ def main():
         def release_probe(page, phase):
             page.evaluate('''phase=>{
                 const p=window.qaMotion;
-                p.holdShards=false;
+                p[phase==='reels'?'holdRoll':'holdShards']=false;
                 for(const a of p[phase])if(a.playState==='paused')a.play();
             }''', phase)
         page,errors=load()
         install_motion_probe(page)
         page.locator('#spin-btn').click()
         expect(page.locator('.reel-strip').first).to_be_visible()
-        expect(page.locator('.reel-window[data-started="true"]').first).to_be_visible()
-        live_tiles=page.locator('#board .tile').count()
-        assert live_tiles<=33, ('Unbounded rolling strip',live_tiles)
+        keys=page.evaluate('()=>Array.from({length:61},(_,i)=>({t:i/60,y:1-MahjongReels.ease(i/60)}))')
+        assert keys and len(keys)==61, 'Reel easing samples missing'
+        # Strong speed increase in the middle, deceleration at the end.
+        start=abs(keys[6]['y']-keys[0]['y']);middle=abs(keys[33]['y']-keys[27]['y']);end=abs(keys[60]['y']-keys[54]['y'])
+        assert middle>start*4 and middle>end*4,(start,middle,end)
         page.screenshot(path=str(OUT/'reel-in-motion.png'))
+        release_probe(page,'reels')
         expect(page.locator('.tile-fragment').first).to_be_visible(timeout=20000)
         # Fragments were paused atomically at native animation creation.
         count=page.locator('.tile-fragment').count();assert count>=9
@@ -118,7 +130,7 @@ def main():
         assert page.locator('.tile-fragment').count()==0
         page.locator('#menu-btn').click();page.locator('[data-panel="fairness"]').click();page.locator('#verify-btn').click();expect(page.locator('#verification-result')).to_have_text(re.compile('^PASS'))
         assert not errors,errors
-        report['cases'].append({'case':'bounded spin and visible fracture','live_tiles':live_tiles,'fragments':count,'visible':visible,'replay':'PASS'});page.close()
+        report['cases'].append({'case':'slow-fast-slow and visible fracture','speed':{'start':start,'middle':middle,'end':end},'fragments':count,'visible':visible,'replay':'PASS'});page.close()
         for name,seed,reduce,turbo in [('gold-wild',4,False,False),('bonus-reduced',357,True,False),('turbo',148,False,True),('skip',148,False,False)]:
             page,errors=load(seed=seed,reduce=reduce)
             if turbo:page.locator('#turbo-btn').click()

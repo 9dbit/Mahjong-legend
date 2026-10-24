@@ -1,0 +1,7 @@
+{
+  "release": "0.8.4",
+  "artwork_version": "0.8.2",
+  "math_version": "0.8.0",
+  "virtual_credits_only": true,
+  "spin": "gpu-composited atlas + retained DOM safety layer"
+}

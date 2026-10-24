@@ -27,7 +27,7 @@ def offline(page,seed=148):
     html=re.sub(r'src="(/[^"]+)"',lambda m:'src="'+uri(m[1])+'"',html)
     page.expose_function('qaAPI',api);page.set_content(html)
     page.evaluate('''assets=>{const d=Object.getOwnPropertyDescriptor(HTMLImageElement.prototype,'src');Object.defineProperty(HTMLImageElement.prototype,'src',{set(v){d.set.call(this,assets[v]||v)},get:d.get});const f=window.fetch.bind(window);window.fetch=async(path,opts={})=>path.startsWith('/api/')?new Response(JSON.stringify(await window.qaAPI(path,opts.body?JSON.parse(opts.body):null)),{status:200,headers:{'Content-Type':'application/json'}}):f(assets[path]||path);}''',assets)
-    for f in ['assets/locked-v08/audio.js','assets/locked-v08/game.js']:page.add_script_tag(content=(WEB/f).read_text())
+    for f in ['assets/locked-v08/audio.js','assets/reel-v083/reels.js','assets/locked-v08/game.js','assets/reel-v083/splash.js']:page.add_script_tag(content=(WEB/f).read_text())
     return session
 if __name__=='__main__':
     from playwright.sync_api import sync_playwright,expect

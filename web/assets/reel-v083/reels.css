@@ -1,0 +1,8 @@
+/* UI 0.8.4: original tile DOM remains underneath an opaque, GPU-scrolling atlas. */
+.board .reel{position:relative;isolation:isolate}
+.board .reel .reel-surface{position:absolute;inset:0;z-index:5;overflow:hidden;contain:strict;pointer-events:none;background:transparent}
+.board .reel .reel-canvas{position:absolute;left:0;top:0;display:block;max-width:none;animation:none!important;filter:none!important;pointer-events:none;backface-visibility:hidden;will-change:transform;transform-origin:top left}
+html.reels-running .board .tile-image,html.reels-running .board .symbol-emission{animation-play-state:paused!important}
+html.reels-running .logo-emission,html.reels-running .logo-shine::after,
+html.reels-running body::after,html.reels-running .game-stage::after{animation-play-state:paused!important}
+@media(prefers-reduced-motion:reduce){.board .reel .reel-canvas{animation:none!important}}
