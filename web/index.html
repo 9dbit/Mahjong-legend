@@ -4,13 +4,21 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="theme-color" content="#160507">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Mahjong Wild">
+  <link rel="manifest" href="/assets/locked-v08/manifest.webmanifest">
+  <link rel="apple-touch-icon" href="/assets/locked-v08/app-icon-180.png">
   <meta name="description" content="Mahjong Wild virtual-credit cascade game demo">
   <title>Mahjong Wild</title>
   <link rel="stylesheet" href="/style.css">
-  <link rel="stylesheet" href="/assets/locked-v08/game.css?v=081b">
-  <link rel="stylesheet" href="/assets/locked-v08/polish.css?v=081b">
-  <script src="/assets/locked-v08/audio.js?v=081b" defer></script>
-  <script src="/assets/locked-v08/game.js?v=081b" defer></script>
+  <link rel="stylesheet" href="/assets/locked-v08/game.css?v=082">
+  <link rel="stylesheet" href="/assets/locked-v08/polish.css?v=082">
+  <link rel="stylesheet" href="/assets/locked-v08/effects.css?v=082">
+  <link rel="stylesheet" href="/assets/locked-v08/pwa.css?v=082">
+  <link rel="stylesheet" href="/assets/locked-v08/menus.css?v=082">
+  <script src="/assets/locked-v08/audio.js?v=082" defer></script>
+  <script src="/assets/locked-v08/game.js?v=082" defer></script>
 </head>
 <body>
   <main class="game-stage" id="game-stage" aria-label="Mahjong Wild game">
@@ -40,35 +48,60 @@
       <button type="button" class="secondary-control auto-control" id="auto-btn" aria-label="Opsi Auto Spin"><span id="auto-caption">AUTO</span></button>
     </section>
     <div class="game-bottom-bar"><button type="button" id="info-shortcut" class="footer-icon" aria-label="Paytable dan aturan"><span>INFO</span></button><span id="phase-tag" class="round-phase">BASE GAME</span><button type="button" id="history-shortcut" class="footer-icon" aria-label="Riwayat putaran"><span>HISTORY</span></button></div>
-    <span class="virtual-note">KREDIT VIRTUAL SAJA | v0.8.1</span>
+    <span class="virtual-note">KREDIT VIRTUAL SAJA | v0.8.2</span>
     <button type="button" class="skip-control" id="skip-btn" hidden>LEWATI ANIMASI</button>
   </main>
-  <dialog id="game-dialog" class="game-dialog" aria-label="Menu game">
-    <div class="dialog-head"><strong>GAME MENU</strong><button type="button" id="close-dialog" class="close-dialog" aria-label="Tutup menu">&#10005;</button></div>
-    <nav class="dialog-tabs" aria-label="Informasi game"><button type="button" class="tab active" data-panel="rules">RULES</button><button type="button" class="tab" data-panel="paytable">PAYTABLE</button><button type="button" class="tab" data-panel="history">HISTORY</button><button type="button" class="tab" data-panel="fairness">FAIRNESS</button><button type="button" class="tab" data-panel="settings">SETTINGS</button></nav>
+  <dialog id="game-dialog" class="game-dialog themed-dialog" aria-labelledby="menu-title">
+    <div class="dialog-head">
+      <div class="menu-brand"><span class="menu-emblem" aria-hidden="true"><img src="/assets/locked-v08/tiles/N-normal.webp" alt=""></span><span><small>MAHJONG WILD</small><strong id="menu-title">GAME MENU</strong></span></div>
+      <button type="button" id="close-dialog" class="close-dialog" aria-label="Tutup menu"><span aria-hidden="true">&#10005;</span></button>
+    </div>
+    <nav class="dialog-tabs" role="tablist" aria-label="Informasi game">
+      <button type="button" id="tab-rules" class="tab active" role="tab" aria-selected="true" aria-controls="panel-rules" data-panel="rules"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h6l2 2 2-2h6v15h-6l-2 1-2-1H4zM12 7v14M7 9h2m-2 4h2m6-4h2m-2 4h2"/></svg><span>RULES</span></button>
+      <button type="button" id="tab-paytable" class="tab" role="tab" aria-selected="false" tabindex="-1" aria-controls="panel-paytable" data-panel="paytable"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="9" height="15" rx="2"/><path d="M15 6h4a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-7M6 9h3m-3 5h3m7-2h2m-2 5h2"/></svg><span>PAYTABLE</span></button>
+      <button type="button" id="tab-history" class="tab" role="tab" aria-selected="false" tabindex="-1" aria-controls="panel-history" data-panel="history"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8a9 9 0 1 1-1 7M3 3v6h6M12 7v6l4 2"/></svg><span>HISTORY</span></button>
+      <button type="button" id="tab-fairness" class="tab" role="tab" aria-selected="false" tabindex="-1" aria-controls="panel-fairness" data-panel="fairness"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 2 8 4v6c0 5-8 10-8 10S4 17 4 12V6zM8 12l3 3 5-6"/></svg><span>FAIRNESS</span></button>
+      <button type="button" id="tab-settings" class="tab" role="tab" aria-selected="false" tabindex="-1" aria-controls="panel-settings" data-panel="settings"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 3v5m0 6v7M12 3v10m0 6v2M19 3v2m0 6v10"/><circle cx="5" cy="11" r="3"/><circle cx="12" cy="16" r="3"/><circle cx="19" cy="8" r="3"/></svg><span>SETTINGS</span></button>
+    </nav>
     <div class="dialog-body">
-      <section id="panel-rules" class="info-panel">
-        <h2>CARA BERMAIN</h2><p>Hubungkan simbol yang sama pada minimal tiga reel berturut-turut dari kiri. Tile pemenang pecah, lalu tile pengganti turun. Tile emas yang menang berubah menjadi Wild.</p>
-        <div class="game-rule-row"><span>5 REEL</span><b>4 - 5 - 5 - 5 - 4</b></div><div class="game-rule-row"><span>WAYS</span><b>2,000</b></div>
-        <div class="game-rule-row"><span>BASE MULTIPLIERS</span><b>x1 / x2 / x3 / x5</b></div><div class="game-rule-row"><span>FREE SPIN MULTIPLIERS</span><b>x2 / x3 / x5 / x8</b></div>
-        <div class="game-rule-row"><span>3 SCATTER</span><b>8 FREE SPINS</b></div><div class="game-rule-row"><span>SCATTER TAMBAHAN</span><b>+2 FREE SPINS</b></div><div class="game-rule-row"><span>MAKSIMUM PER PUTARAN</span><b>1,000x BET</b></div>
-        <p class="small-note">RTP belum divalidasi ulang setelah multiplier dasar diubah menjadi x5. Versi UI 0.8.1 tidak mengubah matematika versi 0.8.0.</p>
+      <section id="panel-rules" class="info-panel" role="tabpanel" aria-labelledby="tab-rules">
+        <div class="panel-heading"><span class="panel-kicker">THE LEGEND BEGINS</span><h2>Cara bermain</h2><p>Susun kemenangan dari kiri. Lihat balok pecah dan simbol baru turun untuk melanjutkan cascade.</p></div>
+        <div class="rule-showcase"><div><img class="rule-tile" src="/assets/locked-v08/tiles/N-normal.webp" alt="Tile Mahjong keramik"><span>SIMBOL SAMA</span></div><b class="showcase-arrow" aria-hidden="true">&#8594;</b><div><img class="rule-tile gold-example" src="/assets/locked-v08/tiles/N-gold.webp" alt="Tile emas"><span>TILE EMAS</span></div><b class="showcase-arrow" aria-hidden="true">&#8594;</b><div><img class="rule-tile wild-example" src="/assets/locked-v08/tiles/W-normal.webp" alt="Wild"><span>MENJADI WILD</span></div></div>
+        <div class="rule-summary"><span class="rule-number">01</span><p>Minimal <strong>3 reel berturut-turut</strong> dari kiri dengan simbol yang sama. Setiap kombinasi dihitung sebagai winning way.</p></div>
+        <div class="rule-summary"><span class="rule-number">02</span><p>Balok pemenang <strong>retak, pecah, lalu digantikan</strong>. Tile emas yang menang berubah menjadi Wild.</p></div>
+        <div class="menu-inset">
+          <div class="game-rule-row"><span>Susunan 5 reel</span><b>4 · 5 · 5 · 5 · 4</b></div><div class="game-rule-row"><span>Winning ways</span><b>2,000</b></div>
+          <div class="game-rule-row"><span>Multiplier dasar</span><b>x1 · x2 · x3 · x5</b></div><div class="game-rule-row"><span>Multiplier Free Spins</span><b>x2 · x3 · x5 · x8</b></div>
+          <div class="game-rule-row"><span>3 Scatter</span><b>8 Free Spins</b></div><div class="game-rule-row"><span>Scatter tambahan</span><b>+2 Free Spins</b></div><div class="game-rule-row"><span>Maksimum per putaran</span><b>1,000x bet</b></div>
+        </div>
+        <p class="small-note">RTP belum divalidasi ulang setelah multiplier dasar diubah menjadi x5. Versi UI 0.8.2 tidak mengubah matematika versi 0.8.0.</p>
       </section>
-      <section id="panel-paytable" class="info-panel hidden"><h2>PAYTABLE</h2><p>Nilai dasar per winning way, sebelum multiplier cascade dan skala pembayaran konfigurasi.</p><div class="paytable-head"><span>SIMBOL</span><span>3</span><span>4</span><span>5</span></div><div id="paytable-list" class="paytable-list"></div></section>
-      <section id="panel-history" class="info-panel hidden"><h2>RIWAYAT PUTARAN</h2><div id="history-list" class="history-list"><p>Belum ada putaran dalam sesi ini.</p></div></section>
-      <section id="panel-fairness" class="info-panel hidden"><h2>REPLAY &amp; FAIRNESS</h2><p>Komitmen SHA-256 seed tersedia sebelum putaran. Hasil dapat diperiksa ulang menggunakan engine deterministik.</p>
-        <label class="digest-label">NEXT SEED COMMITMENT</label><div id="next-commit" class="digest">Memuat...</div><label class="digest-label">MATH CONFIG HASH</label><div id="config-hash" class="digest">Memuat...</div><label class="digest-label">LAST ROUND</label><div id="last-round-id" class="digest">Belum ada putaran</div>
-        <div class="fairness-actions"><button type="button" id="verify-btn" disabled>VERIFY REPLAY</button><button type="button" id="download-btn" disabled>EXPORT JSON</button></div><p id="verification-result" role="status" class="verification-result">Belum ada hasil untuk diperiksa.</p><p class="small-note">Pemeriksaan replay bukan sertifikasi independen RNG.</p>
+      <section id="panel-paytable" class="info-panel hidden" role="tabpanel" aria-labelledby="tab-paytable"><div class="panel-heading"><span class="panel-kicker">THE SYMBOL COLLECTION</span><h2>Paytable</h2><p>Nilai dasar per winning way, sebelum multiplier cascade dan skala pembayaran konfigurasi.</p></div><div class="paytable-head"><span>SIMBOL</span><span>3 REEL</span><span>4 REEL</span><span>5 REEL</span></div><div id="paytable-list" class="paytable-list"></div><p class="small-note">Angka pada tabel mengikuti konfigurasi game aktif.</p></section>
+      <section id="panel-history" class="info-panel hidden" role="tabpanel" aria-labelledby="tab-history"><div class="panel-heading"><span class="panel-kicker">YOUR SESSION</span><h2>Riwayat putaran</h2><p>Bet dan kemenangan dari putaran yang selesai dalam sesi ini.</p></div><div class="history-head"><span>PUTARAN / BET</span><span>KEMENANGAN</span></div><div id="history-list" class="history-list"><div class="menu-empty"><img class="empty-tile" src="/assets/locked-v08/tiles/O-normal.webp" alt=""><strong>Belum ada putaran</strong><p>Riwayat akan muncul setelah Spin pertama.</p></div></div></section>
+      <section id="panel-fairness" class="info-panel hidden" role="tabpanel" aria-labelledby="tab-fairness"><div class="panel-heading"><span class="panel-kicker">ROUND VERIFICATION</span><h2>Replay &amp; fairness</h2><p>Komitmen SHA-256 seed tersedia sebelum putaran. Periksa kembali hasil putaran dengan engine deterministik.</p></div>
+        <div class="digest-card"><div class="digest-label">NEXT SEED COMMITMENT</div><div id="next-commit" class="digest">Memuat...</div></div><div class="digest-card"><div class="digest-label">MATH CONFIG HASH</div><div id="config-hash" class="digest">Memuat...</div></div><div class="digest-card"><div class="digest-label">LAST ROUND</div><div id="last-round-id" class="digest">Belum ada putaran</div></div>
+        <div class="fairness-actions"><button type="button" id="verify-btn" class="jade-button" disabled>VERIFY REPLAY</button><button type="button" id="download-btn" class="gold-button" disabled>EXPORT JSON</button></div><p id="verification-result" role="status" class="verification-result">Belum ada hasil untuk diperiksa.</p><p class="small-note">Pemeriksaan replay bukan sertifikasi independen RNG.</p>
       </section>
-      <section id="panel-settings" class="info-panel hidden"><h2>SETTINGS</h2>
-        <div class="setting-row"><span>Sound effects</span><button type="button" id="setting-sound">ON</button></div>
-        <div class="setting-row"><label for="sfx-volume">SFX volume</label><div class="volume-control"><input id="sfx-volume" type="range" min="0" max="100" step="5" value="65"><output id="sfx-value">65%</output></div></div>
-        <div class="setting-row"><span>Music</span><button type="button" id="setting-music">OFF</button></div><div class="setting-row"><label for="music-volume">Music volume</label><input id="music-volume" type="range" min="0" max="100" step="5" value="20"></div>
-        <div class="setting-row"><span>Turbo animations</span><button type="button" id="setting-turbo">OFF</button></div><div class="setting-row"><span>Putaran dalam sesi</span><strong id="spin-count">0</strong></div><div class="setting-row"><span>Bet virtual</span><strong id="setting-bet">1,00</strong></div>
+      <section id="panel-settings" class="info-panel hidden" role="tabpanel" aria-labelledby="tab-settings"><div class="panel-heading"><span class="panel-kicker">MAKE IT YOURS</span><h2>Settings</h2><p>Atur suara, musik, dan kecepatan permainan.</p></div>
+        <div class="settings-group"><h3>SUARA &amp; MUSIK</h3>
+          <div class="setting-row"><span><strong>Suara game</strong><small>Musik &amp; seluruh efek suara</small></span><button type="button" id="setting-sound" class="setting-switch" aria-label="Suara game">ON</button></div>
+          <div class="setting-row volume-row"><label for="sfx-volume">Volume efek</label><div class="volume-control"><input id="sfx-volume" type="range" min="0" max="100" step="5" value="65"><output id="sfx-value" for="sfx-volume">65%</output></div></div>
+          <div class="setting-row"><span><strong>Musik oriental</strong><small>Lembut · petikan &amp; seruling</small></span><button type="button" id="setting-music" class="setting-switch" aria-label="Musik oriental">ON</button></div><div class="setting-row volume-row"><label for="music-volume">Volume musik</label><input id="music-volume" type="range" min="0" max="100" step="1" value="22"></div>
+          <div class="audio-check"><button type="button" id="test-sound-btn" class="jade-button">TES SUARA</button><p id="audio-status" role="status">Ketuk untuk mengaktifkan suara pada perangkat.</p></div>
+        </div>
+        <div class="settings-group"><h3>PERMAINAN</h3><div class="setting-row"><span><strong>Turbo</strong><small>Animasi lebih cepat</small></span><button type="button" id="setting-turbo" class="setting-switch" aria-label="Turbo">OFF</button></div><div class="setting-row"><span>Putaran dalam sesi</span><strong id="spin-count">0</strong></div><div class="setting-row"><span>Bet virtual</span><strong id="setting-bet">1,00</strong></div></div>
         <button type="button" id="reset-btn" class="reset-btn">RESET KREDIT VIRTUAL</button><p class="small-note">Kredit tidak dapat dibeli, ditransfer, diuangkan, atau ditukar dengan hadiah. Saldo sesi dapat direset saat server diperbarui.</p>
       </section>
     </div>
+    <div class="dialog-foot"><span>MAHJONG WILD</span><span>KREDIT VIRTUAL · v0.8.2</span></div>
   </dialog>
-  <dialog id="auto-dialog" class="auto-dialog" aria-label="Opsi Auto Spin"><div class="dialog-head"><strong>AUTO SPIN</strong><button type="button" id="close-auto" class="close-dialog" aria-label="Tutup Auto Spin">&#10005;</button></div><p>Pilih jumlah putaran kredit virtual. Auto dapat dihentikan setelah putaran yang berjalan selesai.</p><div class="auto-options"><button type="button" data-autospins="10">10</button><button type="button" data-autospins="25">25</button><button type="button" data-autospins="50">50</button></div><button type="button" id="auto-cancel" class="auto-cancel">BATAL</button></dialog>
+  <dialog id="auto-dialog" class="auto-dialog themed-dialog" aria-labelledby="auto-title">
+    <div class="dialog-head"><div class="menu-brand"><span class="menu-emblem" aria-hidden="true"><img src="/assets/locked-v08/tiles/W-normal.webp" alt=""></span><span><small>KEEP THE TILES FLOWING</small><strong id="auto-title">AUTO SPIN</strong></span></div><button type="button" id="close-auto" class="close-dialog" aria-label="Tutup Auto Spin">&#10005;</button></div>
+    <div class="compact-dialog-body"><p class="compact-intro">Pilih jumlah putaran kredit virtual.</p><div class="auto-options"><button type="button" data-autospins="10"><strong>10</strong><span>PUTARAN</span></button><button type="button" data-autospins="25"><strong>25</strong><span>PUTARAN</span></button><button type="button" data-autospins="50"><strong>50</strong><span>PUTARAN</span></button></div><p class="small-note">Ketuk STOP untuk menghentikan Auto setelah putaran yang sedang berjalan selesai.</p><button type="button" id="auto-cancel" class="auto-cancel">KEMBALI</button></div>
+  </dialog>
+  <dialog id="reset-dialog" class="reset-dialog themed-dialog" aria-labelledby="reset-title" aria-describedby="reset-description">
+    <div class="dialog-head"><div class="menu-brand"><span><small>SESI KREDIT VIRTUAL</small><strong id="reset-title">MULAI ULANG?</strong></span></div><button type="button" id="close-reset" class="close-dialog" aria-label="Tutup konfirmasi reset">&#10005;</button></div>
+    <div class="compact-dialog-body"><p id="reset-description">Saldo kredit virtual dan riwayat sesi akan direset. Mulai sesi baru?</p><p id="reset-status" class="small-note" role="status"></p><div class="reset-actions"><button type="button" id="reset-cancel" class="jade-button" autofocus>KEMBALI</button><button type="button" id="reset-confirm" class="gold-button">YA, RESET</button></div></div>
+  </dialog>
 </body>
 </html>

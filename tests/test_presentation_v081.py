@@ -19,9 +19,9 @@ class Presentation081(unittest.TestCase):
                     r,g,b,a=pixels.getpixel((x,y))
                     if a:self.assertEqual((r,g,b),ref.getpixel((x,y)))
     def test_supplemental_manifest(self):
-        manifest=json.loads((A/'presentation-manifest.json').read_text());self.assertEqual(manifest['version'],'0.8.1');self.assertEqual(len(manifest['files']),2)
+        manifest=json.loads((A/'presentation-manifest.json').read_text());self.assertEqual(manifest['version'],'0.8.2');self.assertEqual(len(manifest['files']),2)
         for p,m in manifest['files'].items():self.assertEqual(hashlib.sha256((A/p).read_bytes()).hexdigest(),m['sha256'])
     def test_ui_and_math_versions_are_distinct(self):
-        r=json.loads((A/'release.json').read_text());self.assertEqual(r['release'],'0.8.1');self.assertEqual(r['math_version'],'0.8.0');self.assertTrue(r['virtual_credits_only'])
-        h=(ROOT/'web/index.html').read_text();self.assertEqual(h.count('class="logo-fx"'),1);self.assertIn('v0.8.1',h);self.assertIn('polish.css',h)
+        r=json.loads((A/'release.json').read_text());self.assertEqual(r['release'],'0.8.2');self.assertEqual(r['math_version'],'0.8.0');self.assertTrue(r['virtual_credits_only'])
+        h=(ROOT/'web/index.html').read_text();self.assertEqual(h.count('class="logo-fx"'),1);self.assertIn('v0.8.2',h);self.assertIn('polish.css',h)
 if __name__=='__main__':unittest.main()

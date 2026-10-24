@@ -66,7 +66,7 @@ class LockedArtwork(unittest.TestCase):
         self.assertIn('locked-v08/game.js',html);self.assertIn('locked-v08/game.css',html)
         self.assertNotIn('mahjong-wild.css?v=06',html)
         self.assertIn('id="effects-layer"',html)
-        self.assertIn('x1 / x2 / x3 / x5',html)
+        self.assertRegex(html,r'x1\s*[·/]\s*x2\s*[·/]\s*x3\s*[·/]\s*x5')
     def test_release_does_not_claim_old_rtp(self):
         release=json.loads((ASSETS/'release.json').read_text())
         self.assertEqual(release['rtp_status'],'not_revalidated_after_base_multiplier_change')

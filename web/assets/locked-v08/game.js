@@ -1,4 +1,4 @@
-/* Mahjong Wild UI 0.8.1. Presentation consumes server outcomes; it never draws gameplay RNG. */
+/* Mahjong Wild UI 0.8.2. Presentation consumes server outcomes; it never draws gameplay RNG. */
 (() => {
   'use strict';
   const $=id=>document.getElementById(id);
@@ -68,6 +68,7 @@
     driveDisc(busy);fitMeters();
     $('sound-btn').classList.toggle('sound-on',a.enabled);$('sound-btn').setAttribute('aria-label',a.enabled?'Matikan suara':'Aktifkan suara');$('setting-sound').textContent=a.enabled?'ON':'OFF';
     $('sfx-volume').value=Math.round(a.volume*100);$('sfx-value').textContent=`${Math.round(a.volume*100)}%`;$('setting-music').textContent=a.musicEnabled?'ON':'OFF';$('music-volume').value=Math.round(a.musicVolume*100);
+    $('setting-sound').setAttribute('aria-pressed',String(a.enabled));$('setting-music').setAttribute('aria-pressed',String(a.musicEnabled));$('setting-turbo').setAttribute('aria-pressed',String(turbo));
   }
   function refresh(next){
     state=next;options=next.bet_options?.map(Number)||options;
@@ -91,7 +92,7 @@
   }
   async function spinReels(board){
     if(skip||reduced.matches){render(board);return;}
-    const root=$('board');$('machine').classList.add('is-spinning');$('game-stage').dataset.motionPhase='roll';
+    const root=$('board');$('machine').classList.add('is-spinning');$('game-stage').dataset.motionPhase='roll';audio()?.startReel?.();
     const previous=[...root.children].map(el=>[...el.children].map(t=>t._tile).filter(Boolean));
     render(board);
     await Promise.all(board.map(async(col,i)=>{
@@ -110,38 +111,62 @@
       if(windowEl.isConnected)windowEl.replaceWith(reel(col,i));
       sfx('stop',i);
     }));
-    $('machine').classList.remove('is-spinning');$('game-stage').dataset.motionPhase='settled';
+    audio()?.stopReel?.();$('machine').classList.remove('is-spinning');$('game-stage').dataset.motionPhase='settled';
   }
-  // Fragments contain the actual winning tile pixels, including its symbol.
-  // All work is awaited/cancellable; refill cannot hide the break after 200ms.
+  // Irregular ceramic pieces retain the winning tile's symbol and a jade edge.
+  // Geometry is decorative and deterministic; it never consumes gameplay RNG.
+  const fractureMesh=[
+    [[0,0],[.37,0],[.31,.29],[0,.37]],
+    [[.37,0],[.7,0],[.74,.32],[.52,.43],[.31,.29]],
+    [[.7,0],[1,0],[1,.39],[.74,.32]],
+    [[0,.37],[.31,.29],[.43,.58],[.27,.7],[0,.65]],
+    [[.31,.29],[.52,.43],[.74,.32],[.67,.67],[.43,.58]],
+    [[.74,.32],[1,.39],[1,.73],[.67,.67]],
+    [[0,.65],[.27,.7],[.34,1],[0,1]],
+    [[.27,.7],[.43,.58],[.67,.67],[.73,1],[.34,1]],
+    [[.67,.67],[1,.73],[1,1],[.73,1]]
+  ];
   async function explode(tileEl,index){
     if(skip||reduced.matches)return;
     const box=tileEl.getBoundingClientRect(),layer=$('effects-layer'),area=layer.getBoundingClientRect();
     const image=tileEl.querySelector('.tile-image'),promises=[];
     const fx=(cls,w,h,x,y)=>{const e=node('div',cls);Object.assign(e.style,{left:`${x}px`,top:`${y}px`,width:`${w}px`,height:`${h}px`});layer.append(e);return e;};
     const x=box.left-area.left,y=box.top-area.top;
+    const cx=x+box.width/2,cy=y+box.height/2;
     const ring=fx('shockwave',box.width,box.height,x,y);
-    promises.push(motion(ring,[{transform:'scale(.6)',opacity:.7},{transform:'scale(1.65)',opacity:0}],480,0,'ease-out').then(()=>ring.remove()));
-    // A small warm flash, not a full-board strobe.
-    const flash=fx('flash',box.width*1.4,box.height*1.4,x-box.width*.2,y-box.height*.2);
-    promises.push(motion(flash,[{opacity:.65,transform:'scale(.6)'},{opacity:0,transform:'scale(1.3)'}],340).then(()=>flash.remove()));
-    for(let n=0;n<9;n++){
-      const c=n%3,r=Math.floor(n/3),w=box.width/3,h=box.height/3;
-      const shard=fx('shard tile-fragment',w+1,h+1,x+c*w,y+r*h);
-      shard.style.backgroundImage=`url("${image.src}")`;
-      shard.style.backgroundSize=`${box.width}px ${box.height}px`;shard.style.backgroundPosition=`${-c*w}px ${-r*h}px`;
-      shard.style.clipPath=n%2?'polygon(0 0,100% 10%,90% 100%,8% 92%)':'polygon(8% 0,100% 0,100% 90%,0 100%)';
-      const dx=(c-1)*box.width*.63+(index%2?5:-5),dy=(r-1)*box.height*.37,angle=(n%2?1:-1)*(24+n*8);
+    promises.push(motion(ring,[{transform:'scale(.4)',opacity:.8},{transform:'scale(1.6)',opacity:0}],560,0,'ease-out').then(()=>ring.remove()));
+    // One local warm bloom per tile, without a full-screen white flash.
+    const flash=fx('flash ceramic-flash',box.width*1.65,box.height*1.65,x-box.width*.325,y-box.height*.325);
+    promises.push(motion(flash,[{offset:0,opacity:0,transform:'scale(.2)'},{offset:.12,opacity:.88,transform:'scale(.75)'},{offset:.55,opacity:.42,transform:'scale(1.05)'},{offset:1,opacity:0,transform:'scale(1.25)'}],580,0,'ease-out').then(()=>flash.remove()));
+    const star=fx('impact-star',box.width*.9,box.width*.9,cx-box.width*.45,cy-box.width*.45);
+    promises.push(motion(star,[{transform:'scale(.25) rotate(-15deg)',opacity:0},{offset:.18,transform:'scale(1) rotate(0deg)',opacity:1},{transform:'scale(.55) rotate(28deg)',opacity:0}],620,0,'ease-out').then(()=>star.remove()));
+    for(let n=0;n<fractureMesh.length;n++){
+      const points=fractureMesh[n],xs=points.map(p=>p[0]),ys=points.map(p=>p[1]);
+      const l=Math.min(...xs),t=Math.min(...ys),w=Math.max(...xs)-l,h=Math.max(...ys)-t;
+      const shard=fx('shard tile-fragment ceramic-fragment',w*box.width,h*box.height,x+l*box.width,y+t*box.height);
+      const cut=`polygon(${points.map(p=>`${((p[0]-l)/w*100).toFixed(2)}% ${((p[1]-t)/h*100).toFixed(2)}%`).join(',')})`;
+      shard.style.setProperty('--fragment-cut',cut);shard.style.setProperty('--fragment-depth',`${Math.max(2,box.width*.055).toFixed(2)}px`);
+      const depth=node('i','fragment-depth'),face=node('i','fragment-face'),bevel=node('i','fragment-bevel');
+      face.style.backgroundImage=`linear-gradient(135deg,#fff9,transparent 38%,#5a391922),url("${image.src}")`;
+      face.style.backgroundSize=`100% 100%,${box.width}px ${box.height}px`;
+      face.style.backgroundPosition=`0 0,${-l*box.width}px ${-t*box.height}px`;
+      shard.append(depth,face,bevel);
+      const px=l+w/2-.5,py=t+h/2-.5,dx=px*box.width*1.75+(index%2?2:-2),dy=py*box.height*1.15-box.height*.13;
+      const angle=(n%2?1:-1)*(24+n*9),rx=(n%3-1)*38,ry=(n%2?1:-1)*(20+n*3);
       promises.push(motion(shard,[
-        {offset:0,transform:'translate3d(0,0,0) rotate(0deg)',opacity:1},
-        {offset:.38,transform:`translate3d(${dx*.65}px,${dy-10}px,0) rotate(${angle*.4}deg)`,opacity:1},
-        {offset:.72,transform:`translate3d(${dx}px,${dy+12}px,0) rotate(${angle}deg) scale(.85)`,opacity:.9},
-        {offset:1,transform:`translate3d(${dx*1.13}px,${dy+box.height*.65}px,0) rotate(${angle*1.4}deg) scale(.6)`,opacity:0}
-      ],640,0,'linear').then(()=>shard.remove()));
+        {offset:0,transform:'perspective(360px) translate3d(0,0,0) rotate(0deg)',opacity:1},
+        {offset:.33,transform:`perspective(360px) translate3d(${dx*.65}px,${dy*.8}px,12px) rotateX(${rx*.6}deg) rotateY(${ry*.6}deg) rotateZ(${angle*.4}deg) scale(1.04)`,opacity:1},
+        {offset:.68,transform:`perspective(360px) translate3d(${dx}px,${dy+box.height*.13}px,4px) rotateX(${rx}deg) rotateY(${ry}deg) rotateZ(${angle}deg) scale(.95)`,opacity:1},
+        {offset:1,transform:`perspective(360px) translate3d(${dx*1.14}px,${dy+box.height*.67}px,-8px) rotateX(${rx*1.4}deg) rotateY(${ry*1.4}deg) rotateZ(${angle*1.4}deg) scale(.66)`,opacity:0}
+      ],820,0,'linear').then(()=>shard.remove()));
     }
-    for(let n=0;n<3;n++){
-      const spark=fx('spark',4,4,x+box.width/2,y+box.height/2),a=n*2.1+index*.2;
-      promises.push(motion(spark,[{opacity:.8,transform:'translate(0,0)'},{opacity:0,transform:`translate(${Math.cos(a)*box.width}px,${Math.sin(a)*box.height*.8}px)`}],510,0,'ease-out').then(()=>spark.remove()));
+    // A bounded number of sparks keeps simultaneous cascades affordable on mobile.
+    const sparkCount=index<8?10:6;
+    for(let n=0;n<sparkCount;n++){
+      const a=n*2.39996+index*.71,reach=box.width*(.46+(n%4)*.16),size=n%3===0?4:2;
+      const spark=fx(`spark ember${n%4===0?' star-ember':''}`,size,size,cx-size/2,cy-size/2);
+      const dx=Math.cos(a)*reach,dy=Math.sin(a)*reach*.78;
+      promises.push(motion(spark,[{opacity:0,transform:'translate3d(0,0,0) scale(.5)'},{offset:.12,opacity:1,transform:`translate3d(${dx*.2}px,${dy*.2}px,0) scale(1.15)`},{offset:.58,opacity:.95,transform:`translate3d(${dx*.8}px,${dy*.8}px,0) scale(1)`},{opacity:0,transform:`translate3d(${dx}px,${dy+box.height*.27}px,0) scale(.15)`}],680+(n%3)*45,n%3*12,'ease-out').then(()=>spark.remove()));
     }
     tileEl.classList.add('removed');
     await Promise.all(promises);
@@ -155,7 +180,8 @@
       if(t.enhanced&&!['W','S'].includes(t.symbol)){gold.push(el);el.classList.add('morph-charge');}
       else{victims.push(el);const crack=node('img','crack');crack.src=assets+'effects/crack.webp';crack.alt='';el.append(crack);el.classList.add('cracked');}
     }));
-    await wait(185);
+    if(victims.length)sfx('crack');
+    await wait(230);
     if(skip||reduced.matches)return;
     $('game-stage').dataset.motionPhase='shatter';if(victims.length)sfx('break');
     await Promise.all(victims.map(explode));
@@ -232,35 +258,65 @@
       // Never retry a paid request automatically. Read back the server balance.
       try{refresh(await req('/api/state'));const recovered=await req('/api/last-round');last=recovered.round;$('last-round-id').textContent=last.round_id;$('verify-btn').disabled=false;$('download-btn').disabled=false;}catch{}
     }finally{
-      for(const a of animations)a.cancel();$('effects-layer').replaceChildren();$('overlay-banner').classList.add('hidden');busy=false;skip=false;controls();$('phase-tag').textContent='BASE GAME';$('game-stage').dataset.motionPhase='idle';$('machine').classList.remove('is-spinning');
+      audio()?.stopReel?.();for(const a of animations)a.cancel();$('effects-layer').replaceChildren();$('overlay-banner').classList.add('hidden');busy=false;skip=false;controls();$('phase-tag').textContent='BASE GAME';$('game-stage').dataset.motionPhase='idle';$('machine').classList.remove('is-spinning');
       if(auto&&!document.hidden&&Number(state?.balance)>=stake)autoTimer=setTimeout(()=>spin(true),turbo?180:550);else if(auto)cancelAuto();
     }
   }
   function panel(which='rules'){
-    cancelAuto();document.querySelectorAll('.tab').forEach(b=>b.classList.toggle('active',b.dataset.panel===which));document.querySelectorAll('.info-panel').forEach(p=>p.classList.toggle('hidden',p.id!==`panel-${which}`));if(!$('game-dialog').open)$('game-dialog').showModal();
+    cancelAuto();document.querySelectorAll('.tab').forEach(b=>{const active=b.dataset.panel===which;b.classList.toggle('active',active);b.setAttribute('aria-selected',String(active));b.tabIndex=active?0:-1;});document.querySelectorAll('.info-panel').forEach(p=>p.classList.toggle('hidden',p.id!==`panel-${which}`));
+    const body=$('game-dialog').querySelector('.dialog-body');if(body)body.scrollTop=0;
+    if(!$('game-dialog').open)$('game-dialog').showModal();
   }
-  function step(direction){if(busy||auto)return;stake=options[Math.max(0,Math.min(options.length-1,options.indexOf(stake)+direction))];controls();sfx('tap');}
+  function step(direction){if(busy||auto)return;stake=options[Math.max(0,Math.min(options.length-1,options.indexOf(stake)+direction))];controls();}
+  document.addEventListener('click',e=>{
+    const button=e.target.closest('button');
+    if(!button||button.disabled||['spin-btn','sound-btn','setting-sound'].includes(button.id))return;
+    audio()?.unlock();sfx('tap');
+  },true);
+  $('sfx-volume').addEventListener('change',()=>sfx('tap'));
   $('spin-btn').addEventListener('click',()=>void spin());$('skip-btn').addEventListener('click',skipAnimation);
   $('minus-btn').addEventListener('click',()=>step(-1));$('plus-btn').addEventListener('click',()=>step(1));$('bet-display-btn').addEventListener('click',()=>step(1));
-  $('turbo-btn').addEventListener('click',()=>{turbo=!turbo;controls();sfx('tap');});$('setting-turbo').addEventListener('click',()=>{$('turbo-btn').click();});
+  function toggleTurbo(){turbo=!turbo;controls();}
+  $('turbo-btn').addEventListener('click',toggleTurbo);$('setting-turbo').addEventListener('click',toggleTurbo);
   const sound=()=>{audio()?.setEnabled(!audio()?.state.enabled);controls();sfx('tap');};$('sound-btn').addEventListener('click',sound);$('setting-sound').addEventListener('click',sound);
   $('sfx-volume').addEventListener('input',e=>{audio()?.setVolume(Number(e.target.value)/100);$('sfx-value').textContent=`${e.target.value}%`;});
   $('setting-music').addEventListener('click',()=>{audio()?.toggleMusic();controls();});$('music-volume').addEventListener('input',e=>audio()?.setMusicVolume(Number(e.target.value)/100));
   $('menu-btn').addEventListener('click',()=>panel());$('info-shortcut').addEventListener('click',()=>panel('paytable'));$('history-shortcut').addEventListener('click',()=>panel('history'));
   $('close-dialog').addEventListener('click',()=>$('game-dialog').close());document.querySelectorAll('.tab').forEach(b=>b.addEventListener('click',()=>panel(b.dataset.panel)));
+  document.querySelector('.dialog-tabs').addEventListener('keydown',e=>{
+    if(!['ArrowLeft','ArrowRight','Home','End'].includes(e.key))return;
+    const tabs=[...document.querySelectorAll('.tab')],current=tabs.indexOf(document.activeElement);if(current<0)return;
+    const next=e.key==='Home'?0:e.key==='End'?tabs.length-1:(current+(e.key==='ArrowRight'?1:-1)+tabs.length)%tabs.length;
+    e.preventDefault();panel(tabs[next].dataset.panel);tabs[next].focus();sfx('tap');
+  });
   $('auto-btn').addEventListener('click',()=>{if(auto){cancelAuto();return;}if(!busy)$('auto-dialog').showModal();});
   for(const id of ['close-auto','auto-cancel'])$(id).addEventListener('click',()=>$('auto-dialog').close());
   document.querySelectorAll('[data-autospins]').forEach(b=>b.addEventListener('click',()=>{if(busy)return;auto=Number(b.dataset.autospins);$('auto-dialog').close();void spin(true);}));
-  $('reset-btn').addEventListener('click',async()=>{if(busy)return;if(!confirm('Reset kredit virtual dan history sesi ini?'))return;try{cancelAuto();refresh(await req('/api/reset',{}));last=null;history=[];displayWin=0;cancelAnimationFrame(winFrame);$('last-win').textContent='0,00';$('history-list').replaceChildren(node('p','','Belum ada putaran.'));$('verify-btn').disabled=true;$('download-btn').disabled=true;render(demo);mult(false);notice('SIAP BERMAIN');$('game-dialog').close();}catch(e){notice(e.message);}});
+  function closeReset(){if($('reset-dialog')?.open)$('reset-dialog').close();}
+  $('reset-btn').addEventListener('click',()=>{if(busy)return;cancelAuto();$('reset-dialog')?.showModal();});
+  for(const id of ['close-reset','reset-cancel'])$(id)?.addEventListener('click',closeReset);
+  $('reset-confirm')?.addEventListener('click',async()=>{
+    if(busy)return;const button=$('reset-confirm');button.disabled=true;
+    try{cancelAuto();refresh(await req('/api/reset',{}));last=null;history=[];displayWin=0;cancelAnimationFrame(winFrame);$('last-win').textContent='0,00';$('history-list').replaceChildren(node('p','','Belum ada putaran.'));$('verify-btn').disabled=true;$('download-btn').disabled=true;render(demo);mult(false);notice('SIAP BERMAIN');closeReset();$('game-dialog').close();}
+    catch(e){notice(e.message);if($('reset-status'))$('reset-status').textContent=e.message;}
+    finally{button.disabled=false;}
+  });
   $('verify-btn').addEventListener('click',async()=>{if(!last)return;$('verify-btn').disabled=true;try{const result=await req('/api/verify',{round:last});$('verification-result').textContent=`${result.valid?'PASS':'FAIL'}: ${result.reason}`;}catch(e){$('verification-result').textContent=e.message;}finally{$('verify-btn').disabled=false;}});
   $('download-btn').addEventListener('click',()=>{if(!last)return;const url=URL.createObjectURL(new Blob([JSON.stringify(last,null,2)],{type:'application/json'})),a=node('a');a.href=url;a.download=`mahjong-wild-${last.round_id}.json`;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);});
-  document.addEventListener('keydown',e=>{if(e.code==='Space'&&!e.repeat&&!$('game-dialog').open&&!$('auto-dialog').open&&!['INPUT','BUTTON'].includes(document.activeElement?.tagName)){e.preventDefault();void spin();}});
+  document.addEventListener('keydown',e=>{if(e.code==='Space'&&!e.repeat&&!document.querySelector('dialog[open]')&&!['INPUT','BUTTON'].includes(document.activeElement?.tagName)){e.preventDefault();void spin();}});
   document.addEventListener('visibilitychange',()=>{if(document.hidden){cancelAuto();if(busy)skipAnimation();}});
   reduced.addEventListener?.('change',()=>{if(reduced.matches&&busy)skipAnimation();});
-  window.addEventListener('pagehide',()=>{cancelAuto();skipAnimation();});
+  window.addEventListener('pagehide',()=>{cancelAuto();if(busy)skipAnimation();else{stopDisc(true);audio()?.stop();}});
+  window.addEventListener('pageshow',()=>{if(!busy)skip=false;controls();});
   new ResizeObserver(fitMeters).observe($('game-stage'));
   $('board').addEventListener('pointerdown',e=>{if(busy)return;const el=e.target.closest('.tile');if(el)void motion(el,[{transform:'scale(1)'},{transform:'scale(1.045)',offset:.4},{transform:'scale(1)'}],300);});
-  render(demo);mult(false);controls();$('last-win').textContent=format(0);notice('MEMUAT GAME');
+  const soundStatus=()=>{
+    const a=audio()?.state;if(!$('audio-status')||!a)return;
+    $('audio-status').textContent=!a.enabled?'Suara game dimatikan.':a.lastError||(!a.unlocked?'Ketuk Tes Suara untuk mengaktifkan audio.':a.musicPlaying?'Musik oriental lembut dan efek suara siap.':a.musicEnabled?'Musik sedang disiapkan. Efek suara siap.':'Efek suara siap. Musik dimatikan.');
+  };
+  window.addEventListener('mw-audio-state',soundStatus);
+  $('test-sound-btn')?.addEventListener('click',async()=>{await audio()?.unlock();await audio()?.test?.();soundStatus();controls();});
+  render(demo);mult(false);controls();soundStatus();$('last-win').textContent=format(0);notice('MEMUAT GAME');
   for(const file of ['effects/crack.webp']){const im=new Image();im.src=assets+file;}
   for(const id of 'ABCDEFGHIJKLMNOWS')for(const state of ['normal','gold']){const im=new Image();im.src=`${assets}tiles/${id}-${state}.webp`;}
   req('/api/state').then(next=>{refresh(next);mult(false);notice('SIAP BERMAIN');const root=$('paytable-list');root.replaceChildren();for(const[s,values]of Object.entries(next.rules.paytable)){const row=node('div','paytable-item');const label=node('span','symbol-label'),icon=node('img','paytable-tile');icon.src=`${assets}tiles/${s}-normal.webp`;icon.alt=`Tile ${s}`;label.append(icon,node('b','',s));row.append(label,...values.map(v=>node('span','',String(v))));root.append(row);}}).catch(e=>{notice('KONEKSI GAGAL. MUAT ULANG.');$('spin-btn').disabled=true;console.error(e.message);});

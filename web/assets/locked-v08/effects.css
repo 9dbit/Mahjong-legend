@@ -1,0 +1,26 @@
+/* UI 0.8.2: ceramic depth and warm sparks from the approved visual language. */
+.effects-layer{clip-path:inset(-1.5% -4%);isolation:isolate}
+.effects-layer .ceramic-fragment{background:none;overflow:visible;filter:drop-shadow(0 2px 1px #1c160bc9) drop-shadow(0 0 1px #ffdc7a);transform-origin:50% 50%;contain:layout style}
+.ceramic-fragment>i{position:absolute;display:block;inset:0;clip-path:var(--fragment-cut);pointer-events:none}
+.fragment-depth{background:linear-gradient(140deg,#bfc99a 0%,#4d8d48 32%,#0b5c36 72%,#063e28 100%);transform:translateY(var(--fragment-depth));filter:drop-shadow(0 1px 0 #ffda78)}
+.fragment-face{background-repeat:no-repeat;filter:brightness(1.1);z-index:1}
+.fragment-bevel{background:linear-gradient(135deg,#fffee5c9,transparent 11%,transparent 78%,#e1bf6866);z-index:2}
+.effects-layer .ceramic-flash{background:radial-gradient(ellipse,#fffadae0 0%,#ffd457a6 12%,#ffae2559 30%,#f88a0019 52%,transparent 69%);mix-blend-mode:screen}
+.effects-layer .impact-star{position:absolute;background:radial-gradient(circle,#ffffef 0%,#fff8ba 8%,#ffd66a99 18%,transparent 43%);mix-blend-mode:screen;pointer-events:none;z-index:3}
+.impact-star::before,.impact-star::after{content:'';position:absolute;inset:47% 4%;background:linear-gradient(90deg,transparent,#ffd94b,#fffdeb,#ffd94b,transparent);border-radius:50%;box-shadow:0 0 5px #ffc326}
+.impact-star::after{transform:rotate(90deg)}
+.effects-layer .ember{background:#fff4b3;box-shadow:0 0 3px 1px #ffd94c,0 0 8px #ffb000a3;z-index:4;will-change:transform,opacity}
+.effects-layer .star-ember{border-radius:0;clip-path:polygon(50% 0,61% 37%,100% 50%,61% 63%,50% 100%,39% 63%,0 50%,39% 37%);width:7px!important;height:7px!important}
+.effects-layer .shockwave{border:1px solid #ffdf7299;box-shadow:0 0 8px #ffba3855,inset 0 0 5px #ffd96944}
+.tile.cracked{animation:ceramic-impact .23s ease-out both}
+.tile.cracked .crack{filter:drop-shadow(0 0 1px #fff2a8) drop-shadow(0 0 3px #ffc21c);animation:crack-heat .23s ease-out both}
+.board .tile::after{display:block!important;content:'';position:absolute;inset:3% 5% 4%;border-radius:10%;background:linear-gradient(135deg,#fff8 0%,transparent 16%,transparent 76%,#24170924);box-shadow:inset 0 1px 1px #fff9,inset -1px -2px 2px #39271633;pointer-events:none;z-index:3}
+.board .tile-image{filter:drop-shadow(0 2px 0 #27573d) drop-shadow(0 3px 1px #140a07b8)}
+.board .tile.marked .tile-image{filter:brightness(1.12) drop-shadow(0 2px 0 #8c641d) drop-shadow(0 0 4px #ffc943)}
+.board .tile.enhanced .tile-image,.board .tile.wild .tile-image{filter:brightness(1.04) drop-shadow(0 2px 0 #8b4c09) drop-shadow(0 0 3px #ffc337)}
+/* Legacy hover/activity rings would paint a second button over the locked art. */
+.play-controls #spin-btn,.play-controls #spin-btn:hover,.play-controls #spin-btn.busy{animation:none!important;box-shadow:none!important}
+.play-controls #spin-btn:active{transform:none}
+@keyframes ceramic-impact{0%{transform:scale(1)}22%{transform:scale(1.035)}46%{transform:translateX(-1px) scale(1.025)}72%{transform:translateX(1px)}100%{transform:scale(1)}}
+@keyframes crack-heat{0%{opacity:.35}48%,100%{opacity:1}}
+@media(prefers-reduced-motion:reduce){.tile.cracked,.tile.cracked .crack{animation:none!important}.effects-layer .impact-star,.effects-layer .ember{display:none}}

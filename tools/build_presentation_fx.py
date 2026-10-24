@@ -31,14 +31,14 @@ def build():
     mask=Image.new('RGBA',crop.size,'white');mask.putalpha(alpha)
     mask.save(OUT/'effects/logo-mask.webp',lossless=True,method=6)
     release=json.loads((OUT/'release.json').read_text())
-    release['release']='0.8.1';release['math_version']='0.8.0'
-    release['presentation']='smooth-strip-visible-shatter-pixel-aligned-neon'
+    release['release']='0.8.2';release['math_version']='0.8.0'
+    release['presentation']='ceramic-shatter-soft-oriental-themed-menus-edge-to-edge'
     (OUT/'release.json').write_text(json.dumps(release,indent=2)+'\n')
     manifest=json.loads((OUT/'manifest.json').read_text())
     manifest.pop('presentation_version',None)
     disk_path=OUT/'spin-disc.webp'
     manifest['files']['spin-disc.webp']={'sha256':hashlib.sha256(disk_path.read_bytes()).hexdigest(),'bytes':disk_path.stat().st_size,'size':[150,150]}
-    extra={'version':'0.8.1','frame_sha256':hashlib.sha256((OUT/'frame.webp').read_bytes()).hexdigest(),'files':{}}
+    extra={'version':'0.8.2','frame_sha256':hashlib.sha256((OUT/'frame.webp').read_bytes()).hexdigest(),'files':{}}
     for name in ('effects/logo-emission.webp','effects/logo-mask.webp'):
         f=OUT/name
         with Image.open(f) as im:size=im.size

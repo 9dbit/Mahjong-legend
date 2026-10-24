@@ -5,6 +5,7 @@ Coordinates are recorded in the native 752x1338 reference coordinate system.
 """
 from pathlib import Path
 import hashlib
+import io
 import json
 import math
 from PIL import Image, ImageDraw, ImageFilter, ImageOps
@@ -18,7 +19,16 @@ SIZE = (752, 1338)
 def save(im, name):
     path = OUT / name
     path.parent.mkdir(parents=True, exist_ok=True)
-    im.save(path, 'WEBP', quality=95, method=6)
+    # Serialize before touching the output: an interrupted encoder must not
+    # leave a zero-byte sprite that later gets deployed as a valid asset.
+    buffer = io.BytesIO()
+    im.save(buffer, 'WEBP', quality=95, method=6)
+    payload = buffer.getvalue()
+    if len(payload) < 12 or payload[:4] != b'RIFF':
+        raise ValueError(f'Invalid WebP output: {name}')
+    temporary = path.with_suffix('.webp.tmp')
+    temporary.write_bytes(payload)
+    temporary.replace(path)
 
 
 def gradient(im, box, top, bottom, radius=0):
