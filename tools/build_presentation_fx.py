@@ -1,4 +1,4 @@
-"""Pixel-aligned logo light masks derived from the approved frame. No new lettering."""
+"""Pixel-aligned light masks and disk derived from the approved frame."""
 from pathlib import Path
 from PIL import Image, ImageDraw, ImageChops
 import hashlib, json
@@ -9,6 +9,10 @@ def build():
     frame=Image.open(OUT/'frame.webp').convert('RGB')
     if frame.size != (752,1338):
         raise ValueError('Unexpected locked frame coordinates')
+    # Replace the old off-center disk crop so its baked arrow cannot show twice.
+    disk=frame.crop((301,1106,451,1256)).convert('RGBA')
+    circle=Image.new('L',disk.size);ImageDraw.Draw(circle).ellipse((0,0,149,149),fill=255)
+    disk.putalpha(circle);disk.save(OUT/'spin-disc.webp',lossless=True,method=6)
     crop=frame.crop((222,60,532,189)).convert('RGBA')
     region=Image.new('L',crop.size)
     d=ImageDraw.Draw(region)
@@ -32,6 +36,8 @@ def build():
     (OUT/'release.json').write_text(json.dumps(release,indent=2)+'\n')
     manifest=json.loads((OUT/'manifest.json').read_text())
     manifest.pop('presentation_version',None)
+    disk_path=OUT/'spin-disc.webp'
+    manifest['files']['spin-disc.webp']={'sha256':hashlib.sha256(disk_path.read_bytes()).hexdigest(),'bytes':disk_path.stat().st_size,'size':[150,150]}
     extra={'version':'0.8.1','frame_sha256':hashlib.sha256((OUT/'frame.webp').read_bytes()).hexdigest(),'files':{}}
     for name in ('effects/logo-emission.webp','effects/logo-mask.webp'):
         f=OUT/name
@@ -40,6 +46,6 @@ def build():
         extra['files'][name]={'sha256':hashlib.sha256(f.read_bytes()).hexdigest(),'bytes':f.stat().st_size,'size':size}
     (OUT/'manifest.json').write_text(json.dumps(manifest,indent=2)+'\n')
     (OUT/'presentation-manifest.json').write_text(json.dumps(extra,indent=2)+'\n')
-    print('Built two pixel-aligned logo light masks; math configuration unchanged.')
+    print('Built aligned logo light masks and centered disk; math unchanged.')
 
 if __name__=='__main__':build()
