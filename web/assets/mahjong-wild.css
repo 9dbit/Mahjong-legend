@@ -1,0 +1,42 @@
+/* Locked Mahjong Wild 9:16 HDR metallic crimson/gold/jade skin.
+   Gameplay and payout logic remain in the original engine. */
+:root{--brand-red:#a01615;--brand-red-deep:#3e0509;--brand-gold:#ffce5a;--brand-gold-light:#fff3a5;--brand-jade:#08aa91;--brand-jade-bright:#44f2d0;--black-green:#042c2c;--tile-ivory:#fff6e7;--tile-gap:2px}
+html,body{background:radial-gradient(ellipse at center,#9b1819 0%,#460709 80%,#1d0306 100%)}
+.scene{background:radial-gradient(ellipse at top,rgba(249,167,23,.18),transparent 50%),linear-gradient(90deg,#44070d,#840b0f 45%,#44070d)}
+.scene-medallion,.scene-coin{opacity:.22}
+.game-stage{background:linear-gradient(90deg,#3b070a,#8b0e12 11%,#a51a18 49%,#8b0e12 89%,#3b070a);border-color:#eec85c;box-shadow:0 0 0 4px #8c3d0b,0 0 0 7px #fdc84b,0 0 55px #d8491399}
+.game-header{position:relative;isolation:isolate;background:linear-gradient(#c12c16c9,#750d0ae8),url('/assets/ui/header.webp') center/100% 100% no-repeat;box-shadow:0 2px 19px #ffcf48ad,inset 0 4px 0 #f8d063}
+.game-header::before,.game-header::after{content:'';position:absolute;top:-3px;height:118%;width:26%;background:url('/assets/ornaments/dragon_left.webp') center/contain no-repeat;pointer-events:none;opacity:.95;z-index:-1;filter:drop-shadow(0 0 8px #ff9d11)}
+.game-header::before{left:1px}.game-header::after{right:1px;transform:scaleX(-1)}
+.title-lockup{position:relative;z-index:1}
+.game-title{font-size:0;min-height:27px;background:url('/assets/ui/logo.webp') center center/contain no-repeat;filter:drop-shadow(0 2px 5px #541408)}
+.game-title strong{font-size:0}
+.ways-line b{color:#fff4b9;text-shadow:0 2px #6f1a12,0 0 7px #ffd250}
+.header-icon{position:relative;z-index:3;background:radial-gradient(circle at 30% 24%,#f38b29,#750809 75%);border:2px solid #ffc84f;color:#ffe6a2;box-shadow:0 0 9px #ffbd23,inset 0 1px 3px #fff4c1}
+.multiplier-frame{background:linear-gradient(#e59f21,#5b180c),url('/assets/ui/multiplier.webp') center/100% 100%;box-shadow:0 2px 12px #f7b81e99}
+.multiplier-rail{background:linear-gradient(180deg,#1ae1c0,#065e5b 50%,#003b40);border:2px solid #ffc342;box-shadow:inset 0 2px 9px #0c2a29,0 0 12px #e9ab26}
+.mult.active{color:#ffd75a!important;text-shadow:0 0 13px #ffae2c,0 0 5px #fff9ae,0 2px 0 #7f2306}
+.reel-theatre{position:relative;background:linear-gradient(90deg,#3d090b,#2e0b0a 16%,#00483f 45%,#2e0b0a 84%,#3d090b)}
+.reel-theatre::before,.reel-theatre::after{content:'';position:absolute;top:6%;height:87%;width:17%;pointer-events:none;background:url('/assets/ornaments/lantern_left.webp') top center/contain no-repeat;z-index:1;filter:drop-shadow(0 0 7px #ff8a24)}
+.reel-theatre::before{left:-5%}.reel-theatre::after{right:-5%;transform:scaleX(-1)}
+.board-frame{background:linear-gradient(#004b49,#013530),url('/assets/ui/reel_backplate.webp') center/100% 100%;border-color:#e4a837;box-shadow:0 0 20px #ffbb2599,inset 0 0 16px #041618}
+.board{isolation:isolate}
+.tile{background:transparent!important;border:0!important;box-shadow:none!important;overflow:visible!important;border-radius:14px!important}
+.tile .tile-art{display:none!important}
+.tile-image{display:block;width:100%;height:100%;object-fit:fill;user-select:none;-webkit-user-drag:none;pointer-events:none;filter:drop-shadow(0 2px 2px #0e0b0744)}
+.tile.enhanced{box-shadow:0 0 11px #ffbd20bb!important}
+.tile.enhanced .tile-image{filter:drop-shadow(0 0 9px #f6b700)}
+.tile.marked .tile-image{filter:brightness(1.4) drop-shadow(0 0 11px #ffffa1)}
+.tile.wild .tile-image{filter:drop-shadow(0 0 9px #ffc11b)}
+.announcement{background:linear-gradient(180deg,#d33519,#8d070d 60%,#580708);border-block:2px solid #eabb53;color:#fff0b4;text-shadow:0 0 9px #ffd876}
+.credits-strip{background:linear-gradient(180deg,#a3201d,#600b0f 90%);border-block:2px solid #c88030}
+.meter{background:linear-gradient(#015e54,#06322f),url('/assets/ui/meter.webp') center/100% 100%;border:2px solid #e9b341;color:#fff2c4;box-shadow:inset 0 2px 4px #55dfc14f,0 0 9px #de751e}
+.meter-value{color:#fff2ce;text-shadow:0 2px #5b240d,0 0 4px #efbc72}
+.play-controls{background:linear-gradient(160deg,#b42417,#69080d 65%,#5b0309);border-top:2px solid #f3bf4c}
+.spin-control{background:radial-gradient(circle at 30% 22%,#20e7bc,#077969 55%,#043c3c 73%),url('/assets/ui/spin.webp') center/100% 100%;border:5px solid #ffcc56;box-shadow:0 0 23px #ffc72daa,0 0 6px #ffe69c,inset 0 0 18px #0adac0}
+.step-control{background:#07594f url('/assets/ui/plus.webp') center/contain no-repeat;color:#ffe7a1;border:2px solid #fcc64e;box-shadow:0 0 10px #ffb41f}
+#minus-btn{background-image:url('/assets/ui/minus.webp')}
+.secondary-control{color:#ffe398;text-shadow:0 0 4px #e07826}
+.game-bottom-bar{background:linear-gradient(#082f2b,#001e1d);border-color:#f4b53c;color:#ffd574}
+.overlay-banner{border-color:#ffb43e;background:linear-gradient(180deg,#d21a0c,#670508);box-shadow:0 0 30px #ffb716}
+@media(max-width:370px){.game-header::before,.game-header::after{width:24%;opacity:.75}.tile-image{filter:none}.game-title{min-height:24px}}

@@ -171,7 +171,7 @@ class WebAPITests(unittest.TestCase):
     def test_1_initial_commitment_and_spin(self):
         with request.urlopen(self.url+'/api/state') as r:
             state=json.load(r)
-        self.assertEqual(state['game'],'Mahjong Legend')
+        self.assertEqual(state['game'],'Mahjong Wild')
         commit=state['next_seed_commitment_sha256']
         status,response=self.post('/api/spin')
         self.assertEqual(status,200)
@@ -188,7 +188,7 @@ class WebAPITests(unittest.TestCase):
     def test_3_static_app_and_reset(self):
         with request.urlopen(self.url+'/') as r:
             self.assertEqual(r.status,200)
-            self.assertIn(b'Mahjong Legend',r.read())
+            self.assertIn(b'Mahjong Wild',r.read())
         _,state=self.post('/api/reset')
         self.assertEqual(Decimal(state['balance']),Decimal(1000))
         self.assertEqual(state['spin_count'],0)

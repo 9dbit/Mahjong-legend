@@ -125,8 +125,12 @@
   }
   function makeTile(tile, opts={}) {
     const el=create('div',`tile ${classFor(tile.symbol)}${tile.enhanced?' enhanced':''}${opts.marked?' marked':''}${opts.falling?' falling':''}`);
-    el.title=tile.symbol==='W'?'Wild':tile.symbol==='S'?'Scatter':`Mahjong Legend symbol ${tile.symbol}`;
-    el.appendChild(tileFace(tile.symbol));
+    el.title=tile.symbol==='W'?'Wild':tile.symbol==='S'?'Scatter':`Mahjong Wild symbol ${tile.symbol}`;
+    el.dataset.symbol=tile.symbol;
+    const sprite=create('img','tile-image');
+    sprite.src=`/assets/tiles/tile_${tile.symbol}.webp`;
+    sprite.alt=''; sprite.draggable=false;sprite.decoding='async';
+    el.appendChild(sprite);
     if (opts.row !== undefined) el.style.setProperty('--row', String(opts.row));
     return el;
   }
@@ -242,10 +246,11 @@
   function hideBanner(){$('overlay-banner').classList.add('hidden');}
   function status(message){$('stage-notice').textContent=message;}
   function phase(text){$('phase-tag').textContent=text;}
-  // Original procedural effects, authored for Mahjong Legend.
+  // Original procedural effects, authored for Mahjong Wild.
   // AudioContext is unlocked from direct user interactions, as iOS Safari requires.
   function playSound(type,variation=0) {
     if(!sound||skip||volume<=0)return;
+    if(window.MahjongWildAudio?.playSfx){window.MahjongWildAudio.playSfx(type,variation,sound,volume);return;}
     try {
       const AudioContextClass=window.AudioContext||window.webkitAudioContext;
       if(!AudioContextClass)return;

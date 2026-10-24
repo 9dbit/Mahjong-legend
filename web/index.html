@@ -4,10 +4,12 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="theme-color" content="#602b27">
-  <meta name="description" content="Mahjong Legend virtual-credit cascade game demo">
-  <title>Mahjong Legend</title>
+  <meta name="description" content="Mahjong Wild virtual-credit cascade game demo">
+  <title>Mahjong Wild</title>
   <link rel="stylesheet" href="/style.css?v=05">
   <script src="/app.js?v=05" defer></script>
+  <link rel="stylesheet" href="/assets/mahjong-wild.css?v=06">
+  <script src="/assets/audio/player.js?v=06" defer></script>
 </head>
 <body>
   <div class="scene" aria-hidden="true">
@@ -17,14 +19,14 @@
     <div class="scene-coin coin-right"></div>
   </div>
 
-  <main class="game-stage" id="game-stage" aria-label="Mahjong Legend game">
+  <main class="game-stage" id="game-stage" aria-label="Mahjong Wild game">
     <header class="game-header">
       <button type="button" id="menu-btn" class="header-icon" aria-label="Open game menu" title="Menu">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h14M5 12h14M5 17h14"/></svg>
       </button>
       <div class="title-lockup">
         <div class="title-flourish" aria-hidden="true"><i></i><b></b><i></i></div>
-        <div class="game-title">MAHJONG <strong>LEGEND</strong></div>
+        <div class="game-title">MAHJONG <strong>WILD</strong></div>
         <div class="ways-line"><span></span><b>2,000 WAYS</b><span></span></div>
       </div>
       <button type="button" id="sound-btn" class="header-icon" aria-label="Turn sound on" title="Sound off">
@@ -42,7 +44,7 @@
       <div class="theatre-deco deco-left" aria-hidden="true"></div>
       <div class="theatre-deco deco-right" aria-hidden="true"></div>
       <div class="board-frame">
-        <div id="board" class="board" role="img" aria-label="Mahjong Legend tile reels"></div>
+        <div id="board" class="board" role="img" aria-label="Mahjong Wild tile reels"></div>
       </div>
       <div id="effects-layer" class="effects-layer" aria-hidden="true"></div>
       <div id="overlay-banner" class="overlay-banner hidden" aria-live="polite"></div>
@@ -125,7 +127,7 @@
         <div class="game-rule-row"><span>3 SCATTERS</span><b>8 FREE SPINS</b></div>
         <div class="game-rule-row"><span>EXTRA SCATTER</span><b>+2 FREE SPINS</b></div>
         <div class="game-rule-row"><span>MAX PAID ROUND WIN</span><b>1,000x BET</b></div>
-        <p class="small-note">These are Mahjong Legend prototype rules, not PG Soft's paytable or mathematics.</p>
+        <p class="small-note">These are Mahjong Wild prototype rules, not PG Soft's paytable or mathematics.</p>
       </section>
       <section id="panel-paytable" class="info-panel hidden">
         <h2>PAYTABLE</h2>

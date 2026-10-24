@@ -1,4 +1,4 @@
-"""Mahjong Legend virtual-credit HTTP game server.
+"""Mahjong Wild virtual-credit HTTP game server.
 
 Local or explicit public mode; isolated ephemeral sessions, no real money.
 """
@@ -39,7 +39,7 @@ class DemoSession:
     def state(self) -> dict:
         with self.lock:
             return {
-                'game': 'Mahjong Legend', 'version': self.cfg.raw['version'],
+                'game': 'Mahjong Wild', 'version': self.cfg.raw['version'],
                 'balance': display_decimal(self.credits),
                 'spin_price': display_decimal(self.cfg.spin_price),
                 'bet_options': [display_decimal(x) for x in BET_OPTIONS],
@@ -177,7 +177,7 @@ class DemoHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         path = urlsplit(self.path).path
         if path == '/health':
-            return self._json(200, {'ok': True, 'game': 'Mahjong Legend', 'version': '0.5.0'})
+            return self._json(200, {'ok': True, 'game': 'Mahjong Wild', 'version': '0.5.0'})
         session = self._session()
         if path == '/api/state':
             return self._json(200, session.state())
@@ -185,6 +185,21 @@ class DemoHandler(BaseHTTPRequestHandler):
             if session.last_round is None:
                 return self._json(404, {'error': 'No rounds yet'})
             return self._json(200, {'round': session.last_round})
+        if path.startswith('/assets/'):
+            relative = path[len('/assets/'):]
+            if not relative or any(p in ('', '.', '..') for p in relative.split('/')):
+                return self._json(404, {'error': 'Not found'})
+            if not relative.lower().endswith(('.webp', '.png', '.wav', '.m4a', '.ogg', '.js', '.css', '.json')):
+                return self._json(404, {'error': 'Not found'})
+            root = (WEB / 'assets').resolve()
+            target = (root / relative).resolve()
+            if not target.is_relative_to(root) or not target.is_file():
+                return self._json(404, {'error': 'Not found'})
+            mime = mimetypes.guess_type(target.name)[0] or 'application/octet-stream'
+            if target.suffix == '.js': mime = 'application/javascript'
+            if target.suffix == '.m4a': mime = 'audio/mp4'
+            if mime.startswith('text/') or mime == 'application/javascript': mime += '; charset=utf-8'
+            return self._send(200, target.read_bytes(), mime)
         if path in ROUTES:
             file = WEB / ROUTES[path]
             body = file.read_bytes()
@@ -256,14 +271,14 @@ def make_server(host='127.0.0.1', port=8765, session=None, public=False) -> Thre
 
 
 def main():
-    parser = argparse.ArgumentParser(description='Run local Mahjong Legend demo')
+    parser = argparse.ArgumentParser(description='Run local Mahjong Wild demo')
     parser.add_argument('--port', type=int, default=int(os.environ.get('PORT', '8765')))
     parser.add_argument('--public', action='store_true',
                         help='Enable public HTTP hosting with isolated browser sessions')
     args = parser.parse_args()
     host = '0.0.0.0' if args.public else '127.0.0.1'
     server = make_server(host=host, port=args.port, public=args.public)
-    print(f'Mahjong Legend listening on {host}:{server.server_port}', flush=True)
+    print(f'Mahjong Wild listening on {host}:{server.server_port}', flush=True)
     print('All credits are virtual and reset on server restart.', flush=True)
     try:
         server.serve_forever()

@@ -1,0 +1,614 @@
+{
+  "brand": "Mahjong Wild",
+  "styleLock": "9:16 HDR metallic gold + crimson enamel + jade neon; perfectly mirrored side ornaments",
+  "source": "Newly reconstructed sprites from flattened approved concept; no original editable PSD layers exist",
+  "assets": {
+    "tiles/base_ivory": {
+      "file": "web/assets/tiles/base_ivory.webp",
+      "category": "tiles",
+      "role": "Blank base_ivory tile, alpha background",
+      "width": 164,
+      "height": 184,
+      "transparent": true
+    },
+    "tiles/base_gold": {
+      "file": "web/assets/tiles/base_gold.webp",
+      "category": "tiles",
+      "role": "Blank base_gold tile, alpha background",
+      "width": 164,
+      "height": 184,
+      "transparent": true
+    },
+    "symbols/symbol_A": {
+      "file": "web/assets/symbols/symbol_A.webp",
+      "category": "symbols",
+      "role": "Independent face artwork",
+      "width": 144,
+      "height": 144,
+      "transparent": true,
+      "engineSymbol": "A"
+    },
+    "tiles/tile_A": {
+      "file": "web/assets/tiles/tile_A.webp",
+      "category": "tiles",
+      "role": "Complete reusable Mahjong tile",
+      "width": 164,
+      "height": 184,
+      "transparent": true,
+      "engineSymbol": "A"
+    },
+    "symbols/symbol_B": {
+      "file": "web/assets/symbols/symbol_B.webp",
+      "category": "symbols",
+      "role": "Independent face artwork",
+      "width": 144,
+      "height": 144,
+      "transparent": true,
+      "engineSymbol": "B"
+    },
+    "tiles/tile_B": {
+      "file": "web/assets/tiles/tile_B.webp",
+      "category": "tiles",
+      "role": "Complete reusable Mahjong tile",
+      "width": 164,
+      "height": 184,
+      "transparent": true,
+      "engineSymbol": "B"
+    },
+    "symbols/symbol_C": {
+      "file": "web/assets/symbols/symbol_C.webp",
+      "category": "symbols",
+      "role": "Independent face artwork",
+      "width": 144,
+      "height": 144,
+      "transparent": true,
+      "engineSymbol": "C"
+    },
+    "tiles/tile_C": {
+      "file": "web/assets/tiles/tile_C.webp",
+      "category": "tiles",
+      "role": "Complete reusable Mahjong tile",
+      "width": 164,
+      "height": 184,
+      "transparent": true,
+      "engineSymbol": "C"
+    },
+    "symbols/symbol_D": {
+      "file": "web/assets/symbols/symbol_D.webp",
+      "category": "symbols",
+      "role": "Independent face artwork",
+      "width": 144,
+      "height": 144,
+      "transparent": true,
+      "engineSymbol": "D"
+    },
+    "tiles/tile_D": {
+      "file": "web/assets/tiles/tile_D.webp",
+      "category": "tiles",
+      "role": "Complete reusable Mahjong tile",
+      "width": 164,
+      "height": 184,
+      "transparent": true,
+      "engineSymbol": "D"
+    },
+    "symbols/symbol_E": {
+      "file": "web/assets/symbols/symbol_E.webp",
+      "category": "symbols",
+      "role": "Independent face artwork",
+      "width": 144,
+      "height": 144,
+      "transparent": true,
+      "engineSymbol": "E"
+    },
+    "tiles/tile_E": {
+      "file": "web/assets/tiles/tile_E.webp",
+      "category": "tiles",
+      "role": "Complete reusable Mahjong tile",
+      "width": 164,
+      "height": 184,
+      "transparent": true,
+      "engineSymbol": "E"
+    },
+    "symbols/symbol_F": {
+      "file": "web/assets/symbols/symbol_F.webp",
+      "category": "symbols",
+      "role": "Independent face artwork",
+      "width": 144,
+      "height": 144,
+      "transparent": true,
+      "engineSymbol": "F"
+    },
+    "tiles/tile_F": {
+      "file": "web/assets/tiles/tile_F.webp",
+      "category": "tiles",
+      "role": "Complete reusable Mahjong tile",
+      "width": 164,
+      "height": 184,
+      "transparent": true,
+      "engineSymbol": "F"
+    },
+    "symbols/symbol_G": {
+      "file": "web/assets/symbols/symbol_G.webp",
+      "category": "symbols",
+      "role": "Independent face artwork",
+      "width": 144,
+      "height": 144,
+      "transparent": true,
+      "engineSymbol": "G"
+    },
+    "tiles/tile_G": {
+      "file": "web/assets/tiles/tile_G.webp",
+      "category": "tiles",
+      "role": "Complete reusable Mahjong tile",
+      "width": 164,
+      "height": 184,
+      "transparent": true,
+      "engineSymbol": "G"
+    },
+    "symbols/symbol_H": {
+      "file": "web/assets/symbols/symbol_H.webp",
+      "category": "symbols",
+      "role": "Independent face artwork",
+      "width": 144,
+      "height": 144,
+      "transparent": true,
+      "engineSymbol": "H"
+    },
+    "tiles/tile_H": {
+      "file": "web/assets/tiles/tile_H.webp",
+      "category": "tiles",
+      "role": "Complete reusable Mahjong tile",
+      "width": 164,
+      "height": 184,
+      "transparent": true,
+      "engineSymbol": "H"
+    },
+    "symbols/symbol_I": {
+      "file": "web/assets/symbols/symbol_I.webp",
+      "category": "symbols",
+      "role": "Independent face artwork",
+      "width": 144,
+      "height": 144,
+      "transparent": true,
+      "engineSymbol": "I"
+    },
+    "tiles/tile_I": {
+      "file": "web/assets/tiles/tile_I.webp",
+      "category": "tiles",
+      "role": "Complete reusable Mahjong tile",
+      "width": 164,
+      "height": 184,
+      "transparent": true,
+      "engineSymbol": "I"
+    },
+    "symbols/symbol_J": {
+      "file": "web/assets/symbols/symbol_J.webp",
+      "category": "symbols",
+      "role": "Independent face artwork",
+      "width": 144,
+      "height": 144,
+      "transparent": true,
+      "engineSymbol": "J"
+    },
+    "tiles/tile_J": {
+      "file": "web/assets/tiles/tile_J.webp",
+      "category": "tiles",
+      "role": "Complete reusable Mahjong tile",
+      "width": 164,
+      "height": 184,
+      "transparent": true,
+      "engineSymbol": "J"
+    },
+    "symbols/symbol_K": {
+      "file": "web/assets/symbols/symbol_K.webp",
+      "category": "symbols",
+      "role": "Independent face artwork",
+      "width": 144,
+      "height": 144,
+      "transparent": true,
+      "engineSymbol": "K"
+    },
+    "tiles/tile_K": {
+      "file": "web/assets/tiles/tile_K.webp",
+      "category": "tiles",
+      "role": "Complete reusable Mahjong tile",
+      "width": 164,
+      "height": 184,
+      "transparent": true,
+      "engineSymbol": "K"
+    },
+    "symbols/symbol_L": {
+      "file": "web/assets/symbols/symbol_L.webp",
+      "category": "symbols",
+      "role": "Independent face artwork",
+      "width": 144,
+      "height": 144,
+      "transparent": true,
+      "engineSymbol": "L"
+    },
+    "tiles/tile_L": {
+      "file": "web/assets/tiles/tile_L.webp",
+      "category": "tiles",
+      "role": "Complete reusable Mahjong tile",
+      "width": 164,
+      "height": 184,
+      "transparent": true,
+      "engineSymbol": "L"
+    },
+    "symbols/symbol_M": {
+      "file": "web/assets/symbols/symbol_M.webp",
+      "category": "symbols",
+      "role": "Independent face artwork",
+      "width": 144,
+      "height": 144,
+      "transparent": true,
+      "engineSymbol": "M"
+    },
+    "tiles/tile_M": {
+      "file": "web/assets/tiles/tile_M.webp",
+      "category": "tiles",
+      "role": "Complete reusable Mahjong tile",
+      "width": 164,
+      "height": 184,
+      "transparent": true,
+      "engineSymbol": "M"
+    },
+    "symbols/symbol_N": {
+      "file": "web/assets/symbols/symbol_N.webp",
+      "category": "symbols",
+      "role": "Independent face artwork",
+      "width": 144,
+      "height": 144,
+      "transparent": true,
+      "engineSymbol": "N"
+    },
+    "tiles/tile_N": {
+      "file": "web/assets/tiles/tile_N.webp",
+      "category": "tiles",
+      "role": "Complete reusable Mahjong tile",
+      "width": 164,
+      "height": 184,
+      "transparent": true,
+      "engineSymbol": "N"
+    },
+    "symbols/symbol_O": {
+      "file": "web/assets/symbols/symbol_O.webp",
+      "category": "symbols",
+      "role": "Independent face artwork",
+      "width": 144,
+      "height": 144,
+      "transparent": true,
+      "engineSymbol": "O"
+    },
+    "tiles/tile_O": {
+      "file": "web/assets/tiles/tile_O.webp",
+      "category": "tiles",
+      "role": "Complete reusable Mahjong tile",
+      "width": 164,
+      "height": 184,
+      "transparent": true,
+      "engineSymbol": "O"
+    },
+    "symbols/symbol_W": {
+      "file": "web/assets/symbols/symbol_W.webp",
+      "category": "symbols",
+      "role": "Independent face artwork",
+      "width": 144,
+      "height": 144,
+      "transparent": true,
+      "engineSymbol": "W"
+    },
+    "tiles/tile_W": {
+      "file": "web/assets/tiles/tile_W.webp",
+      "category": "tiles",
+      "role": "Complete reusable Mahjong tile",
+      "width": 164,
+      "height": 184,
+      "transparent": true,
+      "engineSymbol": "W"
+    },
+    "symbols/symbol_S": {
+      "file": "web/assets/symbols/symbol_S.webp",
+      "category": "symbols",
+      "role": "Independent face artwork",
+      "width": 144,
+      "height": 144,
+      "transparent": true,
+      "engineSymbol": "S"
+    },
+    "tiles/tile_S": {
+      "file": "web/assets/tiles/tile_S.webp",
+      "category": "tiles",
+      "role": "Complete reusable Mahjong tile",
+      "width": 164,
+      "height": 184,
+      "transparent": true,
+      "engineSymbol": "S"
+    },
+    "ornaments/dragon_left": {
+      "file": "web/assets/ornaments/dragon_left.webp",
+      "category": "ornaments",
+      "role": "Header gold dragon, facing inward",
+      "width": 348,
+      "height": 357,
+      "transparent": true
+    },
+    "ornaments/dragon_right": {
+      "file": "web/assets/ornaments/dragon_right.webp",
+      "category": "ornaments",
+      "role": "Mirrored dragon: exact symmetry",
+      "width": 348,
+      "height": 357,
+      "transparent": true
+    },
+    "ornaments/lantern_left": {
+      "file": "web/assets/ornaments/lantern_left.webp",
+      "category": "ornaments",
+      "role": "Red 福 lantern ornament",
+      "width": 142,
+      "height": 295,
+      "transparent": true
+    },
+    "ornaments/lantern_right": {
+      "file": "web/assets/ornaments/lantern_right.webp",
+      "category": "ornaments",
+      "role": "Mirrored 福 lantern ornament",
+      "width": 142,
+      "height": 295,
+      "transparent": true
+    },
+    "ornaments/cloud_left": {
+      "file": "web/assets/ornaments/cloud_left.webp",
+      "category": "ornaments",
+      "role": "Jade cloud detail",
+      "width": 254,
+      "height": 254,
+      "transparent": true
+    },
+    "ornaments/cloud_right": {
+      "file": "web/assets/ornaments/cloud_right.webp",
+      "category": "ornaments",
+      "role": "Mirrored jade cloud detail",
+      "width": 254,
+      "height": 254,
+      "transparent": true
+    },
+    "reference/locked_style_reference": {
+      "file": "web/assets/reference/locked_style_reference.webp",
+      "role": "Locked composition reference only, not runtime sprite",
+      "transparent": false
+    },
+    "ui/header": {
+      "file": "web/assets/ui/header.webp",
+      "category": "ui",
+      "role": "Ornamental header bar",
+      "width": 850,
+      "height": 170,
+      "transparent": true
+    },
+    "ui/multiplier": {
+      "file": "web/assets/ui/multiplier.webp",
+      "category": "ui",
+      "role": "Jade multiplier rail",
+      "width": 840,
+      "height": 120,
+      "transparent": true
+    },
+    "ui/reel_backplate": {
+      "file": "web/assets/ui/reel_backplate.webp",
+      "category": "ui",
+      "role": "Reel game board frame",
+      "width": 838,
+      "height": 1068,
+      "transparent": true
+    },
+    "ui/win_banner": {
+      "file": "web/assets/ui/win_banner.webp",
+      "category": "ui",
+      "role": "HDR win count ribbon",
+      "width": 835,
+      "height": 138,
+      "transparent": true
+    },
+    "ui/meter": {
+      "file": "web/assets/ui/meter.webp",
+      "category": "ui",
+      "role": "Balance bet win value frame",
+      "width": 260,
+      "height": 96,
+      "transparent": true
+    },
+    "ui/footer": {
+      "file": "web/assets/ui/footer.webp",
+      "category": "ui",
+      "role": "Control panel backdrop",
+      "width": 830,
+      "height": 108,
+      "transparent": true
+    },
+    "ui/spin": {
+      "file": "web/assets/ui/spin.webp",
+      "category": "ui",
+      "role": "spin interactive control",
+      "width": 205,
+      "height": 205,
+      "transparent": true
+    },
+    "ui/plus": {
+      "file": "web/assets/ui/plus.webp",
+      "category": "ui",
+      "role": "plus interactive control",
+      "width": 116,
+      "height": 116,
+      "transparent": true
+    },
+    "ui/minus": {
+      "file": "web/assets/ui/minus.webp",
+      "category": "ui",
+      "role": "minus interactive control",
+      "width": 116,
+      "height": 116,
+      "transparent": true
+    },
+    "ui/turbo": {
+      "file": "web/assets/ui/turbo.webp",
+      "category": "ui",
+      "role": "turbo interactive control",
+      "width": 116,
+      "height": 116,
+      "transparent": true
+    },
+    "ui/auto": {
+      "file": "web/assets/ui/auto.webp",
+      "category": "ui",
+      "role": "auto interactive control",
+      "width": 116,
+      "height": 116,
+      "transparent": true
+    },
+    "ui/menu": {
+      "file": "web/assets/ui/menu.webp",
+      "category": "ui",
+      "role": "menu interactive control",
+      "width": 116,
+      "height": 116,
+      "transparent": true
+    },
+    "ui/sound": {
+      "file": "web/assets/ui/sound.webp",
+      "category": "ui",
+      "role": "sound interactive control",
+      "width": 116,
+      "height": 116,
+      "transparent": true
+    },
+    "ui/logo": {
+      "file": "web/assets/ui/logo.webp",
+      "category": "ui",
+      "role": "Mahjong Wild gold metal nameplate",
+      "width": 810,
+      "height": 155,
+      "transparent": true
+    },
+    "effects/cascade_glow": {
+      "file": "web/assets/effects/cascade_glow.webp",
+      "category": "effects",
+      "role": "cascade_glow transparent particles / animated overlay",
+      "width": 228,
+      "height": 228,
+      "transparent": true
+    },
+    "effects/wild_transform": {
+      "file": "web/assets/effects/wild_transform.webp",
+      "category": "effects",
+      "role": "wild_transform transparent particles / animated overlay",
+      "width": 228,
+      "height": 228,
+      "transparent": true
+    },
+    "effects/reel_spark": {
+      "file": "web/assets/effects/reel_spark.webp",
+      "category": "effects",
+      "role": "reel_spark transparent particles / animated overlay",
+      "width": 228,
+      "height": 228,
+      "transparent": true
+    },
+    "effects/bonus_flare": {
+      "file": "web/assets/effects/bonus_flare.webp",
+      "category": "effects",
+      "role": "bonus_flare transparent particles / animated overlay",
+      "width": 228,
+      "height": 228,
+      "transparent": true
+    },
+    "effects/win_aura": {
+      "file": "web/assets/effects/win_aura.webp",
+      "category": "effects",
+      "role": "win_aura transparent particles / animated overlay",
+      "width": 228,
+      "height": 228,
+      "transparent": true
+    },
+    "effects/scatter_burst": {
+      "file": "web/assets/effects/scatter_burst.webp",
+      "category": "effects",
+      "role": "scatter_burst transparent particles / animated overlay",
+      "width": 228,
+      "height": 228,
+      "transparent": true
+    },
+    "audio/sfx/spin": {
+      "file": "web/assets/audio/sfx/spin.wav",
+      "category": "audio",
+      "role": "Original synthesized game audio",
+      "sampleRate": 22050
+    },
+    "audio/sfx/reel_stop": {
+      "file": "web/assets/audio/sfx/reel_stop.wav",
+      "category": "audio",
+      "role": "Original synthesized game audio",
+      "sampleRate": 22050
+    },
+    "audio/sfx/cascade": {
+      "file": "web/assets/audio/sfx/cascade.wav",
+      "category": "audio",
+      "role": "Original synthesized game audio",
+      "sampleRate": 22050
+    },
+    "audio/sfx/tile_break": {
+      "file": "web/assets/audio/sfx/tile_break.wav",
+      "category": "audio",
+      "role": "Original synthesized game audio",
+      "sampleRate": 22050
+    },
+    "audio/sfx/wild": {
+      "file": "web/assets/audio/sfx/wild.wav",
+      "category": "audio",
+      "role": "Original synthesized game audio",
+      "sampleRate": 22050
+    },
+    "audio/sfx/multiplier": {
+      "file": "web/assets/audio/sfx/multiplier.wav",
+      "category": "audio",
+      "role": "Original synthesized game audio",
+      "sampleRate": 22050
+    },
+    "audio/sfx/scatter": {
+      "file": "web/assets/audio/sfx/scatter.wav",
+      "category": "audio",
+      "role": "Original synthesized game audio",
+      "sampleRate": 22050
+    },
+    "audio/sfx/bonus": {
+      "file": "web/assets/audio/sfx/bonus.wav",
+      "category": "audio",
+      "role": "Original synthesized game audio",
+      "sampleRate": 22050
+    },
+    "audio/sfx/win": {
+      "file": "web/assets/audio/sfx/win.wav",
+      "category": "audio",
+      "role": "Original synthesized game audio",
+      "sampleRate": 22050
+    },
+    "audio/sfx/button": {
+      "file": "web/assets/audio/sfx/button.wav",
+      "category": "audio",
+      "role": "Original synthesized game audio",
+      "sampleRate": 22050
+    },
+    "audio/music/ambient_jade_loop": {
+      "file": "web/assets/audio/music/ambient_jade_loop.ogg",
+      "category": "audio",
+      "role": "Original ambient music loop; play after user interaction",
+      "durationSeconds": 12
+    },
+    "audio/music/ambient_jade_loop_aac": {
+      "file": "web/assets/audio/music/ambient_jade_loop.m4a",
+      "category": "audio",
+      "role": "Safari-compatible AAC ambient music loop",
+      "durationSeconds": 12
+    }
+  }
+}
