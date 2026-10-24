@@ -19,9 +19,19 @@ jobs:
         run: python -m playwright install --with-deps chromium
       - name: Verify game in browser over HTTP
         run: python tools/qa_locked_ui.py
+      - name: Verify exact release on Railway
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        env:
+          MW_LIVE_URL: https://mahjong-legend-web-production.up.railway.app
+        run: python tools/qa_live_release.py
       - name: Save browser verification
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: mahjong-wild-v08-browser-qa
           path: qa/
+      - name: Save generated asset pack
+        uses: actions/upload-artifact@v4
+        with:
+          name: mahjong-wild-v08-runtime-assets
+          path: web/assets/locked-v08/
