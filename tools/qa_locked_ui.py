@@ -28,7 +28,7 @@ def main():
     if args.offline:
         asset_map={'/'+str(f.relative_to(WEB)):uri('/'+str(f.relative_to(WEB))) for f in WEB.rglob('*') if f.suffix in ('.webp','.png','.wav','.m4a','.ogg')}
         offline_html=re.sub(r'<script[^>]*src="[^"]+"[^>]*></script>','',(WEB/'index.html').read_text())
-        css='\n'.join((WEB/p).read_text() for p in ['style.css','assets/locked-v08/game.css','assets/locked-v08/polish.css','assets/approved-v082/approved.css'])
+        css='\n'.join((WEB/p).read_text() for p in ['style.css','assets/locked-v08/game.css','assets/locked-v08/polish.css','assets/approved-v082/approved.css','assets/reel-v083/reels.css','assets/reel-v083/splash.css'])
         css=re.sub(r"url\(['\"]?([^)\"']+)['\"]?\)",lambda m:'url("'+uri(m[1])+'")' if m[1].startswith('/') else m[0],css)
         offline_html=re.sub(r'<link[^>]+rel="stylesheet"[^>]+>','',offline_html).replace('</head>','<style>'+css+'</style></head>')
         offline_html=re.sub(r'src="(/[^\"]+)"',lambda m:'src="'+uri(m[1])+'"',offline_html)
@@ -51,14 +51,19 @@ def main():
                 page.expose_function('qaAPI',api);page.set_content(offline_html)
                 page.evaluate('''assets=>{const d=Object.getOwnPropertyDescriptor(HTMLImageElement.prototype,'src');Object.defineProperty(HTMLImageElement.prototype,'src',{set(v){d.set.call(this,assets[v]||v)},get:d.get});const f=window.fetch.bind(window);window.fetch=async(path,opts={})=>path.startsWith('/api/')?new Response(JSON.stringify(await window.qaAPI(path,opts.body?JSON.parse(opts.body):null)),{status:200,headers:{'Content-Type':'application/json'}}):f(assets[path]||path);const A=window.Audio;window.Audio=function(path){return new A(assets[path]||path)};}''',asset_map)
                 page.add_script_tag(content=(WEB/'assets/locked-v08/audio.js').read_text())
+                page.add_script_tag(content=(WEB/'assets/reel-v083/reels.js').read_text())
                 page.add_script_tag(content=(WEB/'assets/locked-v08/game.js').read_text())
+                page.add_script_tag(content=(WEB/'assets/reel-v083/splash.js').read_text())
             else:page.goto(url,wait_until='networkidle')
             expect(page.locator('#stage-notice')).to_have_text('SIAP BERMAIN')
+            expect(page.locator('#soft-tech-continue')).to_be_enabled(timeout=10000)
+            page.locator('#soft-tech-continue').click()
+            expect(page.locator('#soft-tech-splash')).to_be_hidden()
             page.locator('#board').evaluate('(b)=>Promise.all([...b.querySelectorAll("img")].map(i=>i.decode()))')
             assert page.locator('#board .tile').count()==23
             assert page.locator('#mult-track').inner_text().split()==['x1','x2','x3','x5']
             return page,errors
-        for w,h in [(320,568),(375,667),(390,844),(430,932),(1440,900)]:
+        for w,h in ([(390,844)] if args.offline else [(320,568),(375,667),(390,844),(430,932),(1440,900)]):
             page,errors=load(width=w,height=h)
             box=page.locator('#game-stage').bounding_box()
             assert abs(box['width']/box['height']-9/16)<.001

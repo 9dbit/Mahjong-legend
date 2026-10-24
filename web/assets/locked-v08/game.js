@@ -9,8 +9,7 @@
   const audio=()=>window.MahjongWildAudio;
   const demo=[['M','D','G','O'],['B','L','M','D','E'],['D','W','N','W','E'],['G','E','M','L','O'],['D','G','B','M']].map((c,ci)=>c.map((symbol,r)=>({symbol,enhanced:ci>=1&&ci<=3&&r===2})));
   let state=null,stake=1,options=[.2,.5,1,2,5,10],busy=false,skip=false,turbo=false,auto=0,autoTimer=null,last=null,history=[],displayWin=0,winFrame=0;
-  const animations=new Set(),waiters=new Set(),imageCache=new Map();
-  let finishReels=null;
+  const animations=new Set(),waiters=new Set();
   const duration=ms=>(skip||reduced.matches)?0:Math.round(ms*(turbo?.38:1));
   function wait(ms){return new Promise(resolve=>{const done=()=>{clearTimeout(id);waiters.delete(done);resolve();};const id=setTimeout(done,duration(ms));waiters.add(done);});}
   function motion(el,frames,ms,delay=0,easing='cubic-bezier(.22,.65,.32,1)'){
@@ -18,7 +17,7 @@
     const a=el.animate(frames,{duration:duration(ms),delay:duration(delay),easing,fill:'both'});animations.add(a);
     return a.finished.catch(()=>{}).finally(()=>{animations.delete(a);a.cancel();});
   }
-  function skipAnimation(){skip=true;finishReels?.();stopDisc(true);for(const a of animations)a.cancel();for(const done of [...waiters])done();audio()?.stop();}
+  function skipAnimation(){skip=true;window.MahjongReels.finish();stopDisc(true);for(const a of animations)a.cancel();for(const done of [...waiters])done();audio()?.stop();}
   function sfx(type,variant=0){if(!skip)void audio()?.play(type,variant);}
   function notice(text,win=false){const e=$('stage-notice');e.replaceChildren();if(win&&text.startsWith('MENANG ')){e.append(document.createTextNode('MENANG '),node('strong','win-amount',text.slice(7)));}else e.textContent=text;e.parentElement.classList.toggle('winning',win);fitMeters();}
   function mult(bonus,index=0){
@@ -27,15 +26,22 @@
     (values||(bonus?[2,3,5,8]:[1,2,3,5])).forEach((v,i)=>{const el=node('span',`mult${i===Math.min(index,3)?' active':''}`,`x${v}`);el.dataset.value=String(v);if([1,2,3,5].includes(v)){const im=node('img','mult-glyph');im.alt='';im.src=`${assets}multiplier/${v}-${i===Math.min(index,3)?'active':'idle'}.webp`;el.append(im);el.classList.add('art-mult');}root.append(el);});
     $('machine').classList.toggle('bonus-mode',bonus);
   }
-  function tile(data,row,compact=false){
+  function tile(data,row){
     const el=node('div',`tile${data.enhanced?' enhanced':''}${data.symbol==='W'?' wild':''}${data.symbol==='S'?' scatter':''}`);
     el.dataset.symbol=data.symbol;el.dataset.row=String(row);el._tile={...data};
-    const img=node('img','tile-image');img.decoding='sync';img.src=`${assets}tiles/${data.symbol}-${data.enhanced?'gold':'normal'}.webp`;img.alt=data.symbol==='W'?'Wild':data.symbol==='S'?'Scatter':`Tile ${data.symbol}`;img.draggable=false;el.append(img);
-    if(!compact&&!['W','S'].includes(data.symbol)){const glow=node('img','symbol-emission');glow.decoding='sync';glow.src=`${assets}symbols/${data.symbol}.webp`;glow.alt='';glow.draggable=false;el.append(glow);}
+    const img=node('img','tile-image');img.src=`${assets}tiles/${data.symbol}-${data.enhanced?'gold':'normal'}.webp`;img.alt=data.symbol==='W'?'Wild':data.symbol==='S'?'Scatter':`Tile ${data.symbol}`;img.draggable=false;img.decoding='sync';el.append(img);
+    if(!['W','S'].includes(data.symbol)){const glow=node('img','symbol-emission');glow.src=`${assets}symbols/${data.symbol}.webp`;glow.alt='';glow.draggable=false;el.append(glow);}
     return el;
   }
   function reel(col,index){const e=node('div',`reel${col.length===4?' short':''}`);e.setAttribute('aria-label',`Reel ${index+1}`);col.forEach((t,row)=>e.append(tile(t,row)));return e;}
-  function render(board){const root=$('board');root.replaceChildren();board.forEach((col,i)=>root.append(reel(col,i)));root.setAttribute('aria-label',board.map(c=>c.map(t=>t.symbol).join(' ')).join(' / '));}
+  function render(board){
+    const root=$('board');
+    const same=root.children.length===board.length&&board.every((col,c)=>root.children[c].classList.contains('reel')&&root.children[c].children.length===col.length&&col.every((t,r)=>{const old=root.children[c].children[r]._tile;return old?.symbol===t.symbol&&!!old.enhanced===!!t.enhanced;}));
+    if(same){for(const el of root.querySelectorAll('.tile')){el.classList.remove('marked','removed','cracked','wild-pop','morph-charge');el.querySelectorAll('.crack,.win-border').forEach(n=>n.remove());}}
+    else root.replaceChildren(...board.map(reel));
+    root.setAttribute('aria-label',board.map(c=>c.map(t=>t.symbol).join(' ')).join(' / '));
+  }
+  async function preparedRender(board){const reels=board.map(reel);await Promise.all(reels.map(window.MahjongReels.ready));$('board').replaceChildren(...reels);$('board').setAttribute('aria-label',board.map(c=>c.map(t=>t.symbol).join(' ')).join(' / '));}
   let discFrame=0,discAngle=0,discSpeed=0,discTarget=0,discLast=0;
   function driveDisc(on){
     discTarget=on&&!skip&&!reduced.matches?(turbo?680:430):0;
@@ -85,97 +91,34 @@
     cancelAnimationFrame(winFrame);const start=displayWin,begin=performance.now(),ms=duration(290);
     const tick=now=>{const t=ms?Math.min(1,(now-begin)/ms):1;displayWin=start+(value-start)*(1-(1-t)**3);$('last-win').textContent=format(displayWin);fitMeters();if(t<1)winFrame=requestAnimationFrame(tick);};winFrame=requestAnimationFrame(tick);
   }
-  function decoded(image){
-    if(image.decode)return image.decode().catch(()=>{if(!image.complete||!image.naturalWidth)throw Error('Gambar balok belum termuat. Muat ulang game.');});
-    if(image.complete&&image.naturalWidth)return Promise.resolve();
-    return new Promise((resolve,reject)=>{image.addEventListener('load',resolve,{once:true});image.addEventListener('error',()=>reject(Error('Gambar balok belum termuat. Muat ulang game.')),{once:true});});
-  }
-  function warmImage(src){
-    if(imageCache.has(src))return;
-    const image=new Image();image.decoding='sync';image.src=src;
-    imageCache.set(src,image);void decoded(image).catch(()=>imageCache.delete(src));
-  }
-  // Only visible rows plus two guards are mounted. Incoming nodes are decoded
-  // offscreen first; no image URLs, layout reads or effect layers change per frame.
-  // One clock drives all five columns, with zero speed/acceleration at both ends.
-  const rollProgress=t=>t*t*t*(t*(t*6-15)+10);
   async function spinReels(board){
-    const root=$('board'),speed=turbo?.38:1,frameCap=turbo?24:40;
-    const columns=board.map((col,i)=>{
-      const original=root.children[i],old=[...original.children].filter(t=>t._tile);
-      const steps=col.length+(turbo?7:14);
-      const incoming=Array.from({length:steps+1},(_,q)=>{
-        const landing=q>=steps-col.length&&q<steps;
-        const data=landing?col[steps-1-q]:demo[(i+q)%5][q%demo[(i+q)%5].length];
-        return tile(data,0,!landing);
+    $('game-stage').dataset.motionPhase='preparing';
+    try {
+      await window.MahjongReels.run({
+        root:$('board'),board,buildReel:reel,
+        urlFor:t=>`${assets}tiles/${t.symbol}-${t.enhanced?'gold':'normal'}.webp`,
+        filler:(i,j)=>demo[(i+j)%5][j%demo[(i+j)%5].length],
+        turbo,shouldSkip:()=>skip||reduced.matches,
+        onStop:i=>sfx('stop',i)
       });
-      return {i,col,original,old,incoming,steps,step:0,done:false,bottom:tile(old.at(-1)?._tile||col.at(-1),0,true)};
-    });
-    // Keep every original reel painted while network/decoding work finishes.
-    let decodeTimer;
-    try{
-      await Promise.race([
-        Promise.all(columns.flatMap(c=>[...c.incoming,c.bottom,...c.old].flatMap(t=>[...t.querySelectorAll('img')].map(decoded)))),
-        new Promise((_,reject)=>{decodeTimer=setTimeout(()=>reject(Error('Gambar balok belum termuat. Muat ulang game.')),10000);})
-      ]);
-    }finally{clearTimeout(decodeTimer);}
-    const label=()=>root.setAttribute('aria-label',board.map(c=>c.map(t=>t.symbol).join(' ')).join(' / '));
-    const settledReel=c=>{const e=node('div',`reel${c.col.length===4?' short':''}`);e.setAttribute('aria-label',`Reel ${c.i+1}`);return e;};
-    if(skip||reduced.matches){
-      root.replaceChildren(...columns.map(c=>{const e=settledReel(c);c.col.forEach((_,r)=>{const t=c.incoming[c.steps-1-r];t.dataset.row=String(r);e.append(t);});return e;}));label();return;
+      $('board').setAttribute('aria-label',board.map(c=>c.map(t=>t.symbol).join(' ')).join(' / '));
+    } catch (error) {
+      window.MahjongReels.recordError('spin-reel',error);
+      try { await preparedRender(board); } catch (_) { render(board); }
+    } finally {
+      $('machine').classList.remove('is-spinning');
+      $('game-stage').dataset.motionPhase='settled';
     }
-    // Batch geometry reads before mounting, including the shorter outer columns.
-    document.body.classList.add('reels-active');
-    for(const c of columns){c.height=c.original.getBoundingClientRect().height;c.gap=parseFloat(getComputedStyle(c.original).rowGap)||0;c.pitch=(c.height+c.gap)/c.col.length;}
-    for(const c of columns){
-      c.window=node('div',`reel-window${c.col.length===4?' short':''}`);c.strip=node('div','reel-strip');
-      c.window.setAttribute('aria-label',`Reel ${c.i+1}`);c.window.dataset.reelIndex=String(c.i);c.window.dataset.travel='0';c.window.dataset.started='false';
-      c.window.style.height=`${c.height}px`;c.strip.style.gap=`${c.gap}px`;
-      for(const t of [...c.incoming,...c.old,c.bottom]){t.style.height=`${c.pitch-c.gap}px`;t.style.flex=`0 0 ${c.pitch-c.gap}px`;}
-      for(const t of c.old){t.className=`tile${t._tile.enhanced?' enhanced':''}${t._tile.symbol==='W'?' wild':''}${t._tile.symbol==='S'?' scatter':''}`;t.querySelectorAll('.crack,.win-border').forEach(e=>e.remove());}
-      c.strip.append(c.incoming[0],...c.old,c.bottom);c.strip.style.transform=`translate3d(0,${-c.pitch}px,0)`;
-      c.window.append(c.strip);c.original.replaceWith(c.window);
+  }
+  document.addEventListener('mahjong:reel',e=>{
+    if(e.detail.phase==='start'){
+      if(e.detail.column===1)sfx('spin');
+      $('machine').classList.add('is-spinning');
+      $('game-stage').dataset.motionPhase='roll';
     }
-    $('machine').classList.add('is-spinning');$('game-stage').dataset.motionPhase='roll';sfx('spin');
-    await new Promise(resolve=>{
-      let lastFrame=null,elapsed=0,frame=0,finished=false;
-      const advance=(c,step)=>{while(c.step<step){c.strip.lastElementChild.remove();c.strip.prepend(c.incoming[++c.step]);}};
-      const settle=c=>{
-        if(c.done)return;advance(c,c.steps);
-        const e=settledReel(c);
-        // Reuse the exact decoded tiles that landed; there is no final image swap.
-        [...c.strip.children].slice(1,c.col.length+1).forEach((t,r)=>{t.style.height='';t.style.flex='';t.dataset.row=String(r);e.append(t);});
-        c.window.replaceWith(e);c.done=true;sfx('stop',c.i);
-      };
-      const finish=()=>{
-        if(finished)return;finished=true;cancelAnimationFrame(frame);columns.forEach(settle);label();
-        if(finishReels===finish)finishReels=null;
-        document.body.classList.remove('reels-active');$('machine').classList.remove('is-spinning');$('game-stage').dataset.motionPhase='settled';resolve();
-      };
-      finishReels=finish;
-      const tick=now=>{
-        if(finished)return;
-        // A delayed frame must not skip the visible acceleration/deceleration.
-        // Normal devices retain the same timing; slower ones finish gracefully
-        // instead of jumping several rows when the renderer catches up.
-        if(lastFrame!==null)elapsed+=Math.min(frameCap,Math.max(0,now-lastFrame));
-        lastFrame=now;
-        for(const c of columns){
-          if(c.done)continue;
-          const t=Math.max(0,Math.min(1,(elapsed-c.i*100*speed)/((1400+c.i*60)*speed)));
-          if(t===0)continue;
-          c.window.dataset.started='true';
-          const travel=t===1?c.steps:Math.min(c.steps,c.steps*rollProgress(t)),step=Math.floor(travel);
-          advance(c,step);c.strip.style.transform=`translate3d(0,${((travel-step-1)*c.pitch).toFixed(3)}px,0)`;
-          c.window.dataset.travel=(travel*c.pitch).toFixed(3);
-          if(t===1)settle(c);
-        }
-        if(columns.every(c=>c.done))finish();else frame=requestAnimationFrame(tick);
-      };
-      // Paint the mounted old tiles once before starting the shared clock.
-      // First-frame layer setup must not consume the slow acceleration phase.
-      frame=requestAnimationFrame(()=>{if(!finished)frame=requestAnimationFrame(tick);});
-    });
+  });
+  async function readyBoard(board){
+    await window.MahjongReels.prepare(board.flat().map(t=>`${assets}tiles/${t.symbol}-${t.enhanced?'gold':'normal'}.webp`));
   }
   // Fragments contain the actual winning tile pixels, including its symbol.
   // All work is awaited/cancellable; refill cannot hide the break after 200ms.
@@ -230,7 +173,7 @@
   }
   async function drop(event){
     const board=$('board'),old=[...board.children].map(el=>({height:el.getBoundingClientRect().height,gap:parseFloat(getComputedStyle(el).rowGap)||2}));
-    $('game-stage').dataset.motionPhase='drop';render(event.after);const promises=[];let transformed=false;
+    await readyBoard(event.after);$('game-stage').dataset.motionPhase='drop';await preparedRender(event.after);const promises=[];let transformed=false;
     event.after.forEach((col,c)=>{
       const marked=new Set(event.marked[c]),survivors=[];
       event.before[c].forEach((t,r)=>{if(!marked.has(r))survivors.push({row:r,morph:false});else if(t.enhanced&&!['W','S'].includes(t.symbol))survivors.push({row:r,morph:true});});
@@ -252,7 +195,7 @@
       if(event.type==='screen_start'){
         const bonus=event.phase==='bonus';$('phase-tag').textContent=bonus?`FREE ${event.number}/${record.free_spins_played}`:'BASE GAME';mult(bonus,0);notice(bonus?`FREE SPIN ${event.number}`:'BERPUTAR');await spinReels(event.board);
       }else if(event.type==='cascade'){
-        mult(event.phase==='bonus',event.step-1);render(event.before);
+        mult(event.phase==='bonus',event.step-1);await readyBoard(event.before);await preparedRender(event.before);
         event.marked.forEach((rows,c)=>rows.forEach(r=>{$('board').children[c].children[r].classList.add('marked');$('board').children[c].children[r].append(node('span','win-border'));}));
         cumulative+=Number(event.awarded_x)*stake;winCount(cumulative);notice(`MENANG ${format(cumulative)}`,true);sfx(event.step>1?'multiplier':'win');await wait(280);
         if(event.after){
@@ -300,7 +243,7 @@
       // Never retry a paid request automatically. Read back the server balance.
       try{refresh(await req('/api/state'));const recovered=await req('/api/last-round');last=recovered.round;$('last-round-id').textContent=last.round_id;$('verify-btn').disabled=false;$('download-btn').disabled=false;}catch{}
     }finally{
-      finishReels?.();document.body.classList.remove('reels-active');for(const a of animations)a.cancel();$('effects-layer').replaceChildren();$('overlay-banner').classList.add('hidden');busy=false;skip=false;controls();$('phase-tag').textContent='BASE GAME';$('game-stage').dataset.motionPhase='idle';$('machine').classList.remove('is-spinning');
+      for(const a of animations)a.cancel();$('effects-layer').replaceChildren();$('overlay-banner').classList.add('hidden');busy=false;skip=false;controls();$('phase-tag').textContent='BASE GAME';$('game-stage').dataset.motionPhase='idle';$('machine').classList.remove('is-spinning');
       if(auto&&!document.hidden&&Number(state?.balance)>=stake)autoTimer=setTimeout(()=>spin(true),turbo?180:550);else if(auto)cancelAuto();
     }
   }
@@ -333,10 +276,9 @@
   reduced.addEventListener?.('change',()=>{if(reduced.matches&&busy)skipAnimation();});
   window.addEventListener('pagehide',()=>{cancelAuto();skipAnimation();});
   new ResizeObserver(fitMeters).observe($('game-stage'));
-  window.addEventListener('resize',()=>{finishReels?.();fitMeters();});
+  window.addEventListener('resize',fitMeters);
   $('board').addEventListener('pointerdown',e=>{if(busy)return;const el=e.target.closest('.tile');if(el)void motion(el,[{transform:'scale(1)'},{transform:'scale(1.045)',offset:.4},{transform:'scale(1)'}],300);});
   render(demo);mult(false);controls();$('last-win').textContent=format(0);notice('MEMUAT GAME');
-  warmImage(assets+'effects/crack.webp');
-  for(const id of 'ABCDEFGHIJKLMNOWS'){for(const state of ['normal','gold'])warmImage(`${assets}tiles/${id}-${state}.webp`);if(!['W','S'].includes(id))warmImage(`${assets}symbols/${id}.webp`);}
-  req('/api/state').then(next=>{refresh(next);mult(false);notice('SIAP BERMAIN');const root=$('paytable-list');root.replaceChildren();for(const[s,values]of Object.entries(next.rules.paytable)){const row=node('div','paytable-item');const label=node('span','symbol-label'),icon=node('img','paytable-tile');icon.src=`${assets}tiles/${s}-normal.webp`;icon.alt=`Tile ${s}`;label.append(icon,node('b','',s));row.append(label,...values.map(v=>node('span','',String(v))));root.append(row);}}).catch(e=>{notice('KONEKSI GAGAL. MUAT ULANG.');$('spin-btn').disabled=true;console.error(e.message);});
+  for(const file of ['effects/crack.webp']){const im=new Image();im.src=assets+file;}
+  Promise.all([req('/api/state'),window.MahjongReels.prepare(Array.from('ABCDEFGHIJKLMNOWS').flatMap(id=>['normal','gold'].map(s=>`${assets}tiles/${id}-${s}.webp`)))]).then(([next])=>{refresh(next);mult(false);notice('SIAP BERMAIN');const root=$('paytable-list');root.replaceChildren();for(const[s,values]of Object.entries(next.rules.paytable)){const row=node('div','paytable-item');const label=node('span','symbol-label'),icon=node('img','paytable-tile');icon.src=`${assets}tiles/${s}-normal.webp`;icon.alt=`Tile ${s}`;label.append(icon,node('b','',s));row.append(label,...values.map(v=>node('span','',String(v))));root.append(row);}}).catch(e=>{notice('KONEKSI GAGAL. MUAT ULANG.');$('spin-btn').disabled=true;console.error(e.message);});
 })();

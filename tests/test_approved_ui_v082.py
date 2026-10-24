@@ -25,7 +25,7 @@ class ApprovedUI(unittest.TestCase):
         for box in [(250,90,620,255),(30,180,115,290),(749,180,830,290),(20,700,108,810),(230,1420,630,1480)]:
             self.assertEqual(source.crop(box).tobytes(),frame.crop(box).tobytes(),box)
     def test_new_ui_is_loaded_not_a_static_screenshot(self):
-        h=(ROOT/'web/index.html').read_text();self.assertIn('approved-v082/approved.css',h);self.assertIn('data-release="0.8.3"',h)
+        h=(ROOT/'web/index.html').read_text();self.assertIn('approved-v082/approved.css',h);self.assertIn('data-release="0.8.4"',h)
         s=(ROOT/'web/assets/locked-v08/game.js').read_text();self.assertIn("req('/api/spin'",s);self.assertIn("'/assets/approved-v082/'",s)
         self.assertIn('fragment-side',s);self.assertIn('await Promise.all(promises)',s)
     def test_pwa_is_standalone_and_no_outcome_cache(self):

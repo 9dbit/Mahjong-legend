@@ -210,9 +210,46 @@ class DemoHandler(BaseHTTPRequestHandler):
             return self._send(200, body, content_type)
         self._json(404, {'error': 'Not found'})
 
+    def _diagnostic(self, data):
+        """Bounded opt-in spin metrics. No IP, cookies, identity, bets or seeds logged."""
+        import math
+        import re
+        def number(key, upper=10000000):
+            raw = data.get(key)
+            if not isinstance(raw, (int, float)) or isinstance(raw, bool) or not math.isfinite(raw):
+                return 0
+            return round(max(0, min(float(raw), upper)), 2)
+        def columns(key):
+            values = data.get(key)
+            if not isinstance(values, list):
+                return []
+            return [v for v in values[:5] if type(v) is int and 1 <= v <= 5]
+        device = data.get('device') if isinstance(data.get('device'), dict) else {}
+        errors = data.get('errors') if isinstance(data.get('errors'), list) else []
+        log = {
+            'event': 'spin_performance', 'ui': '0.8.4',
+            'mode': 'gpu-composited-atlas',
+            'completed': data.get('completed') is True,
+            'cancelled': data.get('cancelled') is True,
+            'starts': columns('starts'), 'stops': columns('stops'),
+            'duration_ms': number('durationMs', 120000),
+            'prepare_ms': number('prepareMs', 120000),
+            'max_frame_gap_ms': number('maxFrameGapMs', 10000),
+            'slow_frames': number('slowFrames', 100000),
+            'samples': number('samples', 100000),
+            'atlas_pixels': number('atlasPixels', 20000000),
+            'viewport': [max(0,min(int(device.get('width',0)) if type(device.get('width')) is int else 0,10000)),
+                         max(0,min(int(device.get('height',0)) if type(device.get('height')) is int else 0,10000))],
+            'dpr': round(min(max(float(device.get('dpr', 1)) if type(device.get('dpr')) in (int,float) else 1, 0), 4), 2),
+            'errors': [re.sub(r'[^A-Za-z0-9 ,.:()_\-]', '', str(s))[:90]
+                       for s in errors[:3] if isinstance(s,str)]
+        }
+        print('MW_SPIN_DIAG ' + json.dumps(log, separators=(',', ':')), flush=True)
+        self._json(202, {'accepted': True})
+
     def do_POST(self):
         path = urlsplit(self.path).path
-        if path not in ('/api/spin', '/api/reset', '/api/verify'):
+        if path not in ('/api/spin', '/api/reset', '/api/verify', '/api/diagnostics/spin'):
             return self._json(404, {'error': 'Not found'})
         if self.headers.get('Content-Type', '').split(';')[0] != 'application/json':
             return self._json(415, {'error': 'JSON content type required'})
@@ -232,14 +269,16 @@ class DemoHandler(BaseHTTPRequestHandler):
                 return self._json(403, {'error': 'Origin header required'})
         if origin and origin not in allowed_origins:
             return self._json(403, {'error': 'Origin not allowed'})
-        session = self._session()
+        session = None if path == '/api/diagnostics/spin' else self._session()
         try:
             content_len = int(self.headers.get('Content-Length', '0'))
-            if content_len < 0 or content_len > 1_000_000:
+            if content_len < 0 or content_len > (4096 if path == '/api/diagnostics/spin' else 1_000_000):
                 return self._json(413, {'error': 'Request too large'})
             data = json.loads(self.rfile.read(content_len) or '{}')
             if not isinstance(data, dict):
                 return self._json(400, {'error': 'Expected JSON object'})
+            if path == '/api/diagnostics/spin':
+                return self._diagnostic(data)
             if path == '/api/spin':
                 return self._json(200, session.spin(data.get('bet')))
             if path == '/api/reset':

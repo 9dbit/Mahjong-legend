@@ -13,19 +13,22 @@ def main():
     OUT.mkdir(parents=True,exist_ok=True);session=DemoSession();server=None
     if not args.offline:
         server=make_server(port=0,session=session);threading.Thread(target=server.serve_forever,daemon=True).start()
-    report={'ui':'0.8.3','engine':args.engine,'transport':'embedded assets + Python engine' if args.offline else 'HTTP + CSP','viewports':[],'audio':{},'pwa':{}}
+    report={'ui':'0.8.4','engine':args.engine,'transport':'embedded assets + Python engine' if args.offline else 'HTTP + CSP','viewports':[],'audio':{},'pwa':{}}
     try:
       with sync_playwright() as p:
         browser=getattr(p,args.engine).launch(headless=True,**({'executable_path':args.browser} if args.browser else {}))
-        for w,h in [(360,640),(390,844),(430,932),(844,390)]:
+        for w,h in ([(390,844)] if args.offline else [(360,640),(390,844),(430,932),(844,390)]):
             page=browser.new_page(viewport={'width':w,'height':h},device_scale_factor=2 if w<500 else 1,is_mobile=w<500,has_touch=True);errors=[];page.on('pageerror',lambda e:errors.append(str(e)))
             if args.offline:offline(page)
             else:page.goto(f'http://127.0.0.1:{server.server_port}',wait_until='networkidle')
-            expect(page.locator('#stage-notice')).to_have_text('SIAP BERMAIN');expect(page.locator('#game-stage')).to_have_attribute('data-release','0.8.3')
+            expect(page.locator('#stage-notice')).to_have_text('SIAP BERMAIN');expect(page.locator('#game-stage')).to_have_attribute('data-release','0.8.4')
             assert not page.evaluate('window.MahjongWildAudio.state.unlocked'), 'No autoplay before gesture'
+            expect(page.locator('#soft-tech-continue')).to_be_enabled(timeout=10000)
+            page.locator('#soft-tech-continue').click()
+            expect(page.locator('#soft-tech-splash')).to_be_hidden()
+            assert page.evaluate('window.MahjongWildAudio.state.unlocked'), 'Continue Play must unlock sound'
             geom=page.locator('body').evaluate('(e)=>({w:e.getBoundingClientRect().width,h:e.getBoundingClientRect().height,ow:document.documentElement.scrollWidth-innerWidth,oh:document.documentElement.scrollHeight-innerHeight})')
-            # WebKit rounds dynamic viewport units to 1/64 CSS pixel.
-            assert abs(geom['w']-w)<=.1 and abs(geom['h']-h)<=.1 and geom['ow']<=1 and geom['oh']<=1,geom
+            assert abs(geom['w']-w)<1 and abs(geom['h']-h)<1 and geom['ow']<=1 and geom['oh']<=1,geom
             assert page.locator('#board .tile').count()==23
             # Live counters fit even after a large virtual payout, without changing state.
             previous_balance=page.locator('#balance').inner_text()

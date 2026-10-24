@@ -23,5 +23,5 @@ class Presentation081(unittest.TestCase):
         for p,m in manifest['files'].items():self.assertEqual(hashlib.sha256((A/p).read_bytes()).hexdigest(),m['sha256'])
     def test_ui_and_math_versions_are_distinct(self):
         r=json.loads((A/'release.json').read_text());self.assertEqual(r['release'],'0.8.1');self.assertEqual(r['math_version'],'0.8.0');self.assertTrue(r['virtual_credits_only'])
-        h=(ROOT/'web/index.html').read_text();self.assertEqual(h.count('class="logo-fx"'),1);self.assertIn('v0.8.3',h);self.assertIn('polish.css',h)
+        h=(ROOT/'web/index.html').read_text();self.assertEqual(h.count('class="logo-fx"'),1);self.assertIn('v0.8.4',h);self.assertIn('polish.css',h)
 if __name__=='__main__':unittest.main()
