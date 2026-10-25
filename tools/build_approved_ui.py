@@ -75,6 +75,19 @@ def build():
     # Runtime board. The low corner cloud/scrollwork is left intact.
     board=grad((630,615),(64,7,10),(104,16,10));mask=Image.new('L',SIZE)
     ImageDraw.Draw(mask).polygon([(118,394),(747,394),(747,941),(685,957),(648,1009),(218,1009),(177,978),(118,954)],fill=255)
+    # The lower approved gold scrollwork extends across the tapered board edge.
+    # A hard binary polygon made it look cut off by a dark rectangular panel.
+    # Feather only the lower corners; preserve the locked top/side frame geometry.
+    blurred=mask.filter(ImageFilter.GaussianBlur(18))
+    feather_ramp=Image.new('L',SIZE,0)
+    fade_draw=ImageDraw.Draw(feather_ramp)
+    for y in range(820,1028):
+        blend=max(0,min(255,round(255*(y-820)/68)))
+        fade_draw.line((0,y,SIZE[0],y),fill=blend)
+    fade_draw.rectangle((0,1028,SIZE[0],SIZE[1]),fill=255)
+    mask=Image.composite(blurred,mask,feather_ramp)
+    assert 40 < mask.getpixel((153,968)) < 220, 'Lower left scroll feather missing'
+    assert 40 < mask.getpixel((709,950)) < 220, 'Lower right scroll feather missing'
     layer=frame.copy();layer.paste(board,(118,394));frame.paste(layer,(0,0),mask)
     patch(frame,(108,315,756,375),(0,128,112),(0,49,48),12)
     patch(frame,(157,1028,711,1098),(128,0,9),(91,0,9),10)
