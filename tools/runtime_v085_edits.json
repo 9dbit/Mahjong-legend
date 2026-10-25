@@ -1,0 +1,148 @@
+{
+  "release": "0.8.5",
+  "basis_commit": "58d7e197fa7556c0ce35fd38c5364ad6733ed356",
+  "files": [
+    {
+      "source": "web/assets/locked-v08/game.js",
+      "target": "web/assets/portrait-v085/game.js",
+      "source_sha256": "472bb131d33ad28cf9e22c0342b9e20e982ad31997bd2b360fb1b061f1bcdeca",
+      "target_sha256": "37d54f13634b7340f6f7f3526c92482499c9854284e7f0e20e76239076587231",
+      "edits": [
+        {"start":0,"stop":1,"insert":"/* Mahjong Wild UI 0.8.5. Presentation consumes server outcomes; it never draws gameplay RNG. */\n"},
+        {"start":5,"stop":5,"insert":"  const tileAssets='/assets/portrait-v085/';\n"},
+        {"start":31,"stop":32,"insert":"    const img=node('img','tile-image');img.src=`${tileAssets}tiles/${data.symbol}-${data.enhanced?'gold':'normal'}.webp`;img.alt=data.symbol==='W'?'Wild':data.symbol==='S'?'Scatter':`Tile ${data.symbol}`;img.draggable=false;img.decoding='sync';el.append(img);\n"},
+        {"start":98,"stop":99,"insert":"        urlFor:t=>`${tileAssets}tiles/${t.symbol}-${t.enhanced?'gold':'normal'}.webp`,\n"},
+        {"start":105,"stop":105,"insert":"      window.MahjongReels.abortInput();\n"},
+        {"start":120,"stop":121,"insert":"    await window.MahjongReels.prepare(board.flat().map(t=>`${tileAssets}tiles/${t.symbol}-${t.enhanced?'gold':'normal'}.webp`));\n"},
+        {"start":233,"stop":233,"insert":"    window.MahjongReels.beginInput({root:$('board'),turbo,shouldSkip:()=>skip||reduced.matches});\n"},
+        {"start":241,"stop":241,"insert":"      window.MahjongReels.abortInput();\n"},
+        {"start":245,"stop":245,"insert":"      window.MahjongReels.abortInput();\n"},
+        {"start":246,"stop":246,"insert":"      window.MahjongReels.prewarm($('board'));\n"},
+        {"start":253,"stop":254,"insert":"  let suppressSpinClickUntil=0;\n  $('spin-btn').addEventListener('pointerdown',e=>{if(e.button!==0||e.isPrimary===false||busy||$('spin-btn').disabled)return;suppressSpinClickUntil=performance.now()+1000;e.preventDefault();void spin();});\n  $('spin-btn').addEventListener('click',e=>{if(e.detail>0&&performance.now()<suppressSpinClickUntil){suppressSpinClickUntil=0;return;}void spin();});$('skip-btn').addEventListener('click',skipAnimation);\n"},
+        {"start":282,"stop":283,"insert":"  Promise.all([req('/api/state'),window.MahjongReels.prepare(Array.from('ABCDEFGHIJKLMNOWS').flatMap(id=>['normal','gold'].map(s=>`${tileAssets}tiles/${id}-${s}.webp`)))]).then(([next])=>{refresh(next);mult(false);window.MahjongReels.prewarm($('board'));notice('SIAP BERMAIN');const root=$('paytable-list');root.replaceChildren();for(const[s,values]of Object.entries(next.rules.paytable)){const row=node('div','paytable-item');const label=node('span','symbol-label'),icon=node('img','paytable-tile');icon.src=`${tileAssets}tiles/${s}-normal.webp`;icon.alt=`Tile ${s}`;label.append(icon,node('b','',s));row.append(label,...values.map(v=>node('span','',String(v))));root.append(row);}}).catch(e=>{notice('KONEKSI GAGAL. MUAT ULANG.');$('spin-btn').disabled=true;console.error(e.message);});\n"}
+      ]
+    },
+    {
+      "source": "web/assets/reel-v083/reels.js",
+      "target": "web/assets/portrait-v085/reels.js",
+      "source_sha256": "a50c098bd3e8c1630bde093b39983d244a1a01eb87543ad992a5566df4e59ddb",
+      "target_sha256": "a02a19470aa25ee437dd7f970476b39fe853010582edb57f8ffe7f1b855649d5",
+      "edits": [
+        {"start":7,"stop":8,"insert":"  const VERSION = '0.8.5';\n"},
+        {"start":78,"stop":78,"insert":"        inputToFirstFrameMs: safe.inputToFirstFrameMs, serverWaitMs: safe.serverWaitMs,\n"},
+        {"start":96,"stop":96,"insert":"\n  // Input starts a cached, decorative loop before the paid request resolves.\n  // A response is still verified by game.js before any winning board is shown.\n  let pendingInput = null;\n  let warmedInput = null;\n  function inputKey(root) {\n    return [...root.children].map(c => [...c.children].filter(t => t._tile)\n      .map(t => `${t._tile.symbol}:${+!!t._tile.enhanced}`).join(',')).join('/');\n  }\n  function makeInput(root) {\n    const originals = [...root.children];\n    if (originals.length !== 5) throw Error('Expected visible input reels');\n    const dpr = Math.min(1.5, window.devicePixelRatio || 1);\n    const cols = originals.map((original, i) => {\n      const tiles = [...original.children].filter(t => t._tile);\n      const box = original.getBoundingClientRect();\n      const gap = parseFloat(getComputedStyle(original).rowGap) || 0;\n      const pitch = (box.height + gap) / tiles.length;\n      const period = pitch * tiles.length;\n      if (box.width < 1 || period < 1) throw Error('Input viewport unavailable');\n      const canvas = document.createElement('canvas');\n      canvas.className = 'reel-strip reel-canvas input-canvas';\n      canvas.setAttribute('aria-hidden', 'true');\n      canvas.width = Math.ceil(box.width * dpr);\n      canvas.height = Math.ceil(period * 2 * dpr);\n      Object.assign(canvas.style, {width:`${box.width}px`,height:`${period * 2}px`});\n      const ctx = canvas.getContext('2d', {alpha:true});\n      if (!ctx) throw Error('Input canvas unavailable');\n      ctx.setTransform(canvas.width / box.width, 0, 0, canvas.height / (period * 2), 0, 0);\n      for (let copy=0;copy<2;copy++) tiles.forEach((tile, row) => {\n        const im = tile.querySelector('.tile-image');\n        if (!im?.complete || !im.naturalWidth) throw Error('Input tile not decoded');\n        ctx.drawImage(im, 0, copy * period + row * pitch, box.width, pitch - gap);\n      });\n      const surface = document.createElement('div');\n      surface.className = 'reel-surface';\n      surface.setAttribute('aria-hidden', 'true');\n      surface.append(canvas);\n      return {original,canvas,surface,i,period,w:box.width,h:box.height,animation:null,started:false,transferred:false};\n    });\n    return {root,key:inputKey(root),width:root.clientWidth,height:root.clientHeight,cols};\n  }\n  function prewarm(root) {\n    if (pendingInput || active || !root?.children.length) return;\n    try {\n      const key = inputKey(root);\n      if (warmedInput?.key === key && warmedInput.width === root.clientWidth && warmedInput.height === root.clientHeight) return;\n      warmedInput = makeInput(root);\n    } catch (_) { warmedInput = null; }\n  }\n  function abortInput() {\n    const input = pendingInput;\n    if (!input) return;\n    input.disposed = true;\n    for (const timer of input.timers) clearTimeout(timer);\n    cancelAnimationFrame(input.frame);\n    for (const c of input.cols) {\n      try { c.animation?.cancel(); } catch (_) {}\n      c.surface.remove();\n      c.canvas.width = c.canvas.height = 1;\n    }\n    pendingInput = null;\n    if (!active) document.documentElement.classList.remove('reels-running');\n  }\n  function beginInput({root, turbo=false, shouldSkip=()=>false}) {\n    if (pendingInput || active || shouldSkip() || document.hidden) return;\n    const inputAt = now();\n    try {\n      const key=inputKey(root);\n      const warmed=warmedInput;\n      const data=warmed && warmed.key===key && warmed.width===root.clientWidth && warmed.height===root.clientHeight\n        ? warmed : makeInput(root);\n      warmedInput=null;\n      const input=pendingInput={...data,inputAt,starts:[],timers:[],frame:0,firstFrameMs:null,disposed:false};\n      const cycle=turbo?360:520,stagger=turbo?45:85;\n      const start=c=>{\n        if(input.disposed||c.transferred||shouldSkip()||document.hidden)return;\n        const from=`translate3d(0,${-c.period}px,0)`;\n        c.canvas.style.transform=from;\n        c.original.append(c.surface);\n        c.animation=c.canvas.animate([{transform:from},{transform:'translate3d(0,0px,0)'}],\n          {duration:cycle,iterations:Infinity,easing:'linear',fill:'both'});\n        c.animation.playbackRate=.14;\n        c.started=true;c.startAt=now();c.cycle=cycle;\n        input.starts.push(c.i+1);signal('start',c.i+1);\n      };\n      document.documentElement.classList.add('reels-running');\n      start(input.cols[0]);\n      input.cols.slice(1).forEach(c=>input.timers.push(setTimeout(()=>start(c),stagger*c.i)));\n      const sample=t=>{\n        if(input.disposed)return;\n        if(shouldSkip()||document.hidden){abortInput();return;}\n        for(const c of input.cols){\n          if(!c.started||c.transferred)continue;\n          const elapsed=t-c.startAt;\n          if(elapsed<280){const v=.14+.86*Math.min(1,Math.max(0,elapsed)/220);\n            if(c.animation.updatePlaybackRate)c.animation.updatePlaybackRate(v);else c.animation.playbackRate=v;\n          }\n        }\n        if(input.firstFrameMs===null && Number(input.cols[0].animation?.currentTime)>0){\n          input.firstFrameMs=Math.round(t-inputAt);\n          document.dispatchEvent(new CustomEvent('mahjong:input-frame',{detail:{delayMs:input.firstFrameMs}}));\n        }\n        if(input.cols.every(c=>c.transferred))return;\n        input.frame=requestAnimationFrame(sample);\n      };\n      input.frame=requestAnimationFrame(sample);\n    }catch(error){abortInput();reportFailure('input-start',error);}\n  }\n  function transferInput(input, c, context, distance, w, h) {\n    const prior=input?.cols[c.i];\n    if(!prior?.started || prior.transferred || input.disposed)return false;\n    // Freeze the source at the exact compositor phase before copying its view.\n    const phase=((Number(prior.animation.currentTime)||0)%prior.cycle)/prior.cycle;\n    const y=prior.period*(1-phase);\n    const sy=prior.canvas.height/(2*prior.period);\n    context.drawImage(prior.canvas,0,y*sy,prior.canvas.width,h*sy,0,distance,w,h);\n    prior.transferred=true;\n    prior.animation.cancel();prior.surface.remove();\n    prior.canvas.width=prior.canvas.height=1;\n    if(input.cols.every(x=>x.transferred)){\n      input.disposed=true;cancelAnimationFrame(input.frame);input.timers.forEach(clearTimeout);\n      if(pendingInput===input)pendingInput=null;\n    }\n    return true;\n  }\n\n"},
+        {"start":98,"stop":98,"insert":"    if (!pendingInput) beginInput({root,turbo,shouldSkip});\n    const input = pendingInput;\n    const serverWaitMs = input ? Math.round(now()-input.inputAt) : 0;\n"},
+        {"start":105,"stop":106,"insert":"      const interim = Array.from({length: turbo ? 3 : 4}, (_, j) => filler(i, j));\n"},
+        {"start":114,"stop":115,"insert":"    if (shouldSkip()) { abortInput(); root.replaceChildren(...finals); return; }\n    if(input && !input.disposed){\n      await new Promise(resolve=>setTimeout(resolve,Math.max(0,(turbo?210:410)-(now()-input.inputAt))));\n    }\n    if (shouldSkip()) { abortInput(); root.replaceChildren(...finals); return; }\n"},
+        {"start":116,"stop":118,"insert":"    const duration = turbo ? 440 : 850;\n    const stagger = turbo ? 55 : 95;\n"},
+        {"start":160,"stop":161,"insert":"        context, w:box.width, h:box.height, started: false, stopped: false, animation: null};\n"},
+        {"start":165,"stop":166,"insert":"      starts: input ? input.starts.slice() : [], stops: [], durationMs: 0, prepareMs: preparationMs,\n      inputToFirstFrameMs: input?.firstFrameMs ?? null, serverWaitMs,\n"},
+        {"start":217,"stop":217,"insert":"        abortInput();\n"},
+        {"start":226,"stop":226,"insert":"          transferInput(input,c,c.context,c.distance,c.w,c.h);\n"},
+        {"start":228,"stop":230,"insert":"          if(!log.starts.includes(c.i+1)){log.starts.push(c.i+1);signal('start',c.i+1);} else signal('landing',c.i+1);\n"},
+        {"start":232,"stop":233,"insert":"          ], {duration, easing: 'cubic-bezier(.25,.2,.4,1)', fill: 'both'});\n"},
+        {"start":288,"stop":289,"insert":"    prepare, ready, run, ease, prewarm, beginInput, abortInput,\n    finish: () => { active?.finish(); abortInput(); },\n"}
+      ]
+    },
+    {
+      "source":"web/index.html","target":"web/index.html",
+      "source_sha256":"c6ba2b73ecb3f2a3285adfd90b153ca57ed4058cd85f1d70ae3c11437b24a672",
+      "target_sha256":"4d4bf039f98d4b19199bc5cddf7b25df4b3f4113017c448f213fa90a84cb4861",
+      "edits":[
+        {"start":14,"stop":23,"insert":"  <link rel=\"stylesheet\" href=\"/assets/locked-v08/game.css?v=085\">\n  <link rel=\"stylesheet\" href=\"/assets/locked-v08/polish.css?v=085\">\n  <link rel=\"stylesheet\" href=\"/assets/approved-v082/approved.css?v=085\">\n  <script src=\"/assets/locked-v08/audio.js?v=085\" defer></script>\n  <link rel=\"stylesheet\" href=\"/assets/reel-v083/reels.css?v=085\">\n  <link rel=\"stylesheet\" href=\"/assets/portrait-v085/portrait.css?v=085\">\n  <script src=\"/assets/portrait-v085/reels.js?v=085\" defer></script>\n  <script src=\"/assets/portrait-v085/game.js?v=085\" defer></script>\n  <script src=\"/assets/approved-v082/pwa.js?v=085\" defer></script>\n<link rel=\"stylesheet\" href=\"/assets/reel-v083/splash.css?v=085\"><script src=\"/assets/reel-v083/splash.js?v=085\" defer></script></head>\n"},
+        {"start":24,"stop":25,"insert":"  <main class=\"game-stage\" id=\"game-stage\" data-release=\"0.8.5\" aria-label=\"Mahjong Wild game\">\n"},
+        {"start":53,"stop":54,"insert":"    <span class=\"virtual-note\">KREDIT VIRTUAL SAJA | v0.8.5</span>\n"},
+        {"start":58,"stop":59,"insert":"    <nav class=\"dialog-tabs\" aria-label=\"Informasi game\"><button type=\"button\" class=\"tab active\" data-panel=\"rules\"><img class=\"tab-icon\" src=\"/assets/portrait-v085/tiles/M-normal.webp\" alt=\"\">RULES</button><button type=\"button\" class=\"tab\" data-panel=\"paytable\"><img class=\"tab-icon\" src=\"/assets/portrait-v085/tiles/W-normal.webp\" alt=\"\">PAYTABLE</button><button type=\"button\" class=\"tab\" data-panel=\"history\"><img class=\"tab-icon\" src=\"/assets/portrait-v085/tiles/B-normal.webp\" alt=\"\">HISTORY</button><button type=\"button\" class=\"tab\" data-panel=\"fairness\"><img class=\"tab-icon\" src=\"/assets/portrait-v085/tiles/N-normal.webp\" alt=\"\">FAIRNESS</button><button type=\"button\" class=\"tab\" data-panel=\"settings\"><img class=\"tab-icon\" src=\"/assets/portrait-v085/tiles/O-normal.webp\" alt=\"\">SETTINGS</button></nav>\n"},
+        {"start":65,"stop":66,"insert":"        <p class=\"small-note\">RTP belum divalidasi ulang setelah multiplier dasar diubah menjadi x5. Versi UI 0.8.5 tidak mengubah matematika versi 0.8.0.</p>\n"},
+        {"start":84,"stop":85,"insert":"    <p class=\"menu-version\">MAHJONG WILD &middot; UI 0.8.5 &middot; Math 0.8.0<br>KREDIT VIRTUAL SAJA</p></div>\n"}
+      ]
+    },
+    {
+      "source":"web/sw.js","target":"web/sw.js",
+      "source_sha256":"b6236b1ca639f427647a56c088c7b3c174ea64728eebf3ce149205a38028387b",
+      "target_sha256":"a013e54f612dfee8c4c3d9717dad24a13b248ef7f7db7a3f5b9567ca69120606",
+      "edits":[{"start":1,"stop":2,"insert":"const CACHE='mahjong-wild-presentation-085';\n"}]
+    },
+    {
+      "source":"mahjong_legend/server.py","target":"mahjong_legend/server.py",
+      "source_sha256":"d4d05c996d97882d3726323b4816d527ff491761ae3cd4e5290c5a981e6d2314",
+      "target_sha256":"29c36cbb0563eb2d4c459cdc840576e16a49ac83d44fefc15d70fa9786bc761d",
+      "edits":[
+        {"start":229,"stop":230,"insert":"            'event': 'spin_performance', 'ui': '0.8.5',\n"},
+        {"start":236,"stop":236,"insert":"            'input_to_first_frame_ms': number('inputToFirstFrameMs', 10000),\n            'server_wait_ms': number('serverWaitMs', 120000),\n"}
+      ]
+    },
+    {
+      "source":"tests/test_locked_ui_v08.py","target":"tests/test_locked_ui_v08.py",
+      "source_sha256":"3223b4687a11c4bef6ca306160dfdeaf9ce01d27346ee217be30342047f901d8",
+      "target_sha256":"bcb05bceccc324427f00ba478b32409717dbc60bf3c78e72e32b9e15008caa86",
+      "edits":[{"start":65,"stop":66,"insert":"        self.assertIn('portrait-v085/game.js',html);self.assertIn('locked-v08/game.css',html)\n"}]
+    },
+    {
+      "source":"tests/test_approved_ui_v082.py","target":"tests/test_approved_ui_v082.py",
+      "source_sha256":"88fb331702400cb3e6b0150cf116fc84dae4d6aa6bafb821c3c23c20e5d3fa6f",
+      "target_sha256":"28d6cb2101603bfae413abbde1add6cc0c1e525d165e53995af7e36015369a2b",
+      "edits":[{"start":27,"stop":28,"insert":"        h=(ROOT/'web/index.html').read_text();self.assertIn('approved-v082/approved.css',h);self.assertIn('data-release=\"0.8.5\"',h)\n"}]
+    },
+    {
+      "source":"tests/test_presentation_v081.py","target":"tests/test_presentation_v081.py",
+      "source_sha256":"b0cd6c7a4421a36201260de77ccdfa398cc51f3e36aa17908820ef12b17ecf63",
+      "target_sha256":"e28a6302152e1eecd68f2869069d74efe6dd34675822b5c691eb92ea13403a54",
+      "edits":[{"start":25,"stop":26,"insert":"        h=(ROOT/'web/index.html').read_text();self.assertEqual(h.count('class=\"logo-fx\"'),1);self.assertIn('v0.8.5',h);self.assertIn('polish.css',h)\n"}]
+    },
+    {
+      "source":"tools/local_preview.py","target":"tools/local_preview.py",
+      "source_sha256":"ba2998dc1d1fe54e46ed284f4a6ed0688dc2f0d5e7ae2cfc70d5e962febd7104",
+      "target_sha256":"5863dba6b76ddb7fa325d22bb1bc01258d02046d75498521fee3db2cdcca9994",
+      "edits":[{"start":29,"stop":30,"insert":"    for f in ['assets/locked-v08/audio.js','assets/portrait-v085/reels.js','assets/portrait-v085/game.js','assets/reel-v083/splash.js']:page.add_script_tag(content=(WEB/f).read_text())\n"}]
+    },
+    {
+      "source":"tools/qa_approved_v082.py","target":"tools/qa_approved_v082.py",
+      "source_sha256":"5ae64955b0368d780132e53485b1e620b16c9646634bdc7c41cbc31a85d97c57",
+      "target_sha256":"9a782f7bdb260c4754f94363a568a9eb06dea6bdfec8a8bf7bf5260bdfa103ed",
+      "edits":[
+        {"start":15,"stop":16,"insert":"    report={'ui':'0.8.5','engine':args.engine,'transport':'embedded assets + Python engine' if args.offline else 'HTTP + CSP','viewports':[],'audio':{},'pwa':{}}\n"},
+        {"start":23,"stop":24,"insert":"            expect(page.locator('#stage-notice')).to_have_text('SIAP BERMAIN');expect(page.locator('#game-stage')).to_have_attribute('data-release','0.8.5')\n"}
+      ]
+    },
+    {
+      "source":"tools/qa_live_release.py","target":"tools/qa_live_release.py",
+      "source_sha256":"2a0347fe67c7b708580863cb82cc8dcf134b6e07bce624e30676067c12d96143",
+      "target_sha256":"9f78731f302c51b7e6f75789011214b50a940eb550203119c9204231c5089137",
+      "edits":[
+        {"start":0,"stop":1,"insert":"\"\"\"Verify exact UI 0.8.5 and a real virtual-credit round on the authorized URL.\"\"\"\n"},
+        {"start":9,"stop":10,"insert":"paths=['assets/portrait-v085/reels.js','assets/reel-v083/reels.css','assets/reel-v083/splash.js','assets/reel-v083/splash.css','assets/portrait-v085/game.js','assets/locked-v08/audio.js','assets/approved-v082/approved.css','assets/portrait-v085/frame.webp','assets/portrait-v085/portrait.css']\n"},
+        {"start":16,"stop":17,"insert":"            with urlopen(URL+'/'+p+'?release=085',timeout=10) as r:actual[p]=hashlib.sha256(r.read()).hexdigest()\n"},
+        {"start":18,"stop":20,"insert":"        with urlopen(URL+'/assets/portrait-v085/release.json',timeout=10) as r:release=json.load(r)\n        if actual==expected and state['version']=='0.8.0' and release['release']=='0.8.5' and state['rules']['base_multipliers']==[1,2,3,5]:break\n"},
+        {"start":30,"stop":31,"insert":"    expect(page.locator('#game-stage')).to_have_attribute('data-release','0.8.5')\n"},
+        {"start":59,"stop":61,"insert":"    page.locator('#board').evaluate('(e)=>Promise.all([...e.querySelectorAll(\"img\")].map(i=>i.decode()))');page.screenshot(path=str(out/'v085_live_mobile.png'))\n    report={'url':URL,'ui_release':'0.8.5','math_release':state['version'],'files_sha256':actual,'base_multipliers':[1,2,3,5],'real_https_spin':'PASS','reel_motion':page.evaluate('MahjongReels.diagnostics()'),'replay':'PASS','page_errors':errors,'audio':page.evaluate('window.MahjongWildAudio.state')}\n"}
+      ]
+    },
+    {
+      "source":"tools/qa_locked_ui.py","target":"tools/qa_locked_ui.py",
+      "source_sha256":"90a45e9dee39a62e3a907e088506ed656aaf4fb0bd52ddb8392ea452ad5c180f",
+      "target_sha256":"f289aa33e765584278a43131763b22274250e839f4df4fe150f032114d0c82f3",
+      "edits":[
+        {"start":30,"stop":31,"insert":"        css='\\n'.join((WEB/p).read_text() for p in ['style.css','assets/locked-v08/game.css','assets/locked-v08/polish.css','assets/approved-v082/approved.css','assets/reel-v083/reels.css','assets/reel-v083/splash.css','assets/portrait-v085/portrait.css'])\n"},
+        {"start":53,"stop":55,"insert":"                page.add_script_tag(content=(WEB/'assets/portrait-v085/reels.js').read_text())\n                page.add_script_tag(content=(WEB/'assets/portrait-v085/game.js').read_text())\n"},
+        {"start":68,"stop":69,"insert":"            assert abs(box['width']/box['height']-864/1859)<.001\n"}
+      ]
+    },
+    {
+      "source":"tools/qa_motion_v081.py","target":"tools/qa_motion_v081.py",
+      "source_sha256":"64ed2167304ca580fee8c31f457d072d0a3e4988f69145353813d2505b19dec6",
+      "target_sha256":"544874792d6e791c2e4957bb8520b7459076fc21a4bbe4db659a11050b678c7a",
+      "edits":[
+        {"start":24,"stop":25,"insert":"        css='\\n'.join((WEB/p).read_text() for p in ['style.css','assets/locked-v08/game.css','assets/locked-v08/polish.css','assets/approved-v082/approved.css','assets/reel-v083/reels.css','assets/reel-v083/splash.css','assets/portrait-v085/portrait.css'])\n"},
+        {"start":47,"stop":48,"insert":"                for f in ['audio.js','../portrait-v085/reels.js','../portrait-v085/game.js','../reel-v083/splash.js']:page.add_script_tag(content=(WEB/'assets/locked-v08'/f).read_text())\n"},
+        {"start":61,"stop":62,"insert":"            assert abs(s['w']/s['h']-864/1859)<.001 and g['overflow']<=1\n"}
+      ]
+    },
+    {
+      "source":"tools/qa_reels_v083.py","target":"tools/qa_reels_v083.py",
+      "source_sha256":"9938d74ce1f951a27fea3fa39110e8e62dc1e4ec6b25cd9315c8e1e92740012d",
+      "target_sha256":"f0523cc89f98f1648a72663fc74f2460a49536ab98ea054127c8d7044773e556",
+      "edits":[{"start":34,"stop":35,"insert":" report={'release':'0.8.5','engine':args.engine,'transport':'embedded assets + real Python engine' if args.offline else 'HTTP + CSP','cases':[]}\n"}]
+    }
+  ]
+}

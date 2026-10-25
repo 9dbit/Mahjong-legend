@@ -1,0 +1,26 @@
+/* UI 0.8.5: longer tiles, not narrow tiles or a distorted whole screen.
+   Coordinates remain in original-art width units; fields below the board move
+   down 323 source pixels. The OS safe area remains outside live controls. */
+.game-stage{aspect-ratio:864/1859;width:min(100vw,calc((100dvh - max(0px,env(safe-area-inset-top) - 28px) - max(0px,env(safe-area-inset-bottom) - 24px))*864/1859),800px);background-image:url('/assets/portrait-v085/frame.webp')}
+.game-header{height:35.555556cqw}
+.logo-fx{top:14.236111cqw;height:15.625cqw}
+.multiplier-frame{top:36.177778cqw;height:7.288889cqw}
+.reel-theatre{top:45.6cqw;height:108.56cqw;width:72.8%;left:13.65%}
+.board{gap:.28cqw}.reel{gap:.26cqw}.reel.short{height:calc(80% - .052cqw)}
+.board .tile{aspect-ratio:2/3}
+.symbol-emission{object-fit:contain!important}
+.announcement{top:156.24537cqw;height:8.355556cqw}
+.credits-strip{top:169.366481cqw;height:6.4cqw}
+.play-controls{top:177.206481cqw;height:24cqw}
+.mult[data-value='2'] .mult-glyph{filter:brightness(1.65) saturate(1.15) drop-shadow(0 0 2px #94fff3) drop-shadow(0 0 5px #1fdbc6)}
+.mult[data-value='2'].active .mult-glyph{filter:brightness(1.45) saturate(1.12) drop-shadow(0 0 3px #fff7b8) drop-shadow(0 0 7px #ffbd35)}
+.game-stage::before{height:max(0px,calc((100dvh - min(100vw,800px)*1859/864)/2 + 1px))}
+.pwa-footer-extension{height:max(0px,calc((100dvh - min(100vw,800px)*1859/864)/2 + 1px))}
+@media(min-aspect-ratio:1/1){.game-stage{max-width:calc(100dvh * 864 / 1859)}}
+/* Spend the mobile compositor budget on reels while they move. */
+html.reels-running .board .tile::before,html.reels-running .board .tile::after,html.reels-running .symbol-emission{visibility:hidden!important}
+html.reels-running .tile-image{filter:none!important}
+html.reels-running .seam-light{animation-play-state:paused!important;filter:none!important}
+html.reels-running .logo-fx{visibility:hidden}
+
+.dialog-tabs .tab-icon{height:38px;width:25.333px;object-fit:fill}.paytable-tile{width:36px;height:54px;object-fit:fill}
