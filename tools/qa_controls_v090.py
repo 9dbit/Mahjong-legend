@@ -53,7 +53,8 @@ def assert_footer_assets(page):
                     'turbo-btn', 'minus-btn', 'plus-btn', 'auto-btn']:
         expected[element] = '/assets/approved-v082/frame.webp'
     for element, path in expected.items():
-        actual = [asset['path'] for asset in decoded if asset['element'] == element and asset['pseudo'] is None]
+        pseudo = '::after' if element in {'turbo-btn', 'auto-btn'} else None
+        actual = [asset['path'] for asset in decoded if asset['element'] == element and asset['pseudo'] == pseudo]
         assert actual == [path], {'element':element, 'expected':path, 'actual':actual}
     return decoded
 
@@ -88,7 +89,8 @@ def main():
                 footer_assets = assert_footer_assets(page)
                 visual = page.evaluate('''() => {
                     const b = id => { const e = document.getElementById(id), r = e.getBoundingClientRect(), c = getComputedStyle(e);
-                        return {id, width:r.width, height:r.height, background:c.backgroundImage, border:c.borderTopWidth}; };
+                        const overlay = getComputedStyle(e, '::after');
+                        return {id, width:r.width, height:r.height, background:c.backgroundImage !== 'none' ? c.backgroundImage : overlay.backgroundImage, border:c.borderTopWidth}; };
                     return {buttons:['turbo-btn','minus-btn','spin-btn','plus-btn','auto-btn'].map(b),
                         oldSlicesPainted:[...document.querySelectorAll('.art-controls b')].some(e=>getComputedStyle(e).display!=='none'),
                         panel:getComputedStyle(document.querySelector('.art-controls')).backgroundImage};

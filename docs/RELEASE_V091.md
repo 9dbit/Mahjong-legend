@@ -5,9 +5,9 @@ The user identified a visual regression in UI0.9.0: its continuous footer had be
 ## Visual correction
 
 - Replace the jade SVG panel with one continuous red/gold stage image, including decorative clouds and stairs. Its coordinates remain shared across the result, controls, and PWA bottom extension.
-- Restore the result banner, all three counter frames/icons, Turbo, Auto, minus, and plus from CSS sprite windows in the existing approved frame. Their source pixels are reused; values and state remain live DOM content.
+- Restore the result banner, all three counter frames/icons, Turbo, Auto, minus, and plus from CSS sprite windows in the existing approved frame. Turbo/Auto use an alpha mask around their circular faces and captions to remove the source sheet's rectangular background patches. Their source pixels are reused; values and state remain live DOM content.
 - Keep the approved rotating Spin disc and the enlarged targets: Spin80–96px, Turbo/Auto52–60px, and bet controls44px. Spin is retained and functional.
-- Reserve78px for the ornate result/counter rows so visible SALDO/BET/MENANG labels and values remain legible. The board keeps its2:3 tile ratio, and the full-width crown, rounded lanterns, and animated light remain in place.
+- Reserve78px for the ornate result/counter rows on phones, with a58px compact budget for very short windows, so visible SALDO/BET/MENANG labels and values remain legible without consuming the board. The board keeps its2:3 tile ratio, and the full-width crown, rounded lanterns, and animated light remain in place.
 - Preserve the `--ff-console-art` published Studio override. This patch requires no configuration publication or data migration.
 
 The new backing is an imagegen-derived background layer with the old baked buttons, values, and banner removed. The approved master is unchanged. Its provenance and exact sprite coordinates are recorded beside the asset in `web/assets/control-panel-v091/provenance.json`.

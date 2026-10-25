@@ -60,9 +60,11 @@
     const spin = Math.max(80,Math.min(96,80+(controlsWidth-320)*16/70));
     const secondary = Math.max(52,Math.min(60,52+(controlsWidth-320)*8/110));
     const controlHeight = Math.max(108,spin+24);
-    // The approved ornate result banner and framed counters each have their
-    // own row; a little more height keeps both the artwork and labels legible.
-    const hud = 78;
+    // The approved banner gets its full row on phones. Very short/square
+    // windows retain the previous compact budget so extra decoration cannot
+    // consume the board or reduce the full-size control targets.
+    const compactHud = portrait && usable-minimumHeader-controlHeight < 142;
+    const hud = compactHud ? 58 : 78;
     const footer = hud+controlHeight;
     const boardHeight = Math.max(1,Math.min(preferredBoard,usable-minimumHeader-(portrait?footer:0)));
     const boardWidth = (boardHeight+.0064*w)/1.5;
@@ -102,6 +104,8 @@
       stage.style.setProperty(`--ff-${side}-middle-offset`,`${(topHeight-256*middleUnit).toFixed(6)}px`);
     }
     put('footer-top',footerTop);put('hud-height',hud);
+    put('notice-height',compactHud?22:38);put('meter-offset',compactHud?24:40);
+    put('meter-height',compactHud?32:34);put('meter-padding',compactHud?2:4);
     put('panel-left',panelLeft);put('panel-width',panelWidth);
     put('footer-art-top',portrait?footerTop:0);put('footer-art-height',portrait?h-footerTop:h);
     put('controls-top',footerTop+hud);put('controls-height',controlHeight);
