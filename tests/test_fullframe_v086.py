@@ -1,7 +1,11 @@
 """Full frame is a presentation change. Source tile art/outcome math stay intact."""
 from pathlib import Path
+from copy import deepcopy
+from types import SimpleNamespace
 import hashlib,json,unittest
 from PIL import Image
+from tools.build_fullframe_ui import QA_PATHS,rewrite_qa
+from tools.qa_fullframe_v086 import assert_layout,assert_reel_order,assert_background_images
 ROOT=Path(__file__).resolve().parents[1]
 OUT=ROOT/'web/assets/fullframe-v086'
 class FullFrameUI(unittest.TestCase):
@@ -33,4 +37,114 @@ class FullFrameUI(unittest.TestCase):
         r=json.loads((OUT/'release.json').read_text())
         self.assertEqual((r['release'],r['math_version'],r['tile_ratio']),('0.8.6','0.8.0','2:3'))
         self.assertIn('presentation-086',(ROOT/'web/sw.js').read_text())
+
+class GeneratedQAContracts(unittest.TestCase):
+    @staticmethod
+    def covered_geometry():
+        def box(x,y,w,h,**extra):
+            return {'x':x,'y':y,'w':w,'h':h,'right':x+w,'bottom':y+h,**extra}
+        painted={'visible':True,'image':True,'size':'cover'}
+        bands=[]
+        for name,top,height,split in [('art-crown',20,110,True),('art-rail',130,40,False),
+                                     ('art-board',170,280,True),('art-hud',450,90,False),
+                                     ('art-controls',540,120,True)]:
+            band=box(0,top,390,height,name=name,**painted)
+            band['parts']=[box(x,top,130,height,**painted) for x in (0,130,260)] if split else []
+            bands.append(band)
+        return {
+            'stage':box(0,0,390,690,**painted),'board':box(50,120,290,300),
+            'notice':box(50,430,290,40),'meters':box(10,490,370,30),
+            'controls':box(10,540,370,80),'logo':box(90,10,179,67.5),
+            'disk':box(150,550,60,60),'tiles':[2/3]*23,'overflow':[0,0],
+            'buttons':[box(10,50,32,32),box(348,50,32,32)]
+                      +[box(x,550,60,60) for x in (10,80,150,220,290)],
+            'viewport':{'layoutWidth':390,'layoutHeight':690,'visualWidth':390,'visualHeight':690,'standalone':False},
+            'root':box(0,0,390,690,**painted),'body':box(0,0,390,690,**painted),
+            'backdrop':box(0,0,390,690,active=True,**painted),
+            'art':{'container':box(0,0,390,690,visible=True),
+                   'before':box(0,0,390,20,active=True,**painted),
+                   'bands':bands,'after':box(0,660,390,30,active=True,**painted)},
+        }
+
+    def test_generated_suites_are_complete_compilable_and_idempotent(self):
+        # Exercise the actual build outputs, including the older locked/motion
+        # suites that previously retained a fixed whole-stage ratio.
+        for name in QA_PATHS:
+            with self.subTest(path=name):
+                generated=(ROOT/name).read_text()
+                compile(generated,name,'exec')
+                self.assertEqual(rewrite_qa(name,generated),generated)
+
+    def test_unknown_geometry_gate_fails_build_instead_of_silently_skipping(self):
+        name='tools/qa_locked_ui.py'
+        generated=(ROOT/name).read_text()
+        changed=generated.replace('            assert_layout(page,w,h)',
+                                  '            assert True  # unexpected upstream edit')
+        self.assertNotEqual(changed,generated)
+        with self.assertRaisesRegex(ValueError,'source drift'):
+            rewrite_qa(name,changed)
+
+    def test_full_width_gate_still_rejects_distorted_tiles_and_unsafe_controls(self):
+        geometry=self.covered_geometry()
+        page=SimpleNamespace(evaluate=lambda _:geometry)
+        self.assertEqual(assert_layout(page,390,690)['stage']['w'],390)
+        for mutation in ('tile','safe_area','logo','spin','collapsed_control'):
+            bad=deepcopy(geometry)
+            if mutation=='tile':bad['tiles'][0]=1
+            elif mutation=='safe_area':bad['buttons'][-1]['bottom']=691
+            elif mutation=='logo':bad['logo']['w']=100
+            elif mutation=='spin':bad['disk']['w']=75
+            else:bad['buttons'][3]['h']=0
+            with self.subTest(mutation=mutation),self.assertRaises(AssertionError):
+                assert_layout(SimpleNamespace(evaluate=lambda _:bad),390,690)
+        with self.assertRaises(AssertionError):assert_layout(page,390,690,left=12)
+        with self.assertRaises(AssertionError):assert_layout(page,390,690,right=24)
+
+    def test_artwork_gate_rejects_empty_bands_root_and_extension_gaps(self):
+        for mutation in ('root_image','body_extent','hidden_stage','vertical_gap','horizontal_gap','missing_image','top_extension','bottom_extension'):
+            bad=self.covered_geometry()
+            if mutation=='root_image':bad['root']['image']=False
+            elif mutation=='body_extent':bad['body']['bottom']=680
+            elif mutation=='hidden_stage':bad['stage']['visible']=False
+            elif mutation=='vertical_gap':bad['art']['bands'][1]['y']+=2
+            elif mutation=='horizontal_gap':bad['art']['bands'][0]['parts'][1]['x']+=2
+            elif mutation=='missing_image':bad['art']['bands'][2]['parts'][0]['image']=False
+            elif mutation=='top_extension':bad['art']['before']['image']=False
+            else:bad['art']['after']['bottom']-=2
+            with self.subTest(mutation=mutation),self.assertRaises(AssertionError):
+                assert_layout(SimpleNamespace(evaluate=lambda _:bad),390,690)
+
+    def test_root_backing_may_exceed_browser_visual_viewport(self):
+        geometry=self.covered_geometry()
+        geometry['viewport']['layoutHeight']=844
+        for name in ('root','body','backdrop'):
+            geometry[name]['h']=844;geometry[name]['bottom']=844
+        result=assert_layout(SimpleNamespace(evaluate=lambda _:geometry),390,690)
+        self.assertEqual(result['stage']['h'],690)
+        self.assertEqual(result['root']['h'],844)
+
+    def test_css_background_decode_rejects_failed_art_assets(self):
+        images=[{'label':str(i),'ok':True,'width':32,'height':32} for i in range(13)]
+        self.assertEqual(len(assert_background_images(SimpleNamespace(evaluate=lambda _:images))),13)
+        images[5]['ok']=False
+        with self.assertRaises(AssertionError):
+            assert_background_images(SimpleNamespace(evaluate=lambda _:images))
+
+    def test_resize_can_interrupt_starts_but_cannot_duplicate_settlements(self):
+        def events(starts,stops):
+            return [dict(phase=phase,column=column,at=i)
+                    for i,(phase,column) in enumerate(
+                        [('start',n) for n in starts]+[('stop',n) for n in stops])]
+        receipt={'completed':True,'cancelled':True,'starts':[1,2],'stops':[1,2,3,4,5]}
+        transcript=events([1,2],receipt['stops'])
+        assert_reel_order(receipt,transcript,allow_interrupted=True)
+        with self.assertRaises(AssertionError):assert_reel_order(receipt,transcript)
+        for starts,stops in [([1,1],[1,2,3,4,5]),([1,3],[1,2,3,4,5]),([1,2],[1,2,3,4])]:
+            with self.subTest(starts=starts,stops=stops),self.assertRaises(AssertionError):
+                assert_reel_order({**receipt,'starts':starts,'stops':stops},events(starts,stops),allow_interrupted=True)
+        with self.assertRaises(AssertionError):
+            assert_reel_order(receipt,events([1,2],[1,2,3,4,5,5]),allow_interrupted=True)
+        complete={**receipt,'cancelled':False,'starts':[1,2,3,4,5]}
+        assert_reel_order(complete,events([1,1,2,3,4,5],complete['stops']),allow_interrupted=True)
+        assert_reel_order(complete,events(complete['starts'],complete['stops']))
 if __name__=='__main__':unittest.main()

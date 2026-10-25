@@ -1,4 +1,4 @@
-# Mahjong Legend v0.5: Play directly on mobile and Mac
+# Mahjong Legend — UI 0.8.6 / math 0.8.0
 
 Mahjong Legend is an **original game prototype** with virtual, non-redeemable credits. The page launches directly into a five-reel Mahjong-style cascade game with 2,000 ways, Wild transformations, multipliers, Free Spins, Auto Spin, and Turbo. It contains no marketing page.
 
@@ -26,11 +26,13 @@ python3 -m mahjong_legend --public
 python3 -m unittest discover -s tests -q
 ```
 
-The 35 unit tests cover deterministic math/replay, payout cap, REST endpoints, HTTP controls, virtual-stake scaling, browser session isolation, origin checks, and health endpoint. Browser smoke tests can be run separately in the v0.4 distribution ZIP with optional Playwright.
+The tests cover deterministic math/replay, payout caps, REST endpoints, virtual-stake scaling, browser session isolation, origin checks, artwork identity, and full-frame layout contracts. The release workflow first compiles the approved artwork and runtime derivatives, then runs the unit and Chromium/WebKit suites. See [the UI 0.8.6 build and verification notes](docs/RELEASE_V086.md) for the build sequence. Browser tests use Playwright 1.57.0; artwork builds use Pillow >=10,<13.
 
 ## Gameplay and fairness
 
-The original v0.3 math configuration is retained. Earlier 10-million-spin simulation estimates RTP around 95.68% after a 1000x virtual payout cap. This remains a Monte Carlo estimate, not a certified or exact theoretical RTP. The v0.4 game-first interface, original tile art, theme tokens, and animations are retained.
+The current math configuration is **0.8.0**, with base multipliers **1 → 2 → 3 → 5**, bonus multipliers **2 → 3 → 5 → 8**, and a **1000× total payout cap per paid round**, including its free spins. The earlier v0.1–v0.3 RTP estimates do not validate this configuration. Current reproducible Monte Carlo results, seed domains, source hashes, and uncertainty are documented in [the math 0.8.0 validation report](docs/MATH_V080_VALIDATION.md). Simulation estimates are not certified or exact theoretical RTP.
+
+UI 0.8.6 fits the portrait browser viewport while retaining the approved artwork, 23 live tiles with 2:3 faces, circular Spin controls, and safe-area handling. Browser automation and simulated insets do not establish physical-iPhone performance, PWA installation, or audible sound quality.
 
 ### Public demo boundaries
 

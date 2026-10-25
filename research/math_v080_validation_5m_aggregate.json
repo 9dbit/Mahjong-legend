@@ -1,0 +1,47 @@
+{
+  "audit_schema": "mahjong-legend-pooled-monte-carlo-v1",
+  "math_version": "0.8.0",
+  "config_sha256": "693e3cce085387b33e663706836d8c6f2b9d69fd2a7f4f6d467f80554d8c9592",
+  "engine_file_sha256": "08bde22d157336872cdcfa4aaa77d3f056db150dfc0e432bdfaaf2275935ea8d",
+  "audit_script_sha256": "e128cbf40752e087f293589b1012d8fd86636108ab0c7d5afccb791e2c3f3644",
+  "inputs": [
+    {
+      "path": "research/math_v080_validation_1m.json",
+      "file_sha256": "0278a4607c5fbd0f721286f3ea3562dbc3b6ae3a027bf5982bebc8c1c69b4360",
+      "seed_domain": "Mahjong-Legend/math-0.8.0/validation-20261025-A",
+      "paid_rounds": 1000000
+    },
+    {
+      "path": "research/math_v080_validation_4m_independent.json",
+      "file_sha256": "91f5682401f52625c3481a99500872e9b89b82091cf61990fdd8081ec63db4a6",
+      "seed_domain": "Mahjong-Legend/math-0.8.0/validation-20261025-B",
+      "paid_rounds": 4000000
+    }
+  ],
+  "primary_validation_input": "research/math_v080_validation_4m_independent.json",
+  "paid_rounds": 5000000,
+  "method": "Pooled sufficient statistics: sum exact payout totals; M2=sum((n_i-1)*s_i^2+n_i*(mean_i-pooled_mean)^2); normal95=100*(pooled_mean +/- 1.959963984540054*sqrt(M2/(N-1)/N))",
+  "sum_payout_x": "4862559.0234231321219478560",
+  "sum_base_payout_x": "3477333.1032791114668160820",
+  "sum_bonus_payout_x": "1385225.9201440206551317740",
+  "rtp_percent": 97.25118046846264,
+  "base_rtp_contribution_percent": 69.54666206558223,
+  "bonus_rtp_contribution_percent": 27.704518402880414,
+  "payout_sample_standard_deviation_x": 7.37818150835758,
+  "rtp_standard_error_percentage_points": 0.3299623080603896,
+  "rtp_normal_95_interval_percent": [
+    96.60446622840857,
+    97.8978947085167
+  ],
+  "free_spins_played": 191222,
+  "rounds_with_positive_payout": 1671183,
+  "rounds_returning_at_least_stake": 659863,
+  "paid_rounds_entering_bonus": 22738,
+  "cap_hits": 3,
+  "limitations": [
+    "The separate 4m seed-B result remains the primary independent validation receipt.",
+    "Pooled confidence is a normal approximation from sample sufficient statistics; confidence interval endpoints are not averaged.",
+    "No pooled bootstrap interval was calculated; see each input for its own batch-bootstrap interval.",
+    "Monte Carlo sampling does not establish exact theoretical RTP or certification."
+  ]
+}

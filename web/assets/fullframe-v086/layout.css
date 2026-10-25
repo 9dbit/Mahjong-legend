@@ -1,9 +1,14 @@
 /* Width-first full-frame skin. All faces retain 2:3; logo and controls retain
    their original aspect ratio. Only decorative edge strips absorb extra space. */
-html,body{width:100%;height:100%;height:100dvh;margin:0;padding:0;overflow:hidden}
-body{display:flex;align-items:flex-start;justify-content:center}
+html,body{width:100%;height:100%;height:100dvh;min-height:0;margin:0;padding:0;overflow:hidden;overscroll-behavior:none}
+html:root{background:#650816 url('/assets/approved-v082/backdrop.webp') center/cover no-repeat}
+body{display:flex;align-items:flex-start;justify-content:center;background:transparent}
+/* The installed app paints behind native status/home indicators. Insets only
+   move live content; they never add padding or an empty border to the canvas. */
+html.standalone,html.standalone body{height:100vh;height:100lvh}
 .game-stage{
   --ff-safe-top:env(safe-area-inset-top,0px);--ff-safe-bottom:env(safe-area-inset-bottom,0px);
+  --ff-safe-left:env(safe-area-inset-left,0px);--ff-safe-right:env(safe-area-inset-right,0px);
   width:var(--ff-width,100vw);height:var(--ff-height,100dvh);min-width:0;max-width:none;
   min-height:0;max-height:none;aspect-ratio:auto;flex:none;margin:0;overflow:hidden;
   background:#650816 url('/assets/approved-v082/backdrop.webp') center/cover no-repeat;
@@ -11,13 +16,13 @@ body{display:flex;align-items:flex-start;justify-content:center}
 .fullframe-art{position:absolute;inset:0;pointer-events:none;z-index:0}
 .fullframe-art i{display:block;position:absolute;left:0;width:100%;background-repeat:no-repeat;background-size:100% 100%}
 .fullframe-art b{display:block;background-repeat:no-repeat;background-size:100% 100%;min-width:0}
-.fullframe-art .art-crown{top:var(--ff-crown-top);height:var(--ff-crown-height);display:grid;grid-template-columns:var(--ff-crown-edge) 1fr var(--ff-crown-edge)}
+.fullframe-art .art-crown{top:var(--ff-crown-top);height:var(--ff-crown-height);display:grid;grid-template-columns:var(--ff-crown-edge-left) 1fr var(--ff-crown-edge-right)}
 .art-crown b:first-child{background-image:url('/assets/fullframe-v086/crown-left.webp')}.art-crown b:nth-child(2){background-image:url('/assets/fullframe-v086/crown-center.webp')}.art-crown b:last-child{background-image:url('/assets/fullframe-v086/crown-right.webp')}
 .fullframe-art .art-rail{top:var(--ff-rail-top);height:var(--ff-rail-height);background-image:url('/assets/fullframe-v086/rail.webp')}
 .fullframe-art .art-board{top:var(--ff-board-top);height:var(--ff-board-height);display:grid;grid-template-columns:var(--ff-board-left) var(--ff-board-width) 1fr}
 .art-board b:first-child{background-image:url('/assets/fullframe-v086/board-left.webp')}.art-board b:nth-child(2){background-image:url('/assets/fullframe-v086/board-center.webp')}.art-board b:last-child{background-image:url('/assets/fullframe-v086/board-right.webp')}
 .fullframe-art .art-hud{top:var(--ff-footer-top);height:var(--ff-hud-height);background-image:url('/assets/fullframe-v086/hud.webp')}
-.fullframe-art .art-controls{top:var(--ff-controls-top);height:var(--ff-controls-height);display:grid;grid-template-columns:var(--ff-controls-edge) 1fr var(--ff-controls-edge)}
+.fullframe-art .art-controls{top:var(--ff-controls-top);height:var(--ff-controls-height);display:grid;grid-template-columns:var(--ff-controls-edge-left) 1fr var(--ff-controls-edge-right)}
 .art-controls b:first-child{background-image:url('/assets/fullframe-v086/controls-left.webp')}.art-controls b:nth-child(2){background-image:url('/assets/fullframe-v086/controls-center.webp')}.art-controls b:last-child{background-image:url('/assets/fullframe-v086/controls-right.webp')}
 .game-stage::before{display:none!important}.pwa-footer-extension{display:none}
 .game-header{left:var(--ff-crown-left);right:auto;width:var(--ff-crown-width);top:var(--ff-crown-top);height:calc(var(--ff-crown-unit)*307.2)}
@@ -36,7 +41,9 @@ body{display:flex;align-items:flex-start;justify-content:center}
 .credits-strip .meter-value{font-size:min(3.7cqw,calc(var(--ff-hud-height)*.2));line-height:1.05}
 @media(min-aspect-ratio:1/1){.game-stage{width:var(--ff-width);max-width:none}}
 
-.art-crown b:first-child,.art-controls b:first-child{background-size:cover;background-position:left center}.art-crown b:last-child,.art-controls b:last-child{background-size:cover;background-position:right center}
+/* Keep decorative joins aligned with their source rows. Protected center
+   artwork stays uniformly scaled; only these matched outer extensions flex. */
+.art-crown b:first-child,.art-controls b:first-child,.art-crown b:last-child,.art-controls b:last-child{background-size:100% 100%}
 /* Native status/home areas use decorative extensions, never baked-in OS text. */
 .fullframe-art::before,.fullframe-art::after{content:'';position:absolute;left:0;right:0;pointer-events:none;background-repeat:no-repeat;background-size:100% 100%}
 .fullframe-art::before{top:0;height:var(--ff-crown-top);background-image:url('/assets/approved-v082/extension-top.webp')}

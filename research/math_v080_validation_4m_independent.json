@@ -1,0 +1,99 @@
+{
+  "audit_schema": "mahjong-legend-monte-carlo-v1",
+  "game": "Mahjong Legend",
+  "math_version": "0.8.0",
+  "config_sha256": "693e3cce085387b33e663706836d8c6f2b9d69fd2a7f4f6d467f80554d8c9592",
+  "engine_file_sha256": "08bde22d157336872cdcfa4aaa77d3f056db150dfc0e432bdfaaf2275935ea8d",
+  "audit_script_sha256": "e128cbf40752e087f293589b1012d8fd86636108ab0c7d5afccb791e2c3f3644",
+  "python_version": "3.12.14",
+  "seed_domain": "Mahjong-Legend/math-0.8.0/validation-20261025-B",
+  "round_seed_derivation": "sha256(UTF-8(seed_domain + newline + zero_based_paid_round_index))",
+  "base_multipliers": [
+    1,
+    2,
+    3,
+    5
+  ],
+  "bonus_multipliers": [
+    2,
+    3,
+    5,
+    8
+  ],
+  "round_payout_cap_x": "1000",
+  "analytic_pre_cap_scatter_eligibility_probability": "0.0045252608",
+  "method": "Unmodified authoritative engine.play_round for every paid round; complete bonus/retriggers; existing cumulative cap",
+  "limitations": [
+    "Monte Carlo intervals estimate sampling uncertainty; they are not an exact theoretical RTP or independent certification.",
+    "Both RTP intervals use observed samples and may underrepresent rare unobserved tails.",
+    "RTP is mean paid-round payout divided by one paid-round stake; it is not a probability of profit.",
+    "No parameter calibration or economics change was performed.",
+    "Virtual-credit prototype only; this audit does not establish real-money readiness."
+  ],
+  "results": {
+    "paid_rounds": 4000000,
+    "free_spins_played": 152836,
+    "total_screens": 4152836,
+    "denominator": "paid_rounds; triggered and retriggered free spins have zero added stake",
+    "sum_payout_x": "3884610.9051360936379953540",
+    "sum_base_payout_x": "2781822.8644944878029731000",
+    "sum_bonus_payout_x": "1102788.0406416058350222540",
+    "rtp_percent": 97.11527262840234,
+    "base_rtp_contribution_percent": 69.5455716123622,
+    "bonus_rtp_contribution_percent": 27.569701016040142,
+    "payout_sample_standard_deviation_x": 7.369561977387655,
+    "rtp_standard_error_percentage_points": 0.36847809886938276,
+    "rtp_normal_95_interval_percent": [
+      96.39306882552657,
+      97.83747643127812
+    ],
+    "rtp_equal_batch_bootstrap_95_interval_percent": [
+      96.40072915023073,
+      97.8233010531628
+    ],
+    "bootstrap": {
+      "batch_size": 1000,
+      "batch_count": 4000,
+      "replicates": 2000,
+      "seed_hex": "24e004f3c7631b13edd6c7e9f689b5f7b16b660e49e92e7033488a9770a0a734",
+      "method": "percentile bootstrap of equal-size paid-round batch means"
+    },
+    "rounds_with_positive_payout": 1337149,
+    "hit_rate_percent": 33.428725,
+    "base_hit_rate_percent": 33.0992,
+    "rounds_returning_at_least_stake": 527918,
+    "return_at_least_stake_percent": 13.19795,
+    "base_screens_with_at_least_3_scatters": 18162,
+    "scatter_eligibility_rate_percent": 0.45405,
+    "scatter_eligibility_wilson_95_interval_percent": [
+      0.44750898655901306,
+      0.4606861777129233
+    ],
+    "paid_rounds_entering_bonus": 18162,
+    "bonus_entry_rate_percent": 0.45405,
+    "cap_hits": 2,
+    "cap_hit_rate_percent": 5e-05,
+    "max_observed_payout_x": 1000.0,
+    "max_observed_free_spins_per_paid_round": 26,
+    "max_observed_cascade_step_per_screen": 14,
+    "payout_quantiles_x": {
+      "0.5": 0.0,
+      "0.9": 1.5898638219394226,
+      "0.95": 3.7812977386667344,
+      "0.99": 15.146675600909363,
+      "0.999": 92.2765737918663
+    },
+    "largest_1_percent_payout_share_percent": 46.397853680768364,
+    "maximum_round_replay": {
+      "paid_round_index": 1250749,
+      "seed_hex": "88c387a8ef935017b908a47d442e9319124f9c5e9ff9006e828c730a8f013183",
+      "payout_x": "1000.0000000000000000000",
+      "base_payout_x": "0.2041041393030339660",
+      "bonus_payout_x": "999.7958958606969660340",
+      "free_spins_played": 6,
+      "capped": true,
+      "events_sha256": "a8527f6c6e362b4d91e1f2d780a5cf7f8fcb7f8a48057e23080aaa31cf0f06fa"
+    },
+    "ordered_round_transcripts_sha256": "c46836ce038db32c85fd236ee56ba8594c012eefdd02ddc038cbe9eece035851"
+  }
+}
