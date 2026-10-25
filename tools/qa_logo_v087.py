@@ -136,8 +136,13 @@ def lantern_geometry(page, baseline=None):
         # Browser layout rounds each CSS boundary to a subpixel. On extremely
         # short split-screen boards a tiny visible rounding becomes several
         # source-image rows; bound the actual seam in CSS pixels instead.
+        # v0.9.2 keeps the dragon torso at natural horizontal/vertical scale.
+        # On short boards its unneeded lower pixels are cropped behind the
+        # intact bottom ornament instead of stretched to span the whole side.
+        source_x_scale = side['width'] / side['sourceWidth']
+        assert abs(sy_middle-source_x_scale) < .015, (side, sy_middle, source_x_scale)
         assert all(abs(value-wanted)*scale < .05 for value,wanted,scale in
-                   zip(joins,(256,256,849,849),(sy_top,sy_middle,sy_middle,sy_bottom))), (side,joins)
+                   zip((joins[0],joins[1],joins[3]),(256,256,849),(sy_top,sy_middle,sy_bottom))), (side,joins)
         deformation = (side['width'] / side['sourceWidth']) / sy_top
         side['source_join_rows'] = joins
         side['horizontal_to_vertical_scale'] = deformation
