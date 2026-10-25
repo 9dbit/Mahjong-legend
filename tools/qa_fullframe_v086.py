@@ -150,6 +150,15 @@ def assert_layout(page,w,h,top=0,bottom=0,left=0,right=0):
     assert abs(s['h']-h)<1,(w,h,g)
     assert s['x']>=-.5 and s['y']>=-.5 and s['right']<=w+.5 and s['bottom']<=h+.5,(w,h,g)
     if w<=h:assert abs(s['x'])<.5 and abs(s['w']-w)<.5,(w,h,g)
+    if w>=1000 and h>=620:
+        # One centered scene must contain the crown, reel board, banner,
+        # meters and all five controls, never separate them across the monitor.
+        assert s['mode']=='desktop',(w,h,g)
+        assert 350<=s['w']<=640.5 and s['w']<w*.8,(w,h,g)
+        assert abs(s['x']+s['w']/2-w/2)<.6,(w,h,g)
+        assert g['board']['w']>=200 and g['board']['x']>=s['x']-.5 and g['board']['right']<=s['right']+.5,(w,h,g)
+        assert g['notice']['x']>=s['x']-.5 and g['notice']['right']<=s['right']+.5,(w,h,g)
+        assert g['controls']['x']>=s['x']-.5 and g['controls']['right']<=s['right']+.5,(w,h,g)
     assert max(g['overflow'])<=1,g
     assert len(g['tiles'])==23 and all(abs(v-2/3)<.002 for v in g['tiles']),g
     if s.get('mode')=='landscape':
@@ -231,9 +240,12 @@ def main():
             assert_background_images(page)
             assert not errors,errors
             return page,errors
-        for w,h in [(320,568),(360,640),(390,690),(390,844),(430,932),(768,768),(768,1024),(844,390)]:
+        for w,h in [(320,568),(360,640),(390,690),(390,844),(430,932),(768,768),(768,1024),(844,390),
+                    (1024,768),(1280,800),(1536,864),(1920,1080)]:
             print('LAYOUT',w,h,flush=True);page,errors=start(w,h);g=assert_layout(page,w,h)
-            if (w,h) in [(390,690),(390,844)]:page.screenshot(path=str(OUT/f'{args.engine}-{w}x{h}.png'))
+            if (w,h) in [(390,690),(390,844),(1024,768),(1536,864),(1920,1080)]:
+                page.screenshot(path=str(OUT/f'{args.engine}-{w}x{h}.png'))
+            if w>=1000 and h>=620:assert_control_hits(page)
             assert not errors,errors
             report['layouts'].append({'viewport':[w,h],'stage':g['stage'],'ratio_range':[min(g['tiles']),max(g['tiles'])],'artwork_coverage':'PASS','background_decode':'PASS','overlap':False,'errors':errors})
             page.close()
