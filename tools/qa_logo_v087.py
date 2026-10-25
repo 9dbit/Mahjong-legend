@@ -104,55 +104,52 @@ def crown_raster_comparison(page):
 
 
 def lantern_geometry(page, baseline=None):
-    result = page.evaluate('''async()=>{
-      const all=[...document.querySelectorAll('.art-board > b')];
-      return Promise.all([all[0],all[2]].map(async(e,i)=>{
-        const box=e.getBoundingClientRect(),middle=getComputedStyle(e),
-          top=getComputedStyle(e,'::before'),bottom=getComputedStyle(e,'::after');
-        const height=c=>parseFloat(c.backgroundSize.split(/\\s+/)[1]);
-        const match=top.backgroundImage.match(/url\\(["']?([^"')]+)["']?\\)/);
-        const image=new Image();image.src=match?.[1]||'';let decoded=false;
-        try{await image.decode();decoded=image.complete&&image.naturalWidth>0;}catch(_){}
-        return {side:i?'right':'left',sourceWidth:i?117:118,
-          width:box.width,height:box.height,topHeight:parseFloat(top.height),bottomHeight:parseFloat(bottom.height),
-          topImageHeight:height(top),bottomImageHeight:height(bottom),middleImageHeight:height(middle),
-          middleOffset:parseFloat(middle.backgroundPositionY),decoded,
-          topImage:top.backgroundImage,bottomImage:bottom.backgroundImage,
-          imageSize:[image.naturalWidth,image.naturalHeight]};
+    """Each dragon and corner must be a single, proportionally scaled sprite."""
+    result = page.evaluate("""async () => {
+      const sides=[...document.querySelectorAll('.art-board > b')];
+      const source = async style => {
+        const match=style.backgroundImage.match(/url\(["']?([^"')]+)["']?\)/);
+        const url=match?.[1]||'',image=new Image();
+        image.src=url;
+        try { await image.decode(); } catch (_) {}
+        return {url, natural:[image.naturalWidth,image.naturalHeight],
+                ready:image.complete&&image.naturalWidth>0};
+      };
+      return Promise.all([sides[0],sides[2]].map(async (e,i) => {
+        const box=e.getBoundingClientRect(),
+              base=getComputedStyle(e),dragon=getComputedStyle(e,'::before'),
+              corner=getComputedStyle(e,'::after');
+        const assets=await Promise.all([source(base),source(dragon),source(corner)]);
+        const px=s=>{const m=s.match(/^[0-9.]+px/);return m?parseFloat(m[0]):null;};
+        return {side:i?'right':'left',width:box.width,height:box.height,
+          base:assets[0],dragon:assets[1],corner:assets[2],
+          baseSize:base.backgroundSize.split(' ').map(px),
+          dragonSize:[px(dragon.width),px(dragon.height)],
+          cornerSize:[px(corner.width),px(corner.height)],
+          dragonVisible:dragon.content!=='none'&&dragon.display!=='none',
+          cornerVisible:corner.content!=='none'&&corner.display!=='none'};
       }));
-    }''')
-    for i, side in enumerate(result):
-        assert side['decoded'] and side['imageSize'] == [side['sourceWidth'], 938], side
-        assert side['topImage'] == side['bottomImage'], side
-        sy_top = side['topImageHeight'] / 938
-        sy_middle = side['middleImageHeight'] / 938
-        sy_bottom = side['bottomImageHeight'] / 938
-        assert min(sy_top, sy_middle, sy_bottom) > 0, side
-        assert side['topHeight'] + side['bottomHeight'] < side['height'], side
-        joins = [side['topHeight'] / sy_top,
-                 (side['topHeight'] - side['middleOffset']) / sy_middle,
-                 (side['height'] - side['bottomHeight'] - side['middleOffset']) / sy_middle,
-                 938 - side['bottomHeight'] / sy_bottom]
-        # Browser layout rounds each CSS boundary to a subpixel. On extremely
-        # short split-screen boards a tiny visible rounding becomes several
-        # source-image rows; bound the actual seam in CSS pixels instead.
-        # v0.9.2 keeps the dragon torso at natural horizontal/vertical scale.
-        # On short boards its unneeded lower pixels are cropped behind the
-        # intact bottom ornament instead of stretched to span the whole side.
-        source_x_scale = side['width'] / side['sourceWidth']
-        assert abs(sy_middle-source_x_scale) < .015, (side, sy_middle, source_x_scale)
-        assert all(abs(value-wanted)*scale < .05 for value,wanted,scale in
-                   zip((joins[0],joins[1],joins[3]),(256,256,849),(sy_top,sy_middle,sy_bottom))), (side,joins)
-        deformation = (side['width'] / side['sourceWidth']) / sy_top
-        side['source_join_rows'] = joins
-        side['horizontal_to_vertical_scale'] = deformation
-        if baseline:
-            # Source lantern body is gently oval; 1.0 means no extra flattening.
-            # The requested rounder presentation slightly increases its height.
-            assert deformation <= 1.01, side
-            assert deformation < baseline['lantern_deformation'][i] - .05, (side, baseline)
+    }""")
+    for i,side in enumerate(result):
+        natural_width=117 if i else 118
+        assert side['base']['ready'] and side['base']['natural']==[natural_width,938],side
+        assert side['dragon']['ready'] and side['dragon']['natural']==[natural_width,615],side
+        assert side['corner']['ready'] and side['corner']['natural']==[200,179],side
+        assert '/ornament-v094/dragon-' in side['dragon']['url'],side
+        assert '/ornament-v094/corner-' in side['corner']['url'],side
+        assert side['dragonVisible'] and side['cornerVisible'],side
+        for field,source_width,source_height in [
+            ('baseSize',natural_width,938),
+            ('dragonSize',natural_width,615),
+            ('cornerSize',200,179),
+        ]:
+            w,h=side[field]
+            assert w is not None and h is not None and min(w,h)>0,side
+            distortion=(w/source_width)/(h/source_height)
+            assert abs(distortion-1)<.012,(field,side,distortion)
+        side['continuous_source_match']='PASS'
+        side['horizontal_to_vertical_scale']=side['dragonSize'][0]/natural_width/(side['dragonSize'][1]/615)
     return result
-
 
 def light_state(page):
     return page.locator('.art-crown').evaluate('''e=>['::before','::after'].map(p=>{
