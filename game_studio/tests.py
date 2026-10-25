@@ -261,10 +261,14 @@ class PostgreSQLConcurrencyTests(TransactionTestCase):
         def first():
             close_old_connections()
             try: out.append(game.spin(PlayerSession.objects.get(pk=player.pk),'1',s['ticket']['id'],key))
-            finally: close_old_connections()
+            finally:
+                # Persistent connections belong to this short-lived thread;
+                # age-based cleanup would leave PostgreSQL test teardown blocked.
+                connection.close()
         with patch('game_studio.game.play_round',side_effect=slow):
-            thread=threading.Thread(target=first);thread.start();self.assertTrue(started.wait(10))
+            thread=threading.Thread(target=first);thread.start()
             try:
+                self.assertTrue(started.wait(10))
                 with self.assertRaisesRegex(game.GameError,'processing'): game.spin(player,'1',s['ticket']['id'],key)
             finally: release.set();thread.join(15)
         self.assertFalse(thread.is_alive());self.assertEqual(len(out),1)
