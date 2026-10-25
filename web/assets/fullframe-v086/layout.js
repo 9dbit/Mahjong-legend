@@ -15,15 +15,23 @@
     if (view && Math.abs(view.scale - 1) > .02) return;
     const standalone = standaloneMedia.matches || !!navigator.standalone;
     root.classList.toggle('standalone',standalone);
-    const width = root.clientWidth;
+    const viewportWidth = root.clientWidth;
     // Safari's visible viewport follows its toolbar. An installed app instead
     // paints the entire layout viewport, including beneath status/home areas.
     // Do not shrink its artwork to a transient, smaller visualViewport value.
     const height = Math.round(standalone
       ? Math.max(innerHeight,root.clientHeight,root.getBoundingClientRect().height,view?.height || 0)
       : (view?.height || innerHeight));
-    const portrait = width <= height || width < 540;
-    const w = width;
+    // Large monitors use one complete, height-fitted cabinet. The former
+    // landscape split scaled the crown to 70% of a wide monitor while leaving
+    // a tiny detached reel board and a separate right-hand Spin panel.
+    // Keep short landscape phones/tablets in their existing split-console mode.
+    const desktop = viewportWidth >= 1000 && height >= 620;
+    root.classList.toggle('desktop-layout',desktop);
+    const w = desktop
+      ? Math.min(viewportWidth - 36, 640, Math.max(350, Math.round(height * .58)))
+      : viewportWidth;
+    const portrait = desktop || viewportWidth <= height || viewportWidth < 540;
     // Landscape has a scene beside a full-size console. A portrait column
     // squeezed to 180px cannot fit five accessible controls.
     const panelWidth = portrait ? w : Math.min(460,Math.max(320,w*.52));
@@ -41,7 +49,7 @@
     const controlsSafeLeft = portrait ? safeLeft : 0;
     const controlsWidth = Math.max(1,panelWidth-controlsSafeLeft-safeRight);
     const h = Math.max(height,1), usable = Math.max(1,h-safeTop-safeBottom);
-    const key = [w,h,safeTop,safeBottom,safeLeft,safeRight,standalone].join(':');
+    const key = [viewportWidth,w,h,safeTop,safeBottom,safeLeft,safeRight,standalone,desktop].join(':');
     if (key === previous) return;
     previous = key;
     const fraction = Math.max(.62,Math.min(.728,.728-(1859/864-usable/innerWidth)*.17));
@@ -113,7 +121,7 @@
     put('controls-width',controlsWidth);put('controls-left',panelLeft+controlsSafeLeft);
     put('spin-size',spin);put('secondary-size',secondary);
     put('crown-unit',crownScale);
-    stage.dataset.fullframe=portrait?'portrait':'landscape';
+    stage.dataset.fullframe=desktop?'desktop':portrait?'portrait':'landscape';
     // Chrome may emit many size events. Warm once after it settles, not once
     // per animation frame; the input handler can still prepare on demand.
     clearTimeout(warmTimer);
