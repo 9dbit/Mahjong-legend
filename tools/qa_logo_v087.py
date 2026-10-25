@@ -104,51 +104,33 @@ def crown_raster_comparison(page):
 
 
 def lantern_geometry(page, baseline=None):
-    """Each dragon and corner must be a single, proportionally scaled sprite."""
+    """Check one continuous, aspect-correct side sprite without duplicated ornament."""
     result = page.evaluate("""async () => {
       const sides=[...document.querySelectorAll('.art-board > b')];
-      const source = async style => {
-        const match=style.backgroundImage.match(/url\(["']?([^"')]+)["']?\)/);
-        const url=match?.[1]||'',image=new Image();
-        image.src=url;
-        try { await image.decode(); } catch (_) {}
-        return {url, natural:[image.naturalWidth,image.naturalHeight],
-                ready:image.complete&&image.naturalWidth>0};
-      };
       return Promise.all([sides[0],sides[2]].map(async (e,i) => {
-        const box=e.getBoundingClientRect(),
-              base=getComputedStyle(e),dragon=getComputedStyle(e,'::before'),
-              corner=getComputedStyle(e,'::after');
-        const assets=await Promise.all([source(base),source(dragon),source(corner)]);
-        const px=s=>{const m=s.match(/^[0-9.]+px/);return m?parseFloat(m[0]):null;};
-        return {side:i?'right':'left',width:box.width,height:box.height,
-          base:assets[0],dragon:assets[1],corner:assets[2],
-          baseSize:base.backgroundSize.split(' ').map(px),
-          dragonSize:[px(dragon.width),px(dragon.height)],
-          cornerSize:[px(corner.width),px(corner.height)],
-          dragonVisible:dragon.content!=='none'&&dragon.display!=='none',
-          cornerVisible:corner.content!=='none'&&corner.display!=='none'};
+        const rect=e.getBoundingClientRect(),style=getComputedStyle(e);
+        const before=getComputedStyle(e,'::before'),after=getComputedStyle(e,'::after');
+        const match=style.backgroundImage.match(/url\(["']?([^"')]+)["']?\)/);
+        const image=new Image();image.src=match?.[1]||'';
+        try { await image.decode(); } catch (_) {}
+        return {side:i?'right':'left',width:rect.width,height:rect.height,
+          image:style.backgroundImage,scale:style.backgroundSize.split(' ').map(parseFloat),
+          natural:[image.naturalWidth,image.naturalHeight],decoded:image.complete&&image.naturalWidth>0,
+          before:before.display,after:after.display,
+          sourceCount:[...style.backgroundImage.matchAll(/url\(/g)].length};
       }));
     }""")
     for i,side in enumerate(result):
-        natural_width=117 if i else 118
-        assert side['base']['ready'] and side['base']['natural']==[natural_width,938],side
-        assert side['dragon']['ready'] and side['dragon']['natural']==[natural_width,615],side
-        assert side['corner']['ready'] and side['corner']['natural']==[200,179],side
-        assert '/ornament-v094/dragon-' in side['dragon']['url'],side
-        assert '/ornament-v094/corner-' in side['corner']['url'],side
-        assert side['dragonVisible'] and side['cornerVisible'],side
-        for field,source_width,source_height in [
-            ('baseSize',natural_width,938),
-            ('dragonSize',natural_width,615),
-            ('cornerSize',200,179),
-        ]:
-            w,h=side[field]
-            assert w is not None and h is not None and min(w,h)>0,side
-            distortion=(w/source_width)/(h/source_height)
-            assert abs(distortion-1)<.012,(field,side,distortion)
+        expected_width=117 if i else 118
+        assert side['decoded'] and side['natural']==[expected_width,938],side
+        assert side['sourceCount']==1 and '/fullframe-v086/board-' in side['image'],side
+        assert side['before']=='none' and side['after']=='none',side
+        width,height=side['scale']
+        assert min(width,height)>0 and height>0,side
+        deformation=(width/expected_width)/(height/938)
+        assert abs(deformation-1)<.012,(side,deformation)
+        side['horizontal_to_vertical_scale']=deformation
         side['continuous_source_match']='PASS'
-        side['horizontal_to_vertical_scale']=side['dragonSize'][0]/natural_width/(side['dragonSize'][1]/615)
     return result
 
 def light_state(page):
