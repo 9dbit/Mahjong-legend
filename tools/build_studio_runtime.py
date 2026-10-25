@@ -16,7 +16,7 @@ def replace(source,old,new,count=1):
 def build():
     OUT.mkdir(parents=True,exist_ok=True)
     text=(ROOT/'web/assets/portrait-v085/game.js').read_text()
-    text=replace(text,'UI 0.8.7','UI 0.9.1')
+    text=replace(text,'UI 0.8.7','UI 0.9.2')
     text=replace(text,"  const tileAssets='/assets/portrait-v085/';", """  const tileAssets='/assets/portrait-v085/';
   const apiBase=document.querySelector('meta[name="studio-api-base"]')?.content||'/api';
   let activeManifest=null;
@@ -48,6 +48,10 @@ def build():
     # The previous replacement also sees the fallback in our inserted helper.
     text=text.replace('||tileUrl(t);','||`${tileAssets}tiles/${t.symbol}-${t.enhanced?\'gold\':\'normal\'}.webp`;')
     text=replace(text,"if(!['W','S'].includes(data.symbol)){const glow", "if(!['W','S'].includes(data.symbol)&&tileUrl(data).startsWith(tileAssets)){const glow")
+    # The corner cap is a non-interactive pseudo-element, never a winning tile node.
+    old_reel="function reel(col,index){const e=node('div',`reel${col.length===4?' short':''}`);"
+    new_reel=old_reel+"if(col.length===4){const cap=col[col.length-1];e.style.setProperty('--corner-cap-image',`url(\"${tileUrl(cap)}\")`);}"
+    text=replace(text,old_reel,new_reel)
     text=replace(text,'  function refresh(next){\n    state=next;options=next.bet_options?.map(Number)||options;', '''  async function refresh(next){
     await applyManifest(next);
     if(!state)stake=String(next.spin_price);
@@ -88,7 +92,7 @@ def build():
     startup=next(i for i,line in enumerate(lines) if "Promise.all([req('/api/state')" in line)
     lines[startup]="  req('/api/state').then(async next=>{await refresh(next);mult(false);window.MahjongReels.prewarm($('board'));notice(next.migration_notice?'SESI BARU · CEK INFO':'SIAP BERMAIN');}).catch(e=>{notice('KONEKSI GAGAL. MUAT ULANG.');$('spin-btn').disabled=true;console.error(e.message);});"
     (OUT/'game.js').write_text('\n'.join(lines)+'\n')
-    html=(ROOT/'web/index.html').read_text().replace('/assets/portrait-v085/game.js','/assets/studio-v090/game.js').replace('/assets/locked-v08/audio.js','/assets/studio-v090/audio.js').replace('?v=087','?v=091').replace('0.8.7','0.9.1')
+    html=(ROOT/'web/index.html').read_text().replace('/assets/portrait-v085/game.js','/assets/studio-v090/game.js').replace('/assets/locked-v08/audio.js','/assets/studio-v090/audio.js').replace('?v=087','?v=092').replace('0.8.7','0.9.2')
     html=html.replace('<section id="panel-rules"', '<section id="panel-rules"')
     for label,ident in [('BASE MULTIPLIERS','rule-base'),('FREE SPIN MULTIPLIERS','rule-bonus'),('3 SCATTER','rule-free'),('SCATTER TAMBAHAN','rule-extra'),('MAKSIMUM PER PUTARAN','rule-cap')]:
         html=html.replace('<span>'+label+'</span><b>','<span>'+label+'</span><b id="'+ident+'">')
@@ -101,12 +105,12 @@ def build():
         html=html[:start]+'<p id="studio-rules-summary" class="small-note"></p><p class="small-note">Kredit virtual. RTP adalah estimasi statistik per versi aturan; hasil setiap ronde dapat diverifikasi.</p>'+html[end:]
     (ROOT/'web/index.html').write_text(html)
     sw=ROOT/'web/sw.js'
-    worker=sw.read_text().replace('presentation-087','presentation-091')
+    worker=sw.read_text().replace('presentation-087','presentation-092')
     if "url.pathname.startsWith('/studio')" not in worker:
         worker=worker.replace("url.pathname.startsWith('/api/')","(url.pathname.startsWith('/api/')||url.pathname.startsWith('/studio')||url.pathname.startsWith('/media/'))")
     sw.write_text(worker)
-    release={'release':'0.9.1','math_version':'0.8.0','studio':True,'schema_version':1,'virtual_credits_only':True}
+    release={'release':'0.9.2','math_version':'0.8.0','studio':True,'schema_version':1,'virtual_credits_only':True}
     (OUT/'release.json').write_text(json.dumps(release)+'\n')
-    print('Studio 0.9.1 runtime compiled; math engine unchanged')
+    print('Studio 0.9.2 runtime compiled; math engine unchanged')
 
 if __name__=='__main__': build()

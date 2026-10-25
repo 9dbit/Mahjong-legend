@@ -96,7 +96,8 @@
       const topUnit=Math.min(unit*1.10,boardHeight*.62/256);
       const bottomUnit=Math.min(unit,boardHeight*.20/89);
       const topHeight=256*topUnit,bottomHeight=89*bottomUnit;
-      const middleUnit=(boardHeight-topHeight-bottomHeight)/593;
+      // Preserve dragon scale along the entire frame. Crop excess; never stretch the torso.
+      const middleUnit=unit;
       put(`${side}-top-height`,topHeight);put(`${side}-bottom-height`,bottomHeight);
       put(`${side}-top-image-height`,938*topUnit);put(`${side}-bottom-image-height`,938*bottomUnit);
       put(`${side}-middle-image-height`,938*middleUnit);

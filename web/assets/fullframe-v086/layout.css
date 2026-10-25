@@ -114,3 +114,14 @@ html.reels-running .art-crown::before,html.reels-running .art-crown::after,body.
 .game-stage[data-fullframe=landscape] .art-board b:first-child{width:calc(var(--ff-board-height)*118/938);justify-self:end;background-size:100% 100%;background-position:0 0}
 .game-stage[data-fullframe=landscape] .art-board b:last-child{width:calc(var(--ff-board-height)*117/938);justify-self:start;background-size:100% 100%;background-position:0 0}
 .game-stage[data-fullframe=landscape] .art-board b:first-child::before,.game-stage[data-fullframe=landscape] .art-board b:first-child::after,.game-stage[data-fullframe=landscape] .art-board b:last-child::before,.game-stage[data-fullframe=landscape] .art-board b:last-child::after{display:none}
+
+/* v0.9.2. Ornamental half-tile caps do not participate in the 4/5/5/5/4 game grid. */
+.fullframe-art .art-board b:first-child,.fullframe-art .art-board b:last-child{background-color:#650b0b;background-repeat:no-repeat}
+.reel-theatre .board-frame{position:relative;isolation:isolate}
+.board .reel.short{position:relative;overflow:visible}
+.board .reel.short::before{content:'';position:absolute;left:0;right:0;bottom:calc(100% + .14cqw);height:25%;z-index:0;border-radius:11%;pointer-events:none;background:var(--corner-cap-image) center/100% 100% no-repeat;box-shadow:inset 0 0 0 1px #ffe7a68c,0 3px 7px #230800af,0 0 7px #ffbf5973}
+.reel-theatre .board-frame::before,.reel-theatre .board-frame::after{content:'';position:absolute;z-index:5;top:0;width:11%;height:11%;pointer-events:none;opacity:.65;background:radial-gradient(ellipse at top left,#ffe095c2 0%,#b86f157c 17%,transparent 65%)}
+.reel-theatre .board-frame::before{left:0}.reel-theatre .board-frame::after{right:0;transform:scaleX(-1)}
+.multiplier-rail .mult:not(.active) .mult-glyph{filter:saturate(.53) brightness(.75) drop-shadow(0 1px 1px #062823)!important}
+.multiplier-rail .mult.active .mult-glyph{filter:grayscale(1) sepia(1) saturate(7) hue-rotate(-12deg) brightness(1.2) drop-shadow(0 0 4px #fff2aa) drop-shadow(0 0 8px #ffc43e)!important}
+.multiplier-rail .mult.active:not(.art-mult){color:#ffe46b!important;text-shadow:0 0 5px #ffc040,0 2px 2px #693012!important}
