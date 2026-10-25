@@ -11,7 +11,7 @@ RUN pip install --no-cache-dir 'Pillow==12.3.0'
 COPY web/ /app/web/
 COPY mahjong_legend/ /app/mahjong_legend/
 COPY tools/ /app/tools/
-RUN python tools/build_locked_ui.py && python tools/build_presentation_fx.py && python tools/build_approved_ui.py && python tools/build_portrait_ui.py && python tools/build_responsive_runtime.py --runtime-only && python tools/build_fullframe_ui.py --runtime-only && python tools/build_ornament_v094.py && python tools/build_studio_runtime.py
+RUN python tools/build_locked_ui.py && python tools/build_presentation_fx.py && python tools/build_approved_ui.py && python tools/build_portrait_ui.py && python tools/build_responsive_runtime.py --runtime-only && python tools/build_fullframe_ui.py --runtime-only && python tools/build_studio_runtime.py
 
 FROM python:3.12-slim
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 PORT=8080
