@@ -340,7 +340,7 @@ def health(request):
     with connection.cursor() as cursor: cursor.execute('SELECT 1')
     active=active_release()
     worker=WorkerHeartbeat.objects.filter(pk='studio-worker').first()
-    return reply({'ok':True,'game':'Mahjong Wild','version':'0.9.1','math_version':active.config['math']['version'],
+    return reply({'ok':True,'game':'Mahjong Wild','version':'0.9.2','math_version':active.config['math']['version'],
         'engine_sha256':ENGINE_HASH,'storage':'postgresql' if connection.vendor=='postgresql' else 'sqlite-local',
         'worker_ready':bool(worker and (timezone.now()-worker.seen_at).total_seconds()<120)})
 
