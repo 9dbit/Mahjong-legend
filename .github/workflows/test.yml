@@ -12,7 +12,7 @@ jobs:
       - name: Install test dependencies
         run: python -m pip install 'Pillow>=10,<13' 'playwright==1.57.0'
       - name: Build locked artwork and aligned light masks
-        run: python tools/build_locked_ui.py && python tools/build_presentation_fx.py && python tools/build_approved_ui.py && python tools/build_portrait_ui.py && python tools/build_responsive_runtime.py
+        run: python tools/build_locked_ui.py && python tools/build_presentation_fx.py && python tools/build_approved_ui.py && python tools/build_portrait_ui.py && python tools/build_responsive_runtime.py && python tools/build_fullframe_ui.py
       - name: Run engine, HTTP and asset tests
         run: python -m unittest discover -s tests -q
       - name: Install Chromium and WebKit
@@ -29,6 +29,8 @@ jobs:
         run: python tools/qa_reels_v083.py && python tools/qa_reels_v083.py --engine webkit
       - name: Verify portrait geometry and immediate input under network delay
         run: python tools/qa_portrait_v085.py && python tools/qa_portrait_v085.py --engine webkit
+      - name: Verify full-frame portrait safe areas and viewport resize
+        run: python tools/qa_fullframe_v086.py && python tools/qa_fullframe_v086.py --engine webkit
       - name: Verify exact release on Railway
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'
         env:
@@ -38,10 +40,10 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: mahjong-wild-v085-browser-qa
+          name: mahjong-wild-v086-browser-qa
           path: qa/
       - name: Save generated asset pack
         uses: actions/upload-artifact@v4
         with:
-          name: mahjong-wild-v085-runtime-assets
+          name: mahjong-wild-v086-runtime-assets
           path: web/assets/
