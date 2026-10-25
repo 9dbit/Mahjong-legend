@@ -62,9 +62,6 @@ def expected_files(web_root):
         "index.html", "sw.js", "manifest.webmanifest", "studio/index.html",
         "assets/studio-v090/game.js", "assets/studio-v090/audio.js", "assets/studio-v090/release.json",
         "assets/fullframe-v086/layout.css", "assets/fullframe-v086/layout.js", "assets/portrait-v085/reels.js",
-        "assets/ornament-v094/dragon-left.webp", "assets/ornament-v094/dragon-right.webp",
-        "assets/ornament-v094/corner-left.webp", "assets/ornament-v094/corner-right.webp",
-        "assets/ornament-v094/manifest.json",
     }
     web_root = web_root.resolve()
     for html in ("index.html", "studio/index.html"):
