@@ -152,7 +152,21 @@ def build(runtime_only=False):
             for suffix,left,right in [('left',0,edges[0]),('center',edges[0],edges[1]),('right',edges[1],864)]:
                 slices[f'{stem}-{suffix}']=(left,top,right,bottom)
         for name,box in slices.items():
-            art.crop(box).save(OUT/f'{name}.webp','WEBP',lossless=True,method=1)
+            piece=art.crop(box)
+            if name in ('board-left','board-right'):
+                # Single continuous dragon strip. Fade only the straight inner
+                # raster edge so lower gold scrolls melt into the reel backplate.
+                # Neither the source art nor any tile image is modified.
+                piece=piece.convert('RGBA')
+                alpha=Image.new('L',piece.size,255)
+                fade=16
+                draw_alpha=ImageDraw.Draw(alpha)
+                for x in range(piece.width):
+                    gap=(piece.width-1-x) if name=='board-left' else x
+                    opacity=round(255*min(1,max(0,gap/fade)))
+                    draw_alpha.line((x,0,x,piece.height),fill=opacity)
+                piece.putalpha(alpha)
+            piece.save(OUT/f'{name}.webp','WEBP',lossless=True,method=1)
     # Extend the approved decorative clouds into a soft, source-colored join.
     # Blur only a background edge strip; never repeat logo/control symbols in
     # the extra space. The protected center pixels are not blended or edited.
