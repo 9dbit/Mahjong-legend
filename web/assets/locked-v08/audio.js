@@ -1,12 +1,15 @@
-/* Mahjong Wild 0.8.2: gesture-unlocked shared mixer. Original music + local SFX. */
+/* Mahjong Wild 0.8.7: gesture-unlocked shared mixer. Original music + local SFX. */
 (() => {
   'use strict';
+  // Presentation gain is separate from saved user preferences. Both music and
+  // effects receive 30% higher amplitude at the same slider; mute stays silent.
+  const OUTPUT_GAIN=1.30;
   const get=(key,fallback)=>{try{return localStorage.getItem(key)??fallback;}catch{return fallback;}};
   const put=(key,value)=>{try{localStorage.setItem(key,String(value));}catch{}};
   const clamp=(v,f=.5)=>Number.isFinite(Number(v))?Math.max(0,Math.min(1,Number(v))):f;
   let enabled=get('mw-sfx','on')!=='off',volume=clamp(get('mw-volume','.8'));
   let musicEnabled=get('mw-music','on')==='on',musicVolume=clamp(get('mw-music-volume','.28'));
-  let context=null,unlocked=false,epoch=0,musicSource=null,musicPending=null,unlockPending=null,sfxBus=null,musicBus=null,analyser=null,lastError='';
+  let context=null,unlocked=false,epoch=0,musicSource=null,musicPending=null,unlockPending=null,sfxBus=null,musicBus=null,outputBus=null,analyser=null,lastError='';
   const buffers=new Map(),sources=new Set(),pending=new Map(),bytes=new Map();
   const names={spin:'spin',stop:'reel_stop',cascade:'cascade',break:'tile_break',wild:'wild',multiplier:'multiplier',scatter:'scatter',bonus:'bonus',win:'win',tap:'button',bigwin:'win'};
   const counts={};
@@ -16,9 +19,10 @@
   function ensureContext(){
     if(context)return true;
     const C=window.AudioContext||window.webkitAudioContext;if(!C){lastError='Audio tidak didukung';return false;}
-    context=new C();sfxBus=context.createGain();musicBus=context.createGain();analyser=context.createAnalyser();analyser.fftSize=256;
+    context=new C();sfxBus=context.createGain();musicBus=context.createGain();outputBus=context.createGain();analyser=context.createAnalyser();analyser.fftSize=256;
     sfxBus.gain.value=enabled?volume:0;musicBus.gain.value=enabled?musicVolume:0;
-    sfxBus.connect(analyser);musicBus.connect(analyser);analyser.connect(context.destination);
+    outputBus.gain.value=OUTPUT_GAIN;
+    sfxBus.connect(outputBus);musicBus.connect(outputBus);outputBus.connect(analyser);analyser.connect(context.destination);
     return true;
   }
   async function load(name){
@@ -68,5 +72,5 @@
   document.addEventListener('pointerdown',()=>void unlock(),{passive:true});document.addEventListener('keydown',()=>void unlock());
   document.addEventListener('visibilitychange',()=>{if(document.hidden){stop();pauseMusic();}else if(unlocked)void unlock();});
   window.addEventListener('pagehide',()=>{stop();pauseMusic();});
-  window.MahjongWildAudio={play,unlock,stop,setEnabled,setVolume,toggleMusic,setMusicVolume,get state(){return{enabled,volume,musicEnabled,musicVolume,unlocked,context:context?.state??'not-created',loaded:buffers.size,voices:sources.size,musicPlaying:!!musicSource,level:level(),counts:{...counts},lastError};}};
+  window.MahjongWildAudio={play,unlock,stop,setEnabled,setVolume,toggleMusic,setMusicVolume,get state(){return{enabled,volume,musicEnabled,musicVolume,outputGain:OUTPUT_GAIN,unlocked,context:context?.state??'not-created',loaded:buffers.size,voices:sources.size,musicPlaying:!!musicSource,level:level(),counts:{...counts},lastError};}};
 })();

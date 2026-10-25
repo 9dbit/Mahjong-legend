@@ -25,12 +25,16 @@ jobs:
         run: python tools/qa_motion_v081.py --engine webkit
       - name: Verify approved menus audio and PWA
         run: python tools/qa_approved_v082.py && python tools/qa_approved_v082.py --engine webkit
+      - name: Verify audio output gain and saved mute settings
+        run: python tools/qa_audio_gain_v087.py --output qa/audio-v087/chromium.json && python tools/qa_audio_gain_v087.py --engine webkit --output qa/audio-v087/webkit.json
       - name: Verify GPU atlas no blank frames and left to right reels
         run: python tools/qa_reels_v083.py && python tools/qa_reels_v083.py --engine webkit
       - name: Verify portrait geometry and immediate input under network delay
         run: python tools/qa_portrait_v085.py && python tools/qa_portrait_v085.py --engine webkit
       - name: Verify full-frame portrait safe areas and viewport resize
         run: python tools/qa_fullframe_v086.py && python tools/qa_fullframe_v086.py --engine webkit
+      - name: Verify continuous logo round lanterns and animated crown light
+        run: python tools/qa_logo_v087.py && python tools/qa_logo_v087.py --engine webkit
       - name: Verify exact release on Railway
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'
         env:
@@ -40,10 +44,10 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: mahjong-wild-v086-browser-qa
+          name: mahjong-wild-v087-browser-qa
           path: qa/
       - name: Save generated asset pack
         uses: actions/upload-artifact@v4
         with:
-          name: mahjong-wild-v086-runtime-assets
+          name: mahjong-wild-v087-runtime-assets
           path: web/assets/

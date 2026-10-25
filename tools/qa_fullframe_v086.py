@@ -30,7 +30,7 @@ MEASURE='''()=>{
    viewport:{layoutWidth:innerWidth,layoutHeight:innerHeight,clientWidth:root.clientWidth,clientHeight:root.clientHeight,visualWidth:view?.width??innerWidth,visualHeight:view?.height??innerHeight,standalone:matchMedia('(display-mode: standalone)').matches||!!navigator.standalone},
    root:{...r(root),...paint(root)},body:{...r(body),...paint(body)},backdrop:pseudo(body,'::before'),
    art:{container:{...r(art),...paint(art)},before:pseudo(art,'::before'),after:pseudo(art,'::after'),
-     bands:[...art.querySelectorAll(':scope > i')].map(e=>({name:e.className,...r(e),...paint(e),parts:[...e.children].map(p=>({...r(p),...paint(p)}))}))}
+     bands:[...art.querySelectorAll(':scope > i')].map(e=>({name:e.className,...r(e),...paint(e),parts:[...e.children].filter(p=>getComputedStyle(p).display!=='none').map(p=>({...r(p),...paint(p)}))}))}
  };
 }'''
 
@@ -76,7 +76,10 @@ def assert_background_images(page):
       const entries=[[document.documentElement,null,'root'],[document.body,null,'body'],[document.body,'::before','backdrop']];
       const art=document.querySelector('.fullframe-art');
       entries.push([art,'::before','top-extension'],[art,'::after','bottom-extension']);
-      for(const e of art.querySelectorAll('i,b'))entries.push([e,null,e.className||e.parentElement.className+'-part']);
+      for(const e of art.querySelectorAll('i,b')){
+        const label=e.className||e.parentElement.className+'-part';
+        entries.push([e,null,label],[e,'::before',label+'-before'],[e,'::after',label+'-after']);
+      }
       const jobs=[];
       for(const [e,pseudo,label] of entries){
         const value=getComputedStyle(e,pseudo).backgroundImage;
@@ -180,7 +183,7 @@ def main():
     OUT.mkdir(parents=True,exist_ok=True);server=None;session=DemoSession();session.seed=f'{2:064x}'
     if not args.offline:
         server=make_server(port=0,session=session);threading.Thread(target=server.serve_forever,daemon=True).start()
-    report={'ui':'0.8.6','engine':args.engine,'transport':'offline embedded assets + real Python engine' if args.offline else 'HTTP + CSP','layouts':[],'page_errors':[],'physical_iphone_tested':False}
+    report={'ui':'0.8.7','engine':args.engine,'transport':'offline embedded assets + real Python engine' if args.offline else 'HTTP + CSP','layouts':[],'page_errors':[],'physical_iphone_tested':False}
     try:
       with sync_playwright() as p:
         b=getattr(p,args.engine).launch(headless=True,**({'executable_path':args.browser} if args.browser else {}))

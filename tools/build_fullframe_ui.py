@@ -1,4 +1,4 @@
-"""Compile UI 0.8.6 after v085. The original artwork and math are untouched."""
+"""Compile UI 0.8.7 after v085. The original artwork and math are untouched."""
 from pathlib import Path
 import hashlib,json
 from PIL import Image, ImageDraw, ImageFilter, ImageOps
@@ -22,9 +22,9 @@ def replace_checked(text,old,new,label):
     return text.replace(old,new,1)
 
 def release_label(text,label):
-    if '0.8.5' not in text and '0.8.6' not in text:
-        raise ValueError('Expected v085/v086 release label: '+label)
-    return text.replace('0.8.5','0.8.6')
+    if not any(version in text for version in ('0.8.5','0.8.6','0.8.7')):
+        raise ValueError('Expected v085/v086/v087 release label: '+label)
+    return text.replace('0.8.5','0.8.7').replace('0.8.6','0.8.7')
 
 def rewrite_qa(name,text):
     """Upgrade v085-generated QA after its source integrity checks have run.
@@ -74,6 +74,9 @@ def rewrite_qa(name,text):
         edit(old,"""     assert_reel_order(motion,qa['events'],allow_interrupted=case=='resize')
      assert motion['atlasPixels']<5000000 and motion['mode']=='gpu-composited-atlas',motion""")
     elif name=='tools/qa_live_release.py':
+        # Accept a previously generated v086 verifier, retaining the same
+        # guarded transforms and asset directory for this component family.
+        text=text.replace('release=086','release=085').replace('v086_live_mobile','v085_live_mobile')
         edit('from playwright.sync_api import sync_playwright, expect\n',
              'from playwright.sync_api import sync_playwright, expect\nfrom qa_fullframe_v086 import assert_layout\n')
         edit("'assets/portrait-v085/portrait.css']",
@@ -90,9 +93,9 @@ def rewrite_qa(name,text):
         else:
             edit("expected={p:hashlib",hashes)
         edit('/assets/portrait-v085/release.json','/assets/fullframe-v086/release.json')
-        edit('release=085','release=086')
-        edit('v085_live_mobile','v086_live_mobile')
-        release_check="    expect(page.locator('#game-stage')).to_have_attribute('data-release','0.8.6')"
+        edit('release=085','release=087')
+        edit('v085_live_mobile','v087_live_mobile')
+        release_check="    expect(page.locator('#game-stage')).to_have_attribute('data-release','0.8.7')"
         edit(release_check,release_check+'''
     expect(page.locator('meta[name="viewport"]')).to_have_attribute('content',re.compile(r'(?:^|,)\\s*viewport-fit\\s*=\\s*cover\\s*(?:,|$)'))
     expect(page.locator('meta[name="apple-mobile-web-app-capable"]')).to_have_attribute('content','yes')
@@ -100,7 +103,7 @@ def rewrite_qa(name,text):
     expect(page.locator('link[rel="manifest"]')).to_have_attribute('href','/manifest.webmanifest')''')
         edit("    page.locator('#board').evaluate('(e)=>Promise.all",
              "    page.set_viewport_size({'width':390,'height':690});page.wait_for_timeout(200)\n    fullframe=assert_layout(page,390,690)['stage']\n    assert not errors,errors\n    page.locator('#board').evaluate('(e)=>Promise.all")
-        edit("'ui_release':'0.8.6'", "'ui_release':'0.8.6','fullframe_390x690':fullframe")
+        edit("'ui_release':'0.8.7'", "'ui_release':'0.8.7','fullframe_390x690':fullframe")
     return text
 
 def build(runtime_only=False):
@@ -127,22 +130,24 @@ def build(runtime_only=False):
             right_edge=art.crop((851,top,852,top+high)).filter(ImageFilter.GaussianBlur(24)).resize((220,high))
             Image.composite(left_edge,cloud,mask).save(OUT/f'{stem}-left.webp','WEBP',lossless=True,method=1)
             Image.composite(right_edge,ImageOps.mirror(cloud),ImageOps.mirror(mask)).save(OUT/f'{stem}-right.webp','WEBP',lossless=True,method=1)
-    target=ROOT/'web/index.html';html=target.read_text()
-    html=replace_checked(html,'</head>','  <link rel="stylesheet" href="/assets/fullframe-v086/layout.css?v=086">\n  <script src="/assets/fullframe-v086/layout.js?v=086" defer></script>\n</head>','index / fullframe loaders')
+    target=ROOT/'web/index.html';html=target.read_text().replace('?v=086','?v=087')
+    html=replace_checked(html,'/assets/locked-v08/audio.js?v=085','/assets/locked-v08/audio.js?v=087','index / audio gain cache key')
+    html=replace_checked(html,'</head>','  <link rel="stylesheet" href="/assets/fullframe-v086/layout.css?v=087">\n  <script src="/assets/fullframe-v086/layout.js?v=087" defer></script>\n</head>','index / fullframe loaders')
     # Compose from approved pixels. Dynamic values remain independent DOM nodes.
     skin='<div class="fullframe-art" aria-hidden="true"><i class="art-crown"><b></b><b></b><b></b></i><i class="art-rail"></i><i class="art-board"><b></b><b></b><b></b></i><i class="art-hud"></i><i class="art-controls"><b></b><b></b><b></b></i></div>'
     if 'class="fullframe-art"' in html and skin not in html:
         raise ValueError('Review fullframe source drift: index / artwork container')
     html=replace_checked(html,'<span class="pwa-footer-extension"',skin+'\n    <span class="pwa-footer-extension"','index / artwork container')
-    target.write_text(release_label(html,'index').replace('?v=085','?v=086'))
-    sw=ROOT/'web/sw.js';sw.write_text(replace_checked(sw.read_text(),'presentation-085','presentation-086','service worker cache'))
-    (OUT/'release.json').write_text(json.dumps({'release':'0.8.6','math_version':'0.8.0','fullframe':True,'tile_ratio':'2:3','virtual_credits_only':True})+'\n')
+    target.write_text(release_label(html,'index').replace('?v=085','?v=087'))
+    sw=ROOT/'web/sw.js';sw.write_text(replace_checked(sw.read_text().replace('presentation-086','presentation-085'),'presentation-085','presentation-087','service worker cache'))
+    (OUT/'release.json').write_text(json.dumps({'release':'0.8.7','math_version':'0.8.0','fullframe':True,'tile_ratio':'2:3','virtual_credits_only':True})+'\n')
     (OUT/'manifest.json').write_text(json.dumps({'source':'web/assets/portrait-v085/frame.webp','slices':{k:v for k,v in slices.items() if k not in ['crown-left','crown-right','controls-left','controls-right']},'edge_extensions':{'crown':{'crop':[0,0,200,70],'scaled_height':305,'width':220},'controls':{'crop':[0,1748,220,1859],'scaled_height':328,'width':220},'right_cloud':'mirrored left cloud','join':{'left_source_x':12,'right_source_x':851,'source_strip_blur':24,'blend_start':.25,'blend_end':1,'curve':'smoothstep','protected_centers':'unchanged'}},'files':{f'{n}.webp':hashlib.sha256((OUT/f'{n}.webp').read_bytes()).hexdigest() for n in slices}},indent=2)+'\n')
     # These are release labels, not changes to the server-authoritative math.
     for name in ['game.js','reels.js']:
         script=ROOT/'web/assets/portrait-v085'/name
-        old,new=('UI 0.8.5','UI 0.8.6') if name=='game.js' else ("const VERSION = '0.8.5'","const VERSION = '0.8.6'")
-        runtime=replace_checked(script.read_text(),old,new,name+' / release')
+        old,new=('UI 0.8.5','UI 0.8.7') if name=='game.js' else ("const VERSION = '0.8.5'","const VERSION = '0.8.7'")
+        previous=old.replace('0.8.5','0.8.6')
+        runtime=replace_checked(script.read_text().replace(previous,old),old,new,name+' / release')
         if name=='game.js':
             # Landscape can make the whole portrait stage narrower than 200px.
             # An absolute 8px floor enlarged already-smaller CSS text and clipped
@@ -152,13 +157,13 @@ def build(runtime_only=False):
                                     'game.js / narrow-counter fitting')
         script.write_text(runtime)
     server=ROOT/'mahjong_legend/server.py'
-    server.write_text(replace_checked(server.read_text(),"'ui': '0.8.5'","'ui': '0.8.6'",'server / UI release'))
+    server.write_text(replace_checked(server.read_text().replace("'ui': '0.8.6'","'ui': '0.8.5'"),"'ui': '0.8.5'","'ui': '0.8.7'",'server / UI release'))
     if not runtime_only:
         # Validate every derivative before writing any of them.
         rewritten={name:rewrite_qa(name,(ROOT/name).read_text()) for name in QA_PATHS}
         for name,text in rewritten.items():compile(text,name,'exec')
         for name,text in rewritten.items():(ROOT/name).write_text(text)
-    print('UI 0.8.6 full-frame compiled; source artwork and math unchanged')
+    print('UI 0.8.7 full-frame compiled; source artwork and math unchanged')
 if __name__=='__main__':
     import argparse
     parser=argparse.ArgumentParser();parser.add_argument('--runtime-only',action='store_true')

@@ -1,4 +1,4 @@
-/* UI 0.8.6. Width-first mobile geometry; no RNG, payment, or spin requests. */
+/* UI 0.8.7. Full-width crown and responsive artwork; no game requests. */
 (() => {
   'use strict';
   const stage = document.getElementById('game-stage');
@@ -6,7 +6,7 @@
   const root = document.documentElement;
   const standaloneMedia = matchMedia('(display-mode: standalone)');
   let pending = 0, warmTimer = 0, previous = '', lastBoardWidth = null;
-  const px = value => `${Math.max(0, value).toFixed(3)}px`;
+  const px = value => `${Math.max(0, value).toFixed(6)}px`;
   const put = (key,value) => stage.style.setProperty(`--ff-${key}`,px(value));
   function update() {
     pending = 0;
@@ -43,13 +43,20 @@
     // Bound the board height before allocating those panels, preserving 2:3
     // tile geometry instead of allowing zero-height controls or cropping them.
     const minimumPanels = Math.min(usable*.55,Math.max(120,usable*.3));
-    const boardHeight = Math.min(1.5*innerWidth*fraction-.0064*w,usable-minimumPanels);
+    const preferredBoard = Math.min(1.5*innerWidth*fraction-.0064*w,usable-minimumPanels);
+    const oldFooter = Math.max(0,usable-preferredBoard)*527/921;
+    // Reserve the entire original-width crown before sizing the reels. The
+    // former height-first budget shrank it into a narrow, visibly separate box.
+    const crownScale = w/864;
+    const rail = 89*crownScale;
+    const minimumHeader = 305*crownScale+rail;
+    // Give the logo room and move the lower controls a little farther down.
+    // The board yields space while its tiles keep their original 2:3 ratio.
+    const footer = Math.max(1,Math.min(oldFooter-Math.min(w*.03,oldFooter*.06),usable-minimumHeader-1));
+    const boardHeight = Math.max(1,Math.min(preferredBoard,usable-minimumHeader-footer));
     const boardWidth = (boardHeight+.0064*w)/1.5;
-    const spare = Math.max(0,usable-boardHeight);
-    const header = spare*394/921, footer = spare-header;
-    const rail = Math.min(header*.28,w*89/864);
+    const header = usable-boardHeight-footer;
     const crown = header-rail;
-    const crownScale = Math.min(crown/305,innerWidth/864);
     const crownTop = safeTop+crown-305*crownScale;
     const footerTop = safeTop+header+boardHeight;
     const hud = Math.min(footer*.4,w*199/864);
@@ -62,11 +69,29 @@
     lastBoardWidth=boardWidth;
     put('width',w);put('height',h);put('safe',safeTop);
     put('header',header);put('crown-height',305*crownScale);put('crown-top',crownTop);
-    put('crown-left',center-432*crownScale);put('crown-width',864*crownScale);
-    put('crown-edge-left',center-420*crownScale);put('crown-edge-right',w-center-420*crownScale);
+    put('crown-left',0);put('crown-width',w);
+    put('crown-edge-left',12*crownScale);put('crown-edge-right',12*crownScale);
+    put('header-inset-left',safeLeft);put('header-inset-right',safeRight);
     put('rail-top',safeTop+crown);put('rail-height',rail);
     put('board-top',safeTop+header);put('board-width',boardWidth);
     put('board-left',center-boardWidth/2);put('board-height',boardHeight);
+    // Only the dragon's middle section flexes. The complete lantern/tassel
+    // gets its own near-uniform scale, with a modest roundness correction.
+    // Extremely short layouts bound ornaments so they cannot cover the board.
+    for(const [side,sideWidth,sourceWidth] of [
+      ['left',center-boardWidth/2,118],['right',w-center-boardWidth/2,117]
+    ]) {
+      const unit=sideWidth/sourceWidth;
+      const topUnit=Math.min(unit*1.10,boardHeight*.55/256);
+      const bottomUnit=Math.min(unit,boardHeight*.20/89);
+      const topHeight=256*topUnit,bottomHeight=89*bottomUnit;
+      const middleUnit=(boardHeight-topHeight-bottomHeight)/593;
+      put(`${side}-top-height`,topHeight);put(`${side}-bottom-height`,bottomHeight);
+      put(`${side}-top-image-height`,938*topUnit);put(`${side}-bottom-image-height`,938*bottomUnit);
+      put(`${side}-middle-image-height`,938*middleUnit);
+      // Negative offsets are intentional for the middle source row.
+      stage.style.setProperty(`--ff-${side}-middle-offset`,`${(topHeight-256*middleUnit).toFixed(6)}px`);
+    }
     put('footer-top',footerTop);put('hud-height',hud);
     put('controls-top',footerTop+hud);put('controls-height',328*controlsScale);
     put('controls-width',864*controlsScale);put('controls-left',center-432*controlsScale);

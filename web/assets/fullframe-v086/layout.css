@@ -1,5 +1,5 @@
-/* Width-first full-frame skin. All faces retain 2:3; logo and controls retain
-   their original aspect ratio. Only decorative edge strips absorb extra space. */
+/* UI 0.8.7. A continuous full-width crown, rounder lanterns and living light.
+   Tile faces retain 2:3; logo and controls retain their original aspect ratio. */
 html,body{width:100%;height:100%;height:100dvh;min-height:0;margin:0;padding:0;overflow:hidden;overscroll-behavior:none}
 html:root{background:#650816 url('/assets/approved-v082/backdrop.webp') center/cover no-repeat}
 body{display:flex;align-items:flex-start;justify-content:center;background:transparent}
@@ -16,17 +16,26 @@ html.standalone,html.standalone body{height:100vh;height:100lvh}
 .fullframe-art{position:absolute;inset:0;pointer-events:none;z-index:0}
 .fullframe-art i{display:block;position:absolute;left:0;width:100%;background-repeat:no-repeat;background-size:100% 100%}
 .fullframe-art b{display:block;background-repeat:no-repeat;background-size:100% 100%;min-width:0}
-.fullframe-art .art-crown{top:var(--ff-crown-top);height:var(--ff-crown-height);display:grid;grid-template-columns:var(--ff-crown-edge-left) 1fr var(--ff-crown-edge-right)}
-.art-crown b:first-child{background-image:url('/assets/fullframe-v086/crown-left.webp')}.art-crown b:nth-child(2){background-image:url('/assets/fullframe-v086/crown-center.webp')}.art-crown b:last-child{background-image:url('/assets/fullframe-v086/crown-right.webp')}
+.fullframe-art .art-crown{top:var(--ff-crown-top);height:var(--ff-crown-height);background-image:url('/assets/portrait-v085/frame.webp');background-size:var(--ff-crown-width) calc(var(--ff-crown-unit)*1859);background-position:0 0}
+/* One continuous source image spans the crown. The old three-piece container
+   remains in the generated shell for compatibility, but paints no side strips. */
+.fullframe-art .art-crown b{display:none}
 .fullframe-art .art-rail{top:var(--ff-rail-top);height:var(--ff-rail-height);background-image:url('/assets/fullframe-v086/rail.webp')}
 .fullframe-art .art-board{top:var(--ff-board-top);height:var(--ff-board-height);display:grid;grid-template-columns:var(--ff-board-left) var(--ff-board-width) 1fr}
 .art-board b:first-child{background-image:url('/assets/fullframe-v086/board-left.webp')}.art-board b:nth-child(2){background-image:url('/assets/fullframe-v086/board-center.webp')}.art-board b:last-child{background-image:url('/assets/fullframe-v086/board-right.webp')}
+.art-board b:first-child,.art-board b:last-child{position:relative;overflow:hidden;background-size:100% var(--ornament-middle-image);background-position:0 var(--ornament-middle-offset)}
+.art-board b:first-child{--ornament-top:var(--ff-left-top-height);--ornament-bottom:var(--ff-left-bottom-height);--ornament-top-image:var(--ff-left-top-image-height);--ornament-bottom-image:var(--ff-left-bottom-image-height);--ornament-middle-image:var(--ff-left-middle-image-height);--ornament-middle-offset:var(--ff-left-middle-offset);--ornament-image:url('/assets/fullframe-v086/board-left.webp')}
+.art-board b:last-child{--ornament-top:var(--ff-right-top-height);--ornament-bottom:var(--ff-right-bottom-height);--ornament-top-image:var(--ff-right-top-image-height);--ornament-bottom-image:var(--ff-right-bottom-image-height);--ornament-middle-image:var(--ff-right-middle-image-height);--ornament-middle-offset:var(--ff-right-middle-offset);--ornament-image:url('/assets/fullframe-v086/board-right.webp')}
+.art-board b:first-child::before,.art-board b:last-child::before,.art-board b:first-child::after,.art-board b:last-child::after{content:'';position:absolute;left:0;right:0;background-image:var(--ornament-image);background-repeat:no-repeat;pointer-events:none}
+.art-board b:first-child::before,.art-board b:last-child::before{top:0;height:var(--ornament-top);background-size:100% var(--ornament-top-image);background-position:0 0}
+.art-board b:first-child::after,.art-board b:last-child::after{bottom:0;height:var(--ornament-bottom);background-size:100% var(--ornament-bottom-image);background-position:0 100%}
 .fullframe-art .art-hud{top:var(--ff-footer-top);height:var(--ff-hud-height);background-image:url('/assets/fullframe-v086/hud.webp')}
 .fullframe-art .art-controls{top:var(--ff-controls-top);height:var(--ff-controls-height);display:grid;grid-template-columns:var(--ff-controls-edge-left) 1fr var(--ff-controls-edge-right)}
 .art-controls b:first-child{background-image:url('/assets/fullframe-v086/controls-left.webp')}.art-controls b:nth-child(2){background-image:url('/assets/fullframe-v086/controls-center.webp')}.art-controls b:last-child{background-image:url('/assets/fullframe-v086/controls-right.webp')}
 .game-stage::before{display:none!important}.pwa-footer-extension{display:none}
 .game-header{left:var(--ff-crown-left);right:auto;width:var(--ff-crown-width);top:var(--ff-crown-top);height:calc(var(--ff-crown-unit)*307.2)}
 .game-header #menu-btn,.game-header #sound-btn{pointer-events:auto;min-width:32px;min-height:32px}
+.game-header #menu-btn{left:max(2.5%,var(--ff-header-inset-left))}.game-header #sound-btn{right:max(2.5%,var(--ff-header-inset-right))}
 .logo-fx{left:calc(var(--ff-crown-left) + var(--ff-crown-width)*.292824);width:calc(var(--ff-crown-width)*.414352);top:calc(var(--ff-crown-top) + var(--ff-crown-unit)*123);height:calc(var(--ff-crown-unit)*135)}
 .multiplier-frame{left:12.6%;width:74.8%;top:calc(var(--ff-rail-top) + var(--ff-rail-height)*7.576/89);height:calc(var(--ff-rail-height)*62.976/89)}
 .multiplier-rail{min-height:0;height:100%;grid-template-rows:minmax(0,1fr)}
@@ -41,9 +50,18 @@ html.standalone,html.standalone body{height:100vh;height:100lvh}
 .credits-strip .meter-value{font-size:min(3.7cqw,calc(var(--ff-hud-height)*.2));line-height:1.05}
 @media(min-aspect-ratio:1/1){.game-stage{width:var(--ff-width);max-width:none}}
 
-/* Keep decorative joins aligned with their source rows. Protected center
-   artwork stays uniformly scaled; only these matched outer extensions flex. */
-.art-crown b:first-child,.art-controls b:first-child,.art-crown b:last-child,.art-controls b:last-child{background-size:100% 100%}
+/* Control-panel edge extensions retain their matched source rows. */
+.art-controls b:first-child,.art-controls b:last-child{background-size:100% 100%}
+/* The existing rays above the crest gain a slow warm pulse and a small sweep.
+   These layers never cover controls or issue animation-frame JavaScript. */
+.fullframe-art .art-crown{overflow:hidden;isolation:isolate}
+.art-crown::before,.art-crown::after{content:'';position:absolute;z-index:1;pointer-events:none;mix-blend-mode:screen}
+.art-crown::before{inset:0;background:radial-gradient(ellipse at 50% 23%,#fff8d5bb 0%,#ffd76a80 6%,#ffb72f30 22%,transparent 54%);-webkit-mask-image:linear-gradient(to bottom,transparent,#000 14%,#000 70%,transparent);mask-image:linear-gradient(to bottom,transparent,#000 14%,#000 70%,transparent);opacity:.20;animation:crown-glow 4.8s ease-in-out infinite}
+.art-crown::after{left:8%;right:8%;top:0;height:52%;background:repeating-conic-gradient(from 176deg at 50% 45%,transparent 0deg 8deg,#ffe6a780 9deg 10deg,#ffc3452b 11deg,transparent 13deg 20deg);-webkit-mask-image:radial-gradient(ellipse at 50% 50%,#000 0%,#000b 22%,transparent 68%);mask-image:radial-gradient(ellipse at 50% 50%,#000 0%,#000b 22%,transparent 68%);transform-origin:50% 45%;opacity:.28;animation:crown-rays 6.4s ease-in-out infinite}
+@keyframes crown-glow{0%,100%{opacity:.16;transform:scale(1)}50%{opacity:.55;transform:scale(1.06)}}
+@keyframes crown-rays{0%,100%{opacity:.20;transform:rotate(-3deg) scale(1)}50%{opacity:.58;transform:rotate(3deg) scale(1.06)}}
+html.reels-running .art-crown::before,html.reels-running .art-crown::after,body.reels-active .art-crown::before,body.reels-active .art-crown::after{animation-play-state:paused;opacity:.12}
+@media(prefers-reduced-motion:reduce){.art-crown::before{animation:none;opacity:.18;transform:none}.art-crown::after{animation:none;opacity:.14;transform:none}}
 /* Native status/home areas use decorative extensions, never baked-in OS text. */
 .fullframe-art::before,.fullframe-art::after{content:'';position:absolute;left:0;right:0;pointer-events:none;background-repeat:no-repeat;background-size:100% 100%}
 .fullframe-art::before{top:0;height:var(--ff-crown-top);background-image:url('/assets/approved-v082/extension-top.webp')}
