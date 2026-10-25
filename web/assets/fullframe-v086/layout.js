@@ -29,7 +29,7 @@
     const desktop = viewportWidth >= 1000 && height >= 620;
     root.classList.toggle('desktop-layout',desktop);
     const w = desktop
-      ? Math.min(viewportWidth - 36, 640, Math.max(350, Math.round(height * .58)))
+      ? Math.min(viewportWidth - 36, 580, Math.max(350, Math.round(height * .50)))
       : viewportWidth;
     const portrait = desktop || viewportWidth <= height || viewportWidth < 540;
     // Landscape has a scene beside a full-size console. A portrait column
@@ -94,16 +94,11 @@
     put('rail-top',safeTop+crown);put('rail-height',rail);
     put('board-top',safeTop+header);put('board-width',boardWidth);
     put('board-left',center-boardWidth/2);put('board-height',boardHeight);
-    // Single-artwork side bodies and source-proportional golden detail.
-    // This only changes decorative transforms, not reels or hit geometry.
+    // Each side is the complete 118/117x938 portrait source, painted once.
+    // The native image aspect is preserved with no independent top/middle/
+    // bottom stretch and no double lantern or duplicated golden scroll.
     for(const [side,sourceWidth] of [['left',118],['right',117]]) {
-      const baseScale=boardHeight/938;
-      const dragonScale=boardHeight/615;
-      const cornerScale=Math.min(crownScale,boardHeight/615);
-      put(side+'-base-width',sourceWidth*baseScale);
-      put(side+'-dragon-width',sourceWidth*dragonScale);
-      put(side+'-corner-width',200*cornerScale);
-      put(side+'-corner-height',179*cornerScale);
+      put(side+'-base-width',sourceWidth*boardHeight/938);
     }
     put('footer-top',footerTop);put('hud-height',hud);
     put('notice-height',compactHud?22:38);put('meter-offset',compactHud?24:40);
