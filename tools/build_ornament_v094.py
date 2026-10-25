@@ -33,8 +33,8 @@ def build():
         assert frame.size == (864, 1536), 'Approved source dimensions changed'
         frame = frame.convert('RGB')
         specs = {
-            'dragon-left': ((0, 394, 118, 1009), 'right', 30, 45, 19),
-            'dragon-right': ((747, 394, 864, 1009), 'left', 30, 45, 19),
+            'dragon-left': ((0, 394, 118, 1009), 'right', 230, 110, 19),
+            'dragon-right': ((747, 394, 864, 1009), 'left', 230, 110, 19),
             'corner-left': ((0, 830, 200, 1009), 'right', 35, 0, 74),
             'corner-right': ((664, 830, 864, 1009), 'left', 35, 0, 74),
         }
