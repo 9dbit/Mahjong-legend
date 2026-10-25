@@ -125,3 +125,22 @@ html.reels-running .art-crown::before,html.reels-running .art-crown::after,body.
 .multiplier-rail .mult:not(.active) .mult-glyph{filter:saturate(.53) brightness(.75) drop-shadow(0 1px 1px #062823)!important}
 .multiplier-rail .mult.active .mult-glyph{filter:grayscale(1) sepia(1) saturate(7) hue-rotate(-12deg) brightness(1.2) drop-shadow(0 0 4px #fff2aa) drop-shadow(0 0 8px #ffc43e)!important}
 .multiplier-rail .mult.active:not(.art-mult){color:#ffe46b!important;text-shadow:0 0 5px #ffc040,0 2px 2px #693012!important}
+
+
+/* v0.9.3: desktop is a single height-fitted cabinet, not a detached side console.
+   Keep the source artwork proportional and fill unused monitor width with atmosphere.
+   Mobile portrait and short mobile landscape still use their existing layouts. */
+html.desktop-layout body{
+  background:
+    radial-gradient(ellipse at 50% 36%,rgba(186,43,40,.28) 0%,rgba(79,7,16,.24) 36%,rgba(23,1,8,.72) 100%),
+    linear-gradient(90deg,rgba(32,3,11,.46),transparent 30%,transparent 70%,rgba(32,3,11,.46)),
+    url('/assets/approved-v082/backdrop.webp') center center / cover no-repeat;
+}
+.game-stage[data-fullframe="desktop"]{
+  border-left:1px solid rgba(255,197,87,.42);
+  border-right:1px solid rgba(255,197,87,.42);
+  box-shadow:0 0 0 1px rgba(90,15,12,.52),0 0 42px rgba(9,1,5,.72),0 0 110px rgba(181,39,20,.2);
+}
+.game-stage[data-fullframe="desktop"] .multiplier-rail .mult{
+  font-size:min(calc(var(--ff-scene-width)*.0815),calc(var(--ff-rail-height)*.9));
+}
