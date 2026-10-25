@@ -137,9 +137,9 @@ html.desktop-layout body{
     url('/assets/approved-v082/backdrop.webp') center center / cover no-repeat;
 }
 .game-stage[data-fullframe="desktop"]{
-  border-left:1px solid rgba(255,197,87,.42);
-  border-right:1px solid rgba(255,197,87,.42);
-  box-shadow:0 0 0 1px rgba(90,15,12,.52),0 0 42px rgba(9,1,5,.72),0 0 110px rgba(181,39,20,.2);
+  border:0;
+  box-shadow:inset 1px 0 rgba(255,197,87,.42),inset -1px 0 rgba(255,197,87,.42),
+             0 0 0 1px rgba(90,15,12,.52),0 0 42px rgba(9,1,5,.72),0 0 110px rgba(181,39,20,.2);
 }
 .game-stage[data-fullframe="desktop"] .multiplier-rail .mult{
   font-size:min(calc(var(--ff-scene-width)*.0815),calc(var(--ff-rail-height)*.9));
