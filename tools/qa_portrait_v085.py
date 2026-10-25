@@ -79,7 +79,7 @@ def main():
                 assert metrics['meters']['bottom']<metrics['controls']['y']
                 assert metrics['controls']['bottom']<=h+1,metrics
                 assert metrics['overflow']<=1
-                assert 'brightness(1.65)' in metrics['x2'],metrics['x2']
+                assert 'brightness(0.75)' in metrics['x2'],metrics['x2']  # inactive x2 remains subdued; only the active step glows gold
                 report['layouts'].append({'viewport':[w,h],'ratio_range':[min(ratios),max(ratios)],'overlap':False})
                 if w==390:page.screenshot(path=str(OUT/f'{args.engine}-idle.png'))
                 page.close()
