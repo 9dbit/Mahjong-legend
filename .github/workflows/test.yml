@@ -86,7 +86,7 @@ jobs:
         working-directory: studio_ui
         run: npm ci && npm run build
       - name: Build complete versioned game runtime
-        run: python tools/build_locked_ui.py && python tools/build_presentation_fx.py && python tools/build_approved_ui.py && python tools/build_portrait_ui.py && python tools/build_responsive_runtime.py --runtime-only && python tools/build_fullframe_ui.py --runtime-only && python tools/build_studio_runtime.py
+        run: python tools/build_locked_ui.py && python tools/build_presentation_fx.py && python tools/build_approved_ui.py && python tools/build_portrait_ui.py && python tools/build_responsive_runtime.py --runtime-only && python tools/build_fullframe_ui.py --runtime-only && python tools/build_ornament_v094.py && python tools/build_studio_runtime.py
       - name: Validate schema migrations
         run: python manage.py check && python manage.py makemigrations --check --dry-run
       - name: Verify PostgreSQL settlement, studio contracts and backup restore
