@@ -94,23 +94,16 @@
     put('rail-top',safeTop+crown);put('rail-height',rail);
     put('board-top',safeTop+header);put('board-width',boardWidth);
     put('board-left',center-boardWidth/2);put('board-height',boardHeight);
-    // Only the dragon's middle section flexes. The complete lantern/tassel
-    // gets its own near-uniform scale, with a modest roundness correction.
-    // Extremely short layouts bound ornaments so they cannot cover the board.
-    for(const [side,sideWidth,sourceWidth] of [
-      ['left',center-boardWidth/2,118],['right',sceneWidth-center-boardWidth/2,117]
-    ]) {
-      const unit=sideWidth/sourceWidth;
-      const topUnit=Math.min(unit*1.10,boardHeight*.62/256);
-      const bottomUnit=Math.min(unit,boardHeight*.20/89);
-      const topHeight=256*topUnit,bottomHeight=89*bottomUnit;
-      // Preserve dragon scale along the entire frame. Crop excess; never stretch the torso.
-      const middleUnit=unit;
-      put(`${side}-top-height`,topHeight);put(`${side}-bottom-height`,bottomHeight);
-      put(`${side}-top-image-height`,938*topUnit);put(`${side}-bottom-image-height`,938*bottomUnit);
-      put(`${side}-middle-image-height`,938*middleUnit);
-      // Negative offsets are intentional for the middle source row.
-      stage.style.setProperty(`--ff-${side}-middle-offset`,`${(topHeight-256*middleUnit).toFixed(6)}px`);
+    // Single-artwork side bodies and source-proportional golden detail.
+    // This only changes decorative transforms, not reels or hit geometry.
+    for(const [side,sourceWidth] of [['left',118],['right',117]]) {
+      const baseScale=boardHeight/938;
+      const dragonScale=boardHeight/615;
+      const cornerScale=Math.min(crownScale,boardHeight/615);
+      put(side+'-base-width',sourceWidth*baseScale);
+      put(side+'-dragon-width',sourceWidth*dragonScale);
+      put(side+'-corner-width',200*cornerScale);
+      put(side+'-corner-height',179*cornerScale);
     }
     put('footer-top',footerTop);put('hud-height',hud);
     put('notice-height',compactHud?22:38);put('meter-offset',compactHud?24:40);
