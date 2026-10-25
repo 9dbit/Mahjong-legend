@@ -60,7 +60,9 @@
     const spin = Math.max(80,Math.min(96,80+(controlsWidth-320)*16/70));
     const secondary = Math.max(52,Math.min(60,52+(controlsWidth-320)*8/110));
     const controlHeight = Math.max(108,spin+24);
-    const hud = 58;
+    // The approved ornate result banner and framed counters each have their
+    // own row; a little more height keeps both the artwork and labels legible.
+    const hud = 78;
     const footer = hud+controlHeight;
     const boardHeight = Math.max(1,Math.min(preferredBoard,usable-minimumHeader-(portrait?footer:0)));
     const boardWidth = (boardHeight+.0064*w)/1.5;

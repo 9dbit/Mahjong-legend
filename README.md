@@ -1,12 +1,12 @@
-# Mahjong Legend — Game Studio 0.9.0
+# Mahjong Legend — Game Studio 0.9.1
 
 An original five-reel cascade game with **virtual, non-redeemable credits**. The public game remains at `/`; the separate authenticated configuration workspace is at `/studio/`.
 
-This release adds a persistent Django/PostgreSQL engine, immutable releases, ticket-pinned rules, exactly-once round settlement, React/TypeScript Studio, image/audio processing, Math Lab jobs, and backup/restore. The baseline math snapshot remains **0.8.0** and its evaluator source is unchanged.
+The 0.9 engine provides persistent Django/PostgreSQL storage, immutable releases, ticket-pinned rules, exactly-once round settlement, React/TypeScript Studio, image/audio processing, Math Lab jobs, and backup/restore. UI patch **0.9.1** restores the approved red/gold control panel, ornate result banner, framed counters, and original control graphics while retaining large touch targets. The baseline math snapshot remains **0.8.0** and its evaluator source is unchanged.
 
 ## Game and Studio
 
-- One continuous full-width footer: Spin **80–96 px**, Turbo/Auto **52–60 px**, ± **44 px**. Portrait, landscape and PWA safe areas have explicit geometry; tile faces remain 2:3.
+- One continuous red/gold stage footer: Spin **80–96 px**, Turbo/Auto **52–60 px**, ± **44 px**. The Spin disc remains jade/gold; the panel behind it uses the approved crimson stage treatment. Portrait, landscape and PWA safe areas have explicit geometry; tile faces remain 2:3.
 - Draft controls for betting denominations, initial virtual credits, Auto policies, symbol weights, paytable, multipliers, free spins and payout cap.
 - All 17 tile symbols × normal/gold states. Verified derivatives are 218×327 RGBA tiles, with whole-tile/glyph, contain/cover and anchor controls.
 - Scene slots for background, crown, board and continuous footer.
@@ -87,7 +87,7 @@ The main-branch live gate compares exact deployed files, checks protected Studio
 
 ## Operations and limits
 
-See [release notes](docs/RELEASE_V090.md), [media/audio contracts](docs/STUDIO_MEDIA.md), [backup/restore](docs/STUDIO_BACKUP.md), [Studio UI guide](studio_ui/README.md), and [baseline math evidence](docs/MATH_V080_VALIDATION.md).
+See [0.9.1 visual correction](docs/RELEASE_V091.md), [0.9.0 engine release](docs/RELEASE_V090.md), [media/audio contracts](docs/STUDIO_MEDIA.md), [backup/restore](docs/STUDIO_BACKUP.md), [Studio UI guide](studio_ui/README.md), and [baseline math evidence](docs/MATH_V080_VALIDATION.md).
 
 Backups include database records and actual uploaded bytes. They contain private authentication/session material and unrevealed ticket seeds, are created with 0600 permissions, and have no HTTP download endpoint. Restore requires an empty migrated destination, with no destructive force option. Scheduling and offsite retention are not automatically enabled.
 

@@ -55,7 +55,7 @@ def obtain(token=None, preview_release=None):
 def _state(player,ticket=None):
     ticket=ticket or _ticket(player); cfg=GameConfig(ticket.release.config['math']);bet=ticket.release.config['bet']
     last=Round.objects.filter(session=player).order_by('-created_at').first()
-    return {'game':'Mahjong Wild','version':cfg.raw['version'],'ui_version':'0.9.0',
+    return {'game':'Mahjong Wild','version':cfg.raw['version'],'ui_version':'0.9.1',
         'balance':display_decimal(player.balance),'spin_price':str(bet['default']),
         'bet_options':bet['options'],'max_payout_x':str(cfg.cap),'spin_count':player.spins,
         'next_seed_commitment_sha256':ticket.commitment,'config_sha256':cfg.digest,

@@ -9,7 +9,53 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path[:0] = [str(ROOT), str(ROOT / 'tools')]
 from mahjong_legend.server import DemoSession, make_server
 from playwright.sync_api import sync_playwright, expect
-from qa_fullframe_v086 import assert_layout, assert_control_hits, set_safe_area
+from qa_fullframe_v086 import assert_layout, assert_control_hits, assert_background_images, set_safe_area
+
+
+def assert_footer_assets(page):
+    """Decode the real painted controls and require the approved artwork sources."""
+    decoded = page.evaluate(r'''async () => {
+        const entries = [
+            ['panel', document.querySelector('.art-controls')],
+            ['announcement', document.querySelector('.announcement')],
+            ...[...document.querySelectorAll('.credits-strip .meter')].map((e, i) => ['meter-' + i, e]),
+            ...['turbo-btn','minus-btn','spin-btn','plus-btn','auto-btn'].map(id => [id, document.getElementById(id)])
+        ];
+        const jobs = [];
+        const decode = async (element, pseudo, src) => {
+            const url = new URL(src, location.href), image = new Image();
+            image.src = url.href;
+            try {
+                await image.decode();
+                return {element, pseudo, path:url.pathname, url:url.href,
+                    ok:image.complete && image.naturalWidth > 0 && image.naturalHeight > 0,
+                    width:image.naturalWidth, height:image.naturalHeight};
+            } catch (error) {
+                return {element, pseudo, path:url.pathname, url:url.href, ok:false, error:String(error)};
+            }
+        };
+        for (const [label, element] of entries) {
+            for (const pseudo of [null, '::before', '::after']) {
+                const value = getComputedStyle(element, pseudo).backgroundImage;
+                for (const match of value.matchAll(/url\((?:"([^"]+)"|'([^']+)'|([^)]*))\)/g)) {
+                    jobs.push(decode(label, pseudo, match[1] || match[2] || match[3]));
+                }
+            }
+        }
+        const disk = document.querySelector('#spin-btn .spin-disk');
+        jobs.push(decode('spin-disk', null, disk.currentSrc || disk.src));
+        return Promise.all(jobs);
+    }''')
+    assert decoded and all(asset['ok'] for asset in decoded), decoded
+    expected = {'panel':'/assets/control-panel-v091/stage-clean.webp',
+                'spin-disk':'/assets/approved-v082/spin-disc.webp'}
+    for element in ['announcement', 'meter-0', 'meter-1', 'meter-2',
+                    'turbo-btn', 'minus-btn', 'plus-btn', 'auto-btn']:
+        expected[element] = '/assets/approved-v082/frame.webp'
+    for element, path in expected.items():
+        actual = [asset['path'] for asset in decoded if asset['element'] == element and asset['pseudo'] is None]
+        assert actual == [path], {'element':element, 'expected':path, 'actual':actual}
+    return decoded
 
 
 def main():
@@ -38,6 +84,8 @@ def main():
                 set_safe_area(page, top, bottom)
                 geometry = assert_layout(page, width, height, top, bottom)
                 assert_control_hits(page)
+                scene_assets = assert_background_images(page)
+                footer_assets = assert_footer_assets(page)
                 visual = page.evaluate('''() => {
                     const b = id => { const e = document.getElementById(id), r = e.getBoundingClientRect(), c = getComputedStyle(e);
                         return {id, width:r.width, height:r.height, background:c.backgroundImage, border:c.borderTopWidth}; };
@@ -46,7 +94,6 @@ def main():
                         panel:getComputedStyle(document.querySelector('.art-controls')).backgroundImage};
                 }''')
                 assert not visual['oldSlicesPainted'], visual
-                assert 'data:image/svg+xml' in visual['panel'], visual
                 assert all(min(b['width'], b['height']) >= 44 for b in visual['buttons']), visual
                 assert all(b['background'] != 'none' for b in visual['buttons']), visual
                 spin = visual['buttons'][2]
@@ -58,6 +105,7 @@ def main():
                 page.screenshot(path=str(output / screenshot))
                 receipt['layouts'].append({'viewport':[width,height], 'safe_area':[top,bottom],
                                           'buttons':visual['buttons'], 'screenshot':screenshot,
+                                          'decoded_scene_assets':scene_assets, 'decoded_footer_assets':footer_assets,
                                           'stage':geometry['stage'], 'board':geometry['board']})
                 page.close()
 

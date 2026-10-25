@@ -16,7 +16,7 @@ def replace(source,old,new,count=1):
 def build():
     OUT.mkdir(parents=True,exist_ok=True)
     text=(ROOT/'web/assets/portrait-v085/game.js').read_text()
-    text=replace(text,'UI 0.8.7','UI 0.9.0')
+    text=replace(text,'UI 0.8.7','UI 0.9.1')
     text=replace(text,"  const tileAssets='/assets/portrait-v085/';", """  const tileAssets='/assets/portrait-v085/';
   const apiBase=document.querySelector('meta[name="studio-api-base"]')?.content||'/api';
   let activeManifest=null;
@@ -88,7 +88,7 @@ def build():
     startup=next(i for i,line in enumerate(lines) if "Promise.all([req('/api/state')" in line)
     lines[startup]="  req('/api/state').then(async next=>{await refresh(next);mult(false);window.MahjongReels.prewarm($('board'));notice(next.migration_notice?'SESI BARU · CEK INFO':'SIAP BERMAIN');}).catch(e=>{notice('KONEKSI GAGAL. MUAT ULANG.');$('spin-btn').disabled=true;console.error(e.message);});"
     (OUT/'game.js').write_text('\n'.join(lines)+'\n')
-    html=(ROOT/'web/index.html').read_text().replace('/assets/portrait-v085/game.js','/assets/studio-v090/game.js').replace('/assets/locked-v08/audio.js','/assets/studio-v090/audio.js').replace('?v=087','?v=090').replace('0.8.7','0.9.0')
+    html=(ROOT/'web/index.html').read_text().replace('/assets/portrait-v085/game.js','/assets/studio-v090/game.js').replace('/assets/locked-v08/audio.js','/assets/studio-v090/audio.js').replace('?v=087','?v=091').replace('0.8.7','0.9.1')
     html=html.replace('<section id="panel-rules"', '<section id="panel-rules"')
     for label,ident in [('BASE MULTIPLIERS','rule-base'),('FREE SPIN MULTIPLIERS','rule-bonus'),('3 SCATTER','rule-free'),('SCATTER TAMBAHAN','rule-extra'),('MAKSIMUM PER PUTARAN','rule-cap')]:
         html=html.replace('<span>'+label+'</span><b>','<span>'+label+'</span><b id="'+ident+'">')
@@ -101,12 +101,12 @@ def build():
         html=html[:start]+'<p id="studio-rules-summary" class="small-note"></p><p class="small-note">Kredit virtual. RTP adalah estimasi statistik per versi aturan; hasil setiap ronde dapat diverifikasi.</p>'+html[end:]
     (ROOT/'web/index.html').write_text(html)
     sw=ROOT/'web/sw.js'
-    worker=sw.read_text().replace('presentation-087','presentation-090')
+    worker=sw.read_text().replace('presentation-087','presentation-091')
     if "url.pathname.startsWith('/studio')" not in worker:
         worker=worker.replace("url.pathname.startsWith('/api/')","(url.pathname.startsWith('/api/')||url.pathname.startsWith('/studio')||url.pathname.startsWith('/media/'))")
     sw.write_text(worker)
-    release={'release':'0.9.0','math_version':'0.8.0','studio':True,'schema_version':1,'virtual_credits_only':True}
+    release={'release':'0.9.1','math_version':'0.8.0','studio':True,'schema_version':1,'virtual_credits_only':True}
     (OUT/'release.json').write_text(json.dumps(release)+'\n')
-    print('Studio 0.9.0 runtime compiled; math engine unchanged')
+    print('Studio 0.9.1 runtime compiled; math engine unchanged')
 
 if __name__=='__main__': build()

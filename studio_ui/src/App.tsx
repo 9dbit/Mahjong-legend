@@ -1029,7 +1029,7 @@ export default function App() {
                     {session.environment || overview.environment || "Workspace"}
                   </strong>
                   <span>Studio</span>
-                  <strong>0.9.0</strong>
+                  <strong>0.9.1</strong>
                   <span>Schema</span>
                   <strong>{config?.schema_version ?? "—"}</strong>
                   <span>Engine</span>

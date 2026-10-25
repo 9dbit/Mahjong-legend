@@ -1,4 +1,4 @@
-"""Verify built UI 0.9.0 bytes and one real public virtual-credit round.
+"""Verify built UI 0.9.1 bytes and one real public virtual-credit round.
 
 This gate never activates an owner, signs in, uploads, edits a draft, publishes,
 or changes infrastructure. Deployment polling is GET-only and bounded to eight
@@ -32,7 +32,7 @@ from qa_fullframe_v086 import (assert_background_images, assert_control_hits,
                                assert_layout, install_viewport_fixture, set_safe_area)
 
 PRODUCTION_URL = "https://mahjong-legend-web-production.up.railway.app"
-VERSION = "0.9.0"
+VERSION = "0.9.1"
 ENGINE_HASH = sha256((ROOT / "mahjong_legend/engine.py").read_bytes()).hexdigest()
 
 
@@ -94,8 +94,8 @@ def expected_files(web_root):
         data = path.read_bytes()
         result[relative] = {"sha256": sha256(data).hexdigest(), "bytes": len(data)}
     release = json.loads((web_root / "assets/studio-v090/release.json").read_text())
-    require(release.get("release") == VERSION and release.get("studio") is True, "Expected build is not Studio 0.9.0")
-    require('data-release="0.9.0"' in (web_root / "index.html").read_text(), "Expected HTML is not UI 0.9.0")
+    require(release.get("release") == VERSION and release.get("studio") is True, f"Expected build is not Studio {VERSION}")
+    require(f'data-release="{VERSION}"' in (web_root / "index.html").read_text(), f"Expected HTML is not UI {VERSION}")
     return result
 
 
@@ -108,7 +108,7 @@ class HTTPReader:
 
     def get(self, path, deadline, maximum=1024 * 1024):
         require(time.monotonic() < deadline, "Deployment verification deadline reached")
-        request = Request(self.base + path, headers={"Cache-Control": "no-cache", "User-Agent": "Mahjong-Release-QA/0.9.0"})
+        request = Request(self.base + path, headers={"Cache-Control": "no-cache", "User-Agent": f"Mahjong-Release-QA/{VERSION}"})
         try:
             response = urlopen(request, timeout=max(.2, min(8, deadline-time.monotonic())), context=self.context)
         except URLError as error:
@@ -154,7 +154,7 @@ def wait_for_exact_release(reader, expected, expected_storage, require_worker, w
 
             def fetch_file(item):
                 path, local = item
-                body = reader.get("/" + quote(path, safe="/") + "?qa090=" + local["sha256"][:16], deadline, local["bytes"] + 1)
+                body = reader.get("/" + quote(path, safe="/") + "?qa" + VERSION.replace(".", "") + "=" + local["sha256"][:16], deadline, local["bytes"] + 1)
                 return path, {"sha256":sha256(body).hexdigest(), "bytes":len(body)}
 
             with ThreadPoolExecutor(max_workers=6) as pool:

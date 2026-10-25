@@ -47,7 +47,7 @@ def main():
         server=make_server('127.0.0.1',0,get_wsgi_application(),handler_class=Quiet)
         thread=threading.Thread(target=server.serve_forever,daemon=True);thread.start()
         base=f'http://127.0.0.1:{server.server_port}'
-        report={'engine':args.engine,'errors':[],'version':'0.9.0'}
+        report={'engine':args.engine,'errors':[],'version':'0.9.1'}
         pool=ThreadPoolExecutor(max_workers=1)
         def db(fn,*a,**kw): return pool.submit(fn,*a,**kw).result()
         try:

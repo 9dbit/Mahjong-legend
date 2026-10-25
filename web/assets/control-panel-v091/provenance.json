@@ -1,0 +1,72 @@
+{
+  "ui_release": "0.9.1",
+  "approved_master": "web/assets/reference/approved_pwa_20261024.jpg",
+  "approved_master_sha256": "2633977830328a72dd8125651bbfbd8a2ba2474425b5d2d19d993ab87f193808",
+  "background": {
+    "path": "web/assets/control-panel-v091/stage-clean.webp",
+    "sha256": "54fa096d2d0bbfd845e78812621ae789417141b50973bc03ca4c1dd29d756564",
+    "dimensions": [
+      1604,
+      980
+    ],
+    "method": "image_gen edit: extract approved red/gold footer and remove baked controls, counters, banner and text; retain stage, clouds and lighting. Encoded as WebP quality92.",
+    "approved_master_modified": false
+  },
+  "sprite_source": "web/assets/approved-v082/frame.webp",
+  "sprite_source_dimensions": [
+    864,
+    1536
+  ],
+  "sprite_windows_xywh": {
+    "banner": [
+      0,
+      1009,
+      864,
+      123
+    ],
+    "balance": [
+      28,
+      1137,
+      271,
+      65
+    ],
+    "bet": [
+      306,
+      1137,
+      254,
+      65
+    ],
+    "win": [
+      566,
+      1137,
+      270,
+      65
+    ],
+    "turbo": [
+      51,
+      1236,
+      102,
+      102
+    ],
+    "minus": [
+      198,
+      1241,
+      98,
+      98
+    ],
+    "plus": [
+      566,
+      1241,
+      98,
+      98
+    ],
+    "auto": [
+      710,
+      1236,
+      104,
+      104
+    ]
+  },
+  "spin_disc": "web/assets/approved-v082/spin-disc.webp",
+  "scope": "Presentation only; original reference, symbol identities, math, persistent configuration and settlement unchanged."
+}
