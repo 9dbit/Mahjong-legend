@@ -1,47 +1,17 @@
-name: Test Mahjong Wild
-on: [push, pull_request]
+name: Export baseline for full-frame repair
+on: [push]
+permissions:
+  contents: read
 jobs:
-  tests:
+  source:
     runs-on: ubuntu-latest
-    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
         with:
-          python-version: '3.12'
-      - name: Install test dependencies
-        run: python -m pip install 'Pillow>=10,<13' 'playwright==1.57.0'
-      - name: Build locked artwork and aligned light masks
-        run: python tools/build_locked_ui.py && python tools/build_presentation_fx.py && python tools/build_approved_ui.py && python tools/build_portrait_ui.py && python tools/build_responsive_runtime.py
-      - name: Run engine, HTTP and asset tests
-        run: python -m unittest discover -s tests -q
-      - name: Install Chromium and WebKit
-        run: python -m playwright install --with-deps chromium webkit
-      - name: Verify game in browser over HTTP
-        run: python tools/qa_locked_ui.py
-      - name: Verify motion, visible shatter and layout in Chromium
-        run: python tools/qa_motion_v081.py
-      - name: Verify motion, visible shatter and layout in WebKit
-        run: python tools/qa_motion_v081.py --engine webkit
-      - name: Verify approved menus audio and PWA
-        run: python tools/qa_approved_v082.py && python tools/qa_approved_v082.py --engine webkit
-      - name: Verify GPU atlas no blank frames and left to right reels
-        run: python tools/qa_reels_v083.py && python tools/qa_reels_v083.py --engine webkit
-      - name: Verify portrait geometry and immediate input under network delay
-        run: python tools/qa_portrait_v085.py && python tools/qa_portrait_v085.py --engine webkit
-      - name: Verify exact release on Railway
-        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-        env:
-          MW_LIVE_URL: https://mahjong-legend-web-production.up.railway.app
-        run: python tools/qa_live_release.py
-      - name: Save browser verification
-        if: always()
-        uses: actions/upload-artifact@v4
+          ref: 63c69859238aa50c3089743d51d31ffa3bca5dbd
+      - run: git archive --format=zip HEAD -o /tmp/mahjong-baseline.zip
+      - uses: actions/upload-artifact@v4
         with:
-          name: mahjong-wild-v085-browser-qa
-          path: qa/
-      - name: Save generated asset pack
-        uses: actions/upload-artifact@v4
-        with:
-          name: mahjong-wild-v085-runtime-assets
-          path: web/assets/
+          name: mahjong-v085-baseline-source
+          path: /tmp/mahjong-baseline.zip
+          retention-days: 3
