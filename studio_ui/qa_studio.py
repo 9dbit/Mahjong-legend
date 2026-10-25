@@ -103,6 +103,17 @@ async def verify(args, base, credentials, env):
         assert any(x['is_derivative'] and x['kind']=='scene' for x in (await read('assets'))['assets'])
         results['checks'].append('scene_upload_ready')
         await page.get_by_role('button', name='Audio Studio', exact=True).click()
+        async with page.expect_response(lambda response: response.url.endswith('/api/studio/assets') and response.request.method == 'POST') as upload_response:
+            await page.locator('input[type=file][accept*=".m4a"]').set_input_files(args.web_root/'assets/audio/sfx/button.wav')
+        accepted = await (await upload_response.value).json()
+        assert 'job' in accepted and 'asset' in accepted, accepted
+        uploaded_id = accepted['asset']['id']
+        await page.locator(f'[data-asset-id="{uploaded_id}"]').wait_for()
+        await asyncio.to_thread(worker)
+        await refresh()
+        items = (await read('assets'))['assets']
+        assert any(item['kind']=='audio' and item['original_id']==uploaded_id and item['is_derivative'] and item['status']=='ready' for item in items)
+        results['checks'].append('audio_upload_and_processing_visible')
         await page.get_by_role('button', name='Import untuk editing', exact=True).click()
         await page.get_by_text('Baseline diimpor.', exact=False).wait_for()
         await asyncio.to_thread(worker)

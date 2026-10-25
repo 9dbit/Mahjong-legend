@@ -63,7 +63,7 @@ def session_data(request):
     return {'authenticated':auth,'user':{'username':request.user.username,'permissions':perms} if auth else None,
             'csrf_token':get_token(request),'environment':'production' if settings.PRODUCTION else 'development',
             'setup_required':bool(settings.STUDIO_SETUP_TOKEN and pointer and not pointer.setup_used and not get_user_model().objects.filter(is_superuser=True).exists()),
-            'version':'0.9.1','virtual_credits_only':True}
+            'version':'0.9.2','virtual_credits_only':True}
 
 @api()
 def session(request): return reply(session_data(request))
@@ -110,6 +110,7 @@ def draft_data(d):
             'status':'validated' if d.validation.get('valid') else 'draft','base_release_id':str(d.base_release_id),'updated_at':d.updated_at.isoformat()}
 def job_data(j):
     return {'id':str(j.id),'kind':j.kind,'status':j.status,'progress':j.progress,'result':j.result,'error':j.error,
+            'source_asset_id':str(j.request.get('asset_id')) if j.kind in ('ingest','render') and j.request.get('asset_id') else None,
             'created_at':j.created_at.isoformat(),'cancel_requested':j.cancel_requested,'attempts':j.attempts}
 def asset_data(a):
     return {'id':str(a.id),'name':a.name,'kind':a.kind,'status':a.status,'sha256':a.sha256,

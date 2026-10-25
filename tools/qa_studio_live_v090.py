@@ -32,7 +32,7 @@ from qa_fullframe_v086 import (assert_background_images, assert_control_hits,
                                assert_layout, install_viewport_fixture, set_safe_area)
 
 PRODUCTION_URL = "https://mahjong-legend-web-production.up.railway.app"
-VERSION = "0.9.1"
+VERSION = "0.9.2"
 ENGINE_HASH = sha256((ROOT / "mahjong_legend/engine.py").read_bytes()).hexdigest()
 
 

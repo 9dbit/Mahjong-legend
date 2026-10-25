@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { Asset, StudioConfig } from "./types";
+import type { Asset, Job, StudioConfig } from "./types";
 import { assetURL, errorText, shorten } from "./api";
 import {
   Badge,
@@ -68,6 +68,7 @@ export default function AudioStudio({
   update,
   canEdit,
   assets,
+  jobs,
   onUpload,
   onRender,
   onImport,
@@ -77,6 +78,7 @@ export default function AudioStudio({
   update: (recipe: (c: StudioConfig) => void) => void;
   canEdit: boolean;
   assets: Asset[];
+  jobs: Job[];
   onUpload: (file: File, kind: string) => Promise<void>;
   onRender: (asset: Asset, recipe: Record<string, unknown>) => Promise<void>;
   onImport: (path: string) => Promise<void>;
@@ -98,7 +100,7 @@ export default function AudioStudio({
     }));
     return [
       ...assets.filter(
-        (a) => a.kind === "audio" && a.is_derivative && a.status === "ready",
+        (a) => a.kind === "audio" && (a.is_derivative || a.status !== "ready"),
       ),
       ...base,
     ];
@@ -127,6 +129,7 @@ export default function AudioStudio({
   if (!audition.current) audition.current = new Audition();
   const player = audition.current;
   const selected = audio.find((a) => a.id === selectedId);
+  const selectedJob = jobs.find((j) => j.source_asset_id === selectedId && (j.kind === "ingest" || j.kind === "render"));
   const rawAsset = selected?.original_id
     ? audio.find(
         (a) =>
@@ -158,7 +161,9 @@ export default function AudioStudio({
     [buffer],
   );
   useEffect(() => {
-    if (!selectedId && audio.length) setSelectedId(audio[0].id);
+    if (selectedId && audio.some((a) => a.id === selectedId)) return;
+    const next = audio.find((a) => a.original_id === selectedId) || audio[0];
+    if (next?.id !== selectedId) setSelectedId(next?.id || "");
   }, [audio, selectedId]);
   useEffect(() => {
     const abort = new AbortController();
@@ -218,7 +223,8 @@ export default function AudioStudio({
     setRedo([]);
     setRecipe({ ...cleanRecipe });
     setPeaks(metadataPeaks(selected));
-    if (!selected) return;
+    setLoading(false);
+    if (!selected || selected.status !== "ready" || (!selected.is_derivative && !selected.is_baseline)) return;
     if (!rawAsset) {
       onError(
         "Neutral source derivative belum tersedia. Dengarkan hasil render; import kembali original untuk melanjutkan editing.",
@@ -353,10 +359,11 @@ export default function AudioStudio({
               hidden
               type="file"
               disabled={!canEdit}
-              accept="audio/wav,audio/mpeg,audio/mp4,audio/ogg,audio/flac,audio/x-wav"
+              accept=".wav,.wave,.mp3,.m4a,.mp4,.ogg,.flac,audio/wav,audio/mpeg,audio/mp4,audio/x-m4a,audio/ogg,audio/flac"
               onChange={(e) => {
                 const f = e.target.files?.[0];
-                if (f) void onUpload(f, "audio");
+                if (f && f.size > 32 * 1024 * 1024) onError("Audio melebihi batas 32 MiB.");
+                else if (f) void onUpload(f, "audio");
                 e.target.value = "";
               }}
             />
@@ -445,6 +452,13 @@ export default function AudioStudio({
                     {loading ? "Decoding…" : selected.status}
                   </Badge>
                 </div>
+                {!selected.is_derivative && !selected.is_baseline && (
+                  <div className={"notice " + (selected.status === "failed" ? "danger" : "jade")} role="status">
+                    {selected.status === "failed"
+                      ? `Upload gagal diproses: ${selectedJob?.error || "Periksa format atau durasi file, lalu upload ulang."}`
+                      : `Upload diterima. ${selectedJob?.status === "running" ? `Worker ${Math.round(selectedJob.progress || 0)}%` : "Menunggu worker memproses audio."}`}
+                  </div>
+                )}
                 {!selected.is_baseline && (
                   <p className="muted small">
                     Editor: neutral source. Render terpilih:{" "}

@@ -113,6 +113,7 @@ export type Job = {
   id: string;
   kind: string;
   status: string;
+  source_asset_id?: string | null;
   progress?: number;
   result?: Record<string, unknown>;
   error?: string;

@@ -283,11 +283,11 @@ export default function App() {
       const data = new FormData();
       data.append("file", file);
       data.append("kind", kind);
-      await api("assets", "POST", data);
+      const accepted = await api<{ asset: Asset; job: Job }>("assets", "POST", data);
+      setAssets((prev) => [accepted.asset, ...prev.filter((item) => item.id !== accepted.asset.id)]);
+      setJobs((prev) => [accepted.job, ...prev.filter((item) => item.id !== accepted.job.id)]);
       await refresh();
-      setNotice(
-        "Upload diterima. Status library diperbarui setelah verifikasi worker.",
-      );
+      setNotice(`Upload ${file.name} diterima. Status dan error worker tersedia di Audio Studio.`);
     });
   }
   async function renderAsset(asset: Asset, recipe: Record<string, unknown>) {
@@ -807,6 +807,7 @@ export default function App() {
           )}
           {page === "audio" && editorProps && (
             <AudioStudio
+              jobs={jobs}
               {...editorProps}
               assets={assets}
               onUpload={upload}
