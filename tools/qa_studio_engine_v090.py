@@ -1,0 +1,119 @@
+"""Real browser regression: ticket pinning, offered bet strings, retry, replay.
+
+Always creates an isolated disposable database. No production credentials or
+public deployment are used by this verifier.
+"""
+import argparse
+from contextlib import redirect_stdout
+from concurrent.futures import ThreadPoolExecutor
+from copy import deepcopy
+import io
+import json
+import os
+from pathlib import Path
+import secrets
+import sys
+import tempfile
+import threading
+from wsgiref.simple_server import make_server, WSGIRequestHandler
+
+ROOT=Path(__file__).resolve().parents[1]
+sys.path[:0]=[str(ROOT),str(ROOT/'tools')]
+
+class Quiet(WSGIRequestHandler):
+    def log_message(self,*args): pass
+
+def main():
+    parser=argparse.ArgumentParser();parser.add_argument('--engine',choices=['chromium','webkit'],default='chromium')
+    parser.add_argument('--output',type=Path,default=ROOT/'qa/studio-engine-v090');args=parser.parse_args()
+    args.output.mkdir(parents=True,exist_ok=True)
+    with tempfile.TemporaryDirectory(prefix='studio-engine-qa-') as temp:
+        for key in ['DATABASE_URL','STUDIO_S3_BUCKET','STUDIO_S3_ENDPOINT','STUDIO_S3_ACCESS_KEY','STUDIO_S3_SECRET_KEY']:
+            os.environ.pop(key,None)
+        os.environ.update(DJANGO_SETTINGS_MODULE='studio_server.settings',STUDIO_PRODUCTION='0',
+            STUDIO_SQLITE_PATH=temp+'/db.sqlite3',STUDIO_MEDIA_ROOT=temp+'/media',DJANGO_SECRET_KEY=secrets.token_urlsafe(48),
+            ALLOWED_HOSTS='127.0.0.1,localhost,testserver')
+        import django;django.setup()
+        from django.core.management import call_command
+        from django.core.wsgi import get_wsgi_application
+        from django.contrib.auth import get_user_model
+        from game_studio.models import Draft, Round, LedgerEntry
+        from game_studio.releases import active_release, validate_draft, publish, activate
+        from playwright.sync_api import sync_playwright, expect
+        from qa_fullframe_v086 import assert_layout,set_safe_area
+        with redirect_stdout(io.StringIO()): call_command('migrate',interactive=False);call_command('bootstrap_studio')
+        owner=get_user_model().objects.create_superuser('qa-owner',password=secrets.token_urlsafe(32))
+        baseline=active_release()
+        server=make_server('127.0.0.1',0,get_wsgi_application(),handler_class=Quiet)
+        thread=threading.Thread(target=server.serve_forever,daemon=True);thread.start()
+        base=f'http://127.0.0.1:{server.server_port}'
+        report={'engine':args.engine,'errors':[],'version':'0.9.0'}
+        pool=ThreadPoolExecutor(max_workers=1)
+        def db(fn,*a,**kw): return pool.submit(fn,*a,**kw).result()
+        try:
+            with sync_playwright() as p:
+                browser=getattr(p,args.engine).launch()
+                context=browser.new_context(viewport={'width':390,'height':690},reduced_motion='reduce')
+                page=context.new_page();page.on('pageerror',lambda e:report['errors'].append(str(e)))
+                page.goto(base,wait_until='networkidle')
+                expect(page.locator('#soft-tech-continue')).to_be_enabled(timeout=30000);page.locator('#soft-tech-continue').click()
+                expect(page.locator('#soft-tech-splash')).to_be_hidden()
+                page.wait_for_function('window.MahjongStudioRuntime?.manifest')
+                original=context.request.get(base+'/api/state').json()
+                assert original['manifest']['release_id']==str(baseline.id)
+                assert_layout(page,390,690)
+                page.screenshot(path=str(args.output/f'{args.engine}-game.png'))
+                assert context.request.get(base+'/api/studio/assets').status==401
+                config=deepcopy(baseline.config)
+                config['bet'].update(options=['1.0','2.50'],default='1.0',initial_balance='1500')
+                config['audio']['output_gain']=1.1
+                draft=db(Draft.objects.create,name='Browser regression',config=config,base_release=baseline,created_by=owner)
+                assert db(validate_draft,draft)['valid'];release=db(publish,draft,owner,'Browser integration check')
+                pinned=context.request.get(base+'/api/state').json()
+                assert pinned['ticket']['id']==original['ticket']['id']
+                with page.expect_response(lambda r:r.url==base+'/api/spin') as response:
+                    page.locator('#spin-btn').click()
+                first=response.value.json();request=response.value.request.post_data_json
+                assert response.value.status==200,first
+                assert request['ticket_id']==original['ticket']['id']
+                assert first['round_release_id']==str(baseline.id)
+                assert first['state']['manifest']['release_id']==str(release.id)
+                expect(page.locator('#spin-btn')).to_have_attribute('aria-label','Spin',timeout=60000)
+                page.wait_for_function('(id)=>window.MahjongStudioRuntime.release===id',arg=str(release.id))
+                assert page.evaluate('MahjongWildAudio.state.outputGain')==1.1
+                headers={'X-ML-Request':'local-demo','Origin':base}
+                duplicate=context.request.post(base+'/api/spin',data=request,headers=headers)
+                assert duplicate.status==200 and duplicate.json()==first
+                assert db(Round.objects.count)==1 and db(lambda:LedgerEntry.objects.filter(kind='round').count())==1
+                verified=context.request.post(base+'/api/verify',data={'round':first['round']},headers=headers)
+                assert verified.status==200 and verified.json()['valid']
+                # The next UI request preserves the offered decimal string exactly.
+                with page.expect_response(lambda r:r.url==base+'/api/spin') as response:
+                    page.locator('#spin-btn').click()
+                second=response.value.json()
+                assert response.value.request.post_data_json['bet']=='1.0',response.value.request.post_data_json
+                assert response.value.status==200,second
+                expect(page.locator('#spin-btn')).to_have_attribute('aria-label','Spin',timeout=60000)
+                # Existing new-version ticket survives rollback; following one adopts baseline.
+                current=context.request.get(base+'/api/state').json();db(activate,baseline,owner,'Rollback regression')
+                assert context.request.get(base+'/api/state').json()['ticket']['id']==current['ticket']['id']
+                with page.expect_response(lambda r:r.url==base+'/api/spin') as response: page.locator('#spin-btn').click()
+                third=response.value.json();assert third['round_release_id']==str(release.id)
+                assert third['state']['manifest']['release_id']==str(baseline.id)
+                expect(page.locator('#spin-btn')).to_have_attribute('aria-label','Spin',timeout=60000)
+                before=third['state']['balance'];page.reload(wait_until='networkidle')
+                assert context.request.get(base+'/api/state').json()['balance']==before
+                # Native-safe-area simulation keeps the new interactive footer clear.
+                page.set_viewport_size({'width':390,'height':844});set_safe_area(page,59,34)
+                assert_layout(page,390,844,59,34)
+                assert not report['errors'],report['errors']
+                report.update(result='PASS',ticket_pinning=True,offered_decimal_strings=True,idempotent_retry=True,
+                    rollback=True,replay=True,persistent_cookie_balance=True,accepted_rounds=3,ledger_rounds=db(lambda:LedgerEntry.objects.filter(kind='round').count()))
+                browser.close()
+        finally:
+            server.shutdown();server.server_close()
+            pool.shutdown()
+        (args.output/f'{args.engine}.json').write_text(json.dumps(report,indent=2)+'\n')
+        print(json.dumps(report))
+
+if __name__=='__main__': main()

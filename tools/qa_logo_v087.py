@@ -133,7 +133,11 @@ def lantern_geometry(page, baseline=None):
                  (side['topHeight'] - side['middleOffset']) / sy_middle,
                  (side['height'] - side['bottomHeight'] - side['middleOffset']) / sy_middle,
                  938 - side['bottomHeight'] / sy_bottom]
-        assert all(abs(value - wanted) < .12 for value, wanted in zip(joins, (256, 256, 849, 849))), (side, joins)
+        # Browser layout rounds each CSS boundary to a subpixel. On extremely
+        # short split-screen boards a tiny visible rounding becomes several
+        # source-image rows; bound the actual seam in CSS pixels instead.
+        assert all(abs(value-wanted)*scale < .05 for value,wanted,scale in
+                   zip(joins,(256,256,849,849),(sy_top,sy_middle,sy_middle,sy_bottom))), (side,joins)
         deformation = (side['width'] / side['sourceWidth']) / sy_top
         side['source_join_rows'] = joins
         side['horizontal_to_vertical_scale'] = deformation
@@ -232,7 +236,12 @@ def main():
                             'controls_pixels_down': geometry['controls']['y'] - baseline['controls_top']}
                 if not case.get('compact'):
                     assert movement['board_pixels_down'] > 5, movement
-                    assert movement['controls_pixels_down'] > 3, movement
+                    # Native controls now reserve their own height. Their top
+                    # may move up to fit a larger visible Spin while the crown
+                    # and board retain the improved v087 placement.
+                    assert geometry['controls']['h'] >= 108, geometry['controls']
+                    assert geometry['disk']['w'] >= 80, geometry['disk']
+                    assert all(min(button['w'],button['h']) >= 44 for button in geometry['buttons'][2:]), geometry['buttons']
                 result = {'name': case['name'], 'viewport': case['size'], 'safe': case['safe'],
                           'movement_from_v086': movement, 'crown': crown_raster_comparison(page),
                           'lanterns': lantern_geometry(page, None if case.get('compact') else baseline)}

@@ -1,4 +1,4 @@
-/* UI 0.8.7. Full-width crown and responsive artwork; no game requests. */
+/* UI 0.8.7. Full-width scene and independent touch controls; no game requests. */
 (() => {
   'use strict';
   const stage = document.getElementById('game-stage');
@@ -22,18 +22,24 @@
     const height = Math.round(standalone
       ? Math.max(innerHeight,root.clientHeight,root.getBoundingClientRect().height,view?.height || 0)
       : (view?.height || innerHeight));
-    const portrait = width <= height;
-    const w = portrait ? width : Math.min(800,height*864/1859);
+    const portrait = width <= height || width < 540;
+    const w = width;
+    // Landscape has a scene beside a full-size console. A portrait column
+    // squeezed to 180px cannot fit five accessible controls.
+    const panelWidth = portrait ? w : Math.min(460,Math.max(320,w*.52));
+    const sceneWidth = portrait ? w : w-panelWidth;
+    const panelLeft = portrait ? 0 : sceneWidth;
     const css = getComputedStyle(stage);
     const safeTop = parseFloat(css.getPropertyValue('--ff-safe-top')) || 0;
     const safeBottom = parseFloat(css.getPropertyValue('--ff-safe-bottom')) || 0;
     // Landscape centers the portrait artwork over a full-screen backdrop. Only
     // the part of a side inset that reaches this stage constrains live controls.
-    const stageLeft = (width-w)/2;
-    const safeLeft = Math.max(0,(parseFloat(css.getPropertyValue('--ff-safe-left')) || 0)-stageLeft);
-    const safeRight = Math.max(0,(parseFloat(css.getPropertyValue('--ff-safe-right')) || 0)-stageLeft);
-    const innerWidth = Math.max(1,w-safeLeft-safeRight);
+    const safeLeft = Math.max(0,parseFloat(css.getPropertyValue('--ff-safe-left')) || 0);
+    const safeRight = Math.max(0,parseFloat(css.getPropertyValue('--ff-safe-right')) || 0);
+    const innerWidth = Math.max(1,sceneWidth-safeLeft-(portrait?safeRight:0));
     const center = safeLeft+innerWidth/2;
+    const controlsSafeLeft = portrait ? safeLeft : 0;
+    const controlsWidth = Math.max(1,panelWidth-controlsSafeLeft-safeRight);
     const h = Math.max(height,1), usable = Math.max(1,h-safeTop-safeBottom);
     const key = [w,h,safeTop,safeBottom,safeLeft,safeRight,standalone].join(':');
     if (key === previous) return;
@@ -44,23 +50,24 @@
     // tile geometry instead of allowing zero-height controls or cropping them.
     const minimumPanels = Math.min(usable*.55,Math.max(120,usable*.3));
     const preferredBoard = Math.min(1.5*innerWidth*fraction-.0064*w,usable-minimumPanels);
-    const oldFooter = Math.max(0,usable-preferredBoard)*527/921;
     // Reserve the entire original-width crown before sizing the reels. The
     // former height-first budget shrank it into a narrow, visibly separate box.
-    const crownScale = w/864;
+    const crownScale = sceneWidth/864;
     const rail = 89*crownScale;
     const minimumHeader = 305*crownScale+rail;
-    // Give the logo room and move the lower controls a little farther down.
-    // The board yields space while its tiles keep their original 2:3 ratio.
-    const footer = Math.max(1,Math.min(oldFooter-Math.min(w*.03,oldFooter*.06),usable-minimumHeader-1));
-    const boardHeight = Math.max(1,Math.min(preferredBoard,usable-minimumHeader-footer));
+    // Visible buttons determine the console budget, not a scaled staircase
+    // illustration. Phone hit targets never shrink below 44 CSS pixels.
+    const spin = Math.max(80,Math.min(96,80+(controlsWidth-320)*16/70));
+    const secondary = Math.max(52,Math.min(60,52+(controlsWidth-320)*8/110));
+    const controlHeight = Math.max(108,spin+24);
+    const hud = 58;
+    const footer = hud+controlHeight;
+    const boardHeight = Math.max(1,Math.min(preferredBoard,usable-minimumHeader-(portrait?footer:0)));
     const boardWidth = (boardHeight+.0064*w)/1.5;
-    const header = usable-boardHeight-footer;
+    const header = portrait ? usable-boardHeight-footer : minimumHeader;
     const crown = header-rail;
     const crownTop = safeTop+crown-305*crownScale;
-    const footerTop = safeTop+header+boardHeight;
-    const hud = Math.min(footer*.4,w*199/864);
-    const controlsScale = Math.min((footer-hud)/328,innerWidth/864);
+    const footerTop = portrait ? safeTop+header+boardHeight : safeTop+Math.max(0,(usable-footer)/2);
     // Retire transient textures on a real geometry change, not on every scroll.
     // This affects only animation; the accepted server round still settles once.
     if (lastBoardWidth !== null && Math.abs(boardWidth-lastBoardWidth)>.5) {
@@ -69,9 +76,9 @@
     lastBoardWidth=boardWidth;
     put('width',w);put('height',h);put('safe',safeTop);
     put('header',header);put('crown-height',305*crownScale);put('crown-top',crownTop);
-    put('crown-left',0);put('crown-width',w);
+    put('crown-left',0);put('crown-width',sceneWidth);put('scene-width',sceneWidth);
     put('crown-edge-left',12*crownScale);put('crown-edge-right',12*crownScale);
-    put('header-inset-left',safeLeft);put('header-inset-right',safeRight);
+    put('header-inset-left',safeLeft);put('header-inset-right',portrait?safeRight:0);
     put('rail-top',safeTop+crown);put('rail-height',rail);
     put('board-top',safeTop+header);put('board-width',boardWidth);
     put('board-left',center-boardWidth/2);put('board-height',boardHeight);
@@ -79,10 +86,10 @@
     // gets its own near-uniform scale, with a modest roundness correction.
     // Extremely short layouts bound ornaments so they cannot cover the board.
     for(const [side,sideWidth,sourceWidth] of [
-      ['left',center-boardWidth/2,118],['right',w-center-boardWidth/2,117]
+      ['left',center-boardWidth/2,118],['right',sceneWidth-center-boardWidth/2,117]
     ]) {
       const unit=sideWidth/sourceWidth;
-      const topUnit=Math.min(unit*1.10,boardHeight*.55/256);
+      const topUnit=Math.min(unit*1.10,boardHeight*.62/256);
       const bottomUnit=Math.min(unit,boardHeight*.20/89);
       const topHeight=256*topUnit,bottomHeight=89*bottomUnit;
       const middleUnit=(boardHeight-topHeight-bottomHeight)/593;
@@ -93,10 +100,12 @@
       stage.style.setProperty(`--ff-${side}-middle-offset`,`${(topHeight-256*middleUnit).toFixed(6)}px`);
     }
     put('footer-top',footerTop);put('hud-height',hud);
-    put('controls-top',footerTop+hud);put('controls-height',328*controlsScale);
-    put('controls-width',864*controlsScale);put('controls-left',center-432*controlsScale);
-    put('controls-edge-left',center-420*controlsScale);put('controls-edge-right',w-center-420*controlsScale);
-    put('control-unit',controlsScale);put('crown-unit',crownScale);
+    put('panel-left',panelLeft);put('panel-width',panelWidth);
+    put('footer-art-top',portrait?footerTop:0);put('footer-art-height',portrait?h-footerTop:h);
+    put('controls-top',footerTop+hud);put('controls-height',controlHeight);
+    put('controls-width',controlsWidth);put('controls-left',panelLeft+controlsSafeLeft);
+    put('spin-size',spin);put('secondary-size',secondary);
+    put('crown-unit',crownScale);
     stage.dataset.fullframe=portrait?'portrait':'landscape';
     // Chrome may emit many size events. Warm once after it settles, not once
     // per animation frame; the input handler can still prepare on demand.

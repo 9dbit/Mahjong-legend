@@ -4,3 +4,11 @@ __pycache__/
 .DS_Store
 .env
 .env.*
+.studio-local.sqlite3*
+.studio-media/
+studio_ui/node_modules/
+web/studio/
+web/assets/studio-v090/game.js
+web/assets/studio-v090/release.json
+studio_ui/*.tsbuildinfo
+qa/

@@ -1,5 +1,5 @@
-/* UI 0.8.7. A continuous full-width crown, rounder lanterns and living light.
-   Tile faces retain 2:3; logo and controls retain their original aspect ratio. */
+/* UI 0.8.7. A continuous crown and a full-width, independent touch console.
+   Tile faces retain 2:3; controls have real visible and interactive geometry. */
 html,body{width:100%;height:100%;height:100dvh;min-height:0;margin:0;padding:0;overflow:hidden;overscroll-behavior:none}
 html:root{background:#650816 url('/assets/approved-v082/backdrop.webp') center/cover no-repeat}
 body{display:flex;align-items:flex-start;justify-content:center;background:transparent}
@@ -16,12 +16,12 @@ html.standalone,html.standalone body{height:100vh;height:100lvh}
 .fullframe-art{position:absolute;inset:0;pointer-events:none;z-index:0}
 .fullframe-art i{display:block;position:absolute;left:0;width:100%;background-repeat:no-repeat;background-size:100% 100%}
 .fullframe-art b{display:block;background-repeat:no-repeat;background-size:100% 100%;min-width:0}
-.fullframe-art .art-crown{top:var(--ff-crown-top);height:var(--ff-crown-height);background-image:url('/assets/portrait-v085/frame.webp');background-size:var(--ff-crown-width) calc(var(--ff-crown-unit)*1859);background-position:0 0}
+.fullframe-art .art-crown{top:var(--ff-crown-top);width:var(--ff-scene-width);height:var(--ff-crown-height);background-image:url('/assets/portrait-v085/frame.webp');background-size:var(--ff-crown-width) calc(var(--ff-crown-unit)*1859);background-position:0 0}
 /* One continuous source image spans the crown. The old three-piece container
    remains in the generated shell for compatibility, but paints no side strips. */
 .fullframe-art .art-crown b{display:none}
-.fullframe-art .art-rail{top:var(--ff-rail-top);height:var(--ff-rail-height);background-image:url('/assets/fullframe-v086/rail.webp')}
-.fullframe-art .art-board{top:var(--ff-board-top);height:var(--ff-board-height);display:grid;grid-template-columns:var(--ff-board-left) var(--ff-board-width) 1fr}
+.fullframe-art .art-rail{top:var(--ff-rail-top);width:var(--ff-scene-width);height:var(--ff-rail-height);background-image:url('/assets/fullframe-v086/rail.webp')}
+.fullframe-art .art-board{top:var(--ff-board-top);width:var(--ff-scene-width);height:var(--ff-board-height);display:grid;grid-template-columns:var(--ff-board-left) var(--ff-board-width) 1fr}
 .art-board b:first-child{background-image:url('/assets/fullframe-v086/board-left.webp')}.art-board b:nth-child(2){background-image:url('/assets/fullframe-v086/board-center.webp')}.art-board b:last-child{background-image:url('/assets/fullframe-v086/board-right.webp')}
 .art-board b:first-child,.art-board b:last-child{position:relative;overflow:hidden;background-size:100% var(--ornament-middle-image);background-position:0 var(--ornament-middle-offset)}
 .art-board b:first-child{--ornament-top:var(--ff-left-top-height);--ornament-bottom:var(--ff-left-bottom-height);--ornament-top-image:var(--ff-left-top-image-height);--ornament-bottom-image:var(--ff-left-bottom-image-height);--ornament-middle-image:var(--ff-left-middle-image-height);--ornament-middle-offset:var(--ff-left-middle-offset);--ornament-image:url('/assets/fullframe-v086/board-left.webp')}
@@ -29,29 +29,27 @@ html.standalone,html.standalone body{height:100vh;height:100lvh}
 .art-board b:first-child::before,.art-board b:last-child::before,.art-board b:first-child::after,.art-board b:last-child::after{content:'';position:absolute;left:0;right:0;background-image:var(--ornament-image);background-repeat:no-repeat;pointer-events:none}
 .art-board b:first-child::before,.art-board b:last-child::before{top:0;height:var(--ornament-top);background-size:100% var(--ornament-top-image);background-position:0 0}
 .art-board b:first-child::after,.art-board b:last-child::after{bottom:0;height:var(--ornament-bottom);background-size:100% var(--ornament-bottom-image);background-position:0 100%}
-.fullframe-art .art-hud{top:var(--ff-footer-top);height:var(--ff-hud-height);background-image:url('/assets/fullframe-v086/hud.webp')}
-.fullframe-art .art-controls{top:var(--ff-controls-top);height:var(--ff-controls-height);display:grid;grid-template-columns:var(--ff-controls-edge-left) 1fr var(--ff-controls-edge-right)}
-.art-controls b:first-child{background-image:url('/assets/fullframe-v086/controls-left.webp')}.art-controls b:nth-child(2){background-image:url('/assets/fullframe-v086/controls-center.webp')}.art-controls b:last-child{background-image:url('/assets/fullframe-v086/controls-right.webp')}
+.fullframe-art .art-hud{top:var(--ff-footer-top);height:var(--ff-hud-height)}
+.fullframe-art .art-controls{top:var(--ff-controls-top);height:var(--ff-controls-height)}
+.fullframe-art .art-controls b{display:none}
 .game-stage::before{display:none!important}.pwa-footer-extension{display:none}
 .game-header{left:var(--ff-crown-left);right:auto;width:var(--ff-crown-width);top:var(--ff-crown-top);height:calc(var(--ff-crown-unit)*307.2)}
 .game-header #menu-btn,.game-header #sound-btn{pointer-events:auto;min-width:32px;min-height:32px}
 .game-header #menu-btn{left:max(2.5%,var(--ff-header-inset-left))}.game-header #sound-btn{right:max(2.5%,var(--ff-header-inset-right))}
 .logo-fx{left:calc(var(--ff-crown-left) + var(--ff-crown-width)*.292824);width:calc(var(--ff-crown-width)*.414352);top:calc(var(--ff-crown-top) + var(--ff-crown-unit)*123);height:calc(var(--ff-crown-unit)*135)}
-.multiplier-frame{left:12.6%;width:74.8%;top:calc(var(--ff-rail-top) + var(--ff-rail-height)*7.576/89);height:calc(var(--ff-rail-height)*62.976/89)}
+.multiplier-frame{left:calc(var(--ff-scene-width)*.126);width:calc(var(--ff-scene-width)*.748);top:calc(var(--ff-rail-top) + var(--ff-rail-height)*7.576/89);height:calc(var(--ff-rail-height)*62.976/89)}
 .multiplier-rail{min-height:0;height:100%;grid-template-rows:minmax(0,1fr)}
 .multiplier-rail .mult{min-height:0;height:100%;font-size:min(8.15cqw,calc(var(--ff-rail-height)*.9));line-height:.95}
 .reel-theatre{left:var(--ff-board-left);width:var(--ff-board-width);top:var(--ff-board-top);height:var(--ff-board-height)}
-.announcement{left:18.1%;width:64.3%;top:calc(var(--ff-footer-top) + var(--ff-hud-height)*17.96/199);height:calc(var(--ff-hud-height)*72.192/199)}
-.credits-strip{left:3.5%;width:93%;top:calc(var(--ff-footer-top) + var(--ff-hud-height)*131.3264/199);height:calc(var(--ff-hud-height)*55.296/199)}
-.play-controls{left:var(--ff-controls-left);right:auto;width:var(--ff-controls-width);top:calc(var(--ff-controls-top) + var(--ff-control-unit)*.064);height:calc(var(--ff-control-unit)*207.36)}
+.announcement{left:calc(var(--ff-controls-left) + 12px);width:calc(var(--ff-controls-width) - 24px);top:calc(var(--ff-footer-top) + 5px);height:20px}
+.credits-strip{left:calc(var(--ff-controls-left) + 12px);width:calc(var(--ff-controls-width) - 24px);top:calc(var(--ff-footer-top) + 25px);height:33px}
+.play-controls{left:var(--ff-controls-left);right:auto;width:var(--ff-controls-width);top:var(--ff-controls-top);height:var(--ff-controls-height)}
 #spin-btn .spin-disk{height:auto;aspect-ratio:1;object-fit:fill}
-#stage-notice{font-size:min(4.6cqw,calc(var(--ff-hud-height)*.28));line-height:1.05}
-.announcement.winning #stage-notice{font-size:min(6.2cqw,calc(var(--ff-hud-height)*.39))}
-.credits-strip .meter-value{font-size:min(3.7cqw,calc(var(--ff-hud-height)*.2));line-height:1.05}
+#stage-notice{font-size:15px;line-height:1.05;color:#fff0b3;text-shadow:0 1px 2px #001c18}
+.announcement.winning #stage-notice{font-size:17px}
+.credits-strip .meter-value{font-size:16px;line-height:1.05}
 @media(min-aspect-ratio:1/1){.game-stage{width:var(--ff-width);max-width:none}}
 
-/* Control-panel edge extensions retain their matched source rows. */
-.art-controls b:first-child,.art-controls b:last-child{background-size:100% 100%}
 /* The existing rays above the crest gain a slow warm pulse and a small sweep.
    These layers never cover controls or issue animation-frame JavaScript. */
 .fullframe-art .art-crown{overflow:hidden;isolation:isolate}
@@ -65,4 +63,46 @@ html.reels-running .art-crown::before,html.reels-running .art-crown::after,body.
 /* Native status/home areas use decorative extensions, never baked-in OS text. */
 .fullframe-art::before,.fullframe-art::after{content:'';position:absolute;left:0;right:0;pointer-events:none;background-repeat:no-repeat;background-size:100% 100%}
 .fullframe-art::before{top:0;height:var(--ff-crown-top);background-image:url('/assets/approved-v082/extension-top.webp')}
-.fullframe-art::after{top:calc(var(--ff-controls-top) + var(--ff-controls-height));bottom:0;background-image:url('/assets/approved-v082/extension-bottom.webp')}
+.fullframe-art::after{top:calc(var(--ff-controls-top) + var(--ff-controls-height));bottom:0}
+
+/* The bottom is one native jade/gold painting. All three crop windows use
+   identical coordinates, including the area under the PWA home indicator.
+   No old button images or separately stretched side strips remain visible. */
+.game-stage{--ff-console-art:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 864 400' preserveAspectRatio='none'%3E%3Cdefs%3E%3ClinearGradient id='j' x2='0' y2='1'%3E%3Cstop stop-color='%230c6557'/%3E%3Cstop offset='.23' stop-color='%23033e35'/%3E%3Cstop offset='1' stop-color='%23011918'/%3E%3C/linearGradient%3E%3CradialGradient id='l'%3E%3Cstop stop-color='%23c8a44b' stop-opacity='.28'/%3E%3Cstop offset='1' stop-color='%230b6b59' stop-opacity='0'/%3E%3C/radialGradient%3E%3ClinearGradient id='g'%3E%3Cstop stop-color='%238d591b'/%3E%3Cstop offset='.22' stop-color='%23f6cf73'/%3E%3Cstop offset='.5' stop-color='%23fff1ae'/%3E%3Cstop offset='.78' stop-color='%23edbd59'/%3E%3Cstop offset='1' stop-color='%238d591b'/%3E%3C/linearGradient%3E%3C/defs%3E%3Cpath fill='url(%23j)' d='M0 0h864v400H0z'/%3E%3Cellipse cx='432' cy='260' rx='390' ry='250' fill='url(%23l)'/%3E%3Cpath fill='url(%23g)' d='M0 0h864v5H0z'/%3E%3Cpath stroke='%23ffe5a0' opacity='.18' fill='none' stroke-width='2' d='M0 10h864M0 390h864M0 125q65 0 65 55t-65 55m864-110q-65 0-65 55t65 55M0 143q35 0 35 37t-35 37m864-74q-35 0-35 37t35 37'/%3E%3C/svg%3E")}
+.fullframe-art .art-hud,.fullframe-art .art-controls,.fullframe-art::after{left:var(--ff-panel-left);right:auto;width:var(--ff-panel-width);background-image:var(--ff-console-art);background-size:100% var(--ff-footer-art-height)}
+.fullframe-art .art-hud{background-position:0 calc(var(--ff-footer-art-top) - var(--ff-footer-top))}
+.fullframe-art .art-controls{background-position:0 calc(var(--ff-footer-art-top) - var(--ff-controls-top))}
+.fullframe-art::after{background-position:0 calc(var(--ff-footer-art-top) - var(--ff-controls-top) - var(--ff-controls-height))}
+.credits-strip{gap:8px}
+.credits-strip .meter{position:relative;padding:0 6px;gap:2px;border:1px solid #d4ad5b75;border-radius:7px;background:linear-gradient(180deg,#002a24cc,#011d1bb3);box-shadow:inset 0 1px #f4df9b16;overflow:hidden}
+.credits-strip .meter small{position:static;width:auto;height:auto;margin:0;clip:auto;overflow:visible;letter-spacing:.14em;font:600 8px/1 Arial,sans-serif;color:#d1d4b2}
+.credits-strip .meter-value{font-weight:600;color:#fff5d9;text-shadow:0 1px #001c17}
+.credits-strip .meter-bet{cursor:pointer}
+.credits-strip .meter-bet:focus-visible{outline:2px solid #fff0ad;outline-offset:2px}
+.play-controls{display:grid;grid-template-columns:var(--ff-secondary-size) 44px var(--ff-spin-size) 44px var(--ff-secondary-size);justify-content:space-between;align-items:center;box-sizing:border-box;padding:8px 12px 12px;gap:6px}
+.play-controls button{position:relative;inset:auto!important;width:44px;height:44px;min-width:44px;min-height:44px;display:block;margin:0;border:2px solid #e0b54f;background:radial-gradient(ellipse at 35% 15%,#189e83,#075b4b 48%,#002b28 85%);box-shadow:inset 0 2px 2px #fff3b978,inset 0 -3px 5px #001715,0 0 0 1px #56370f,0 3px 5px #0007;color:#fff0aa;cursor:pointer;transition:transform .12s,filter .12s}
+.play-controls button:focus-visible{outline:3px solid #fff0b5;outline-offset:3px}
+.play-controls button:disabled{opacity:.45;cursor:default;filter:saturate(.5)}
+.play-controls button:not(:disabled):active{transform:scale(.95)}
+#turbo-btn,#auto-btn{width:var(--ff-secondary-size);height:var(--ff-secondary-size)}
+#turbo-btn::before{content:'';position:absolute;left:50%;top:7px;width:22px;height:27px;transform:translateX(-50%);background:linear-gradient(#fff4b2,#ffc336);clip-path:polygon(48% 0,95% 0,62% 38%,95% 38%,18% 100%,38% 55%,5% 55%)}
+#auto-btn::before{content:'\25B6';position:absolute;left:0;top:5px;width:100%;font:24px/1.2 Arial,sans-serif;text-align:center;color:#ffdf79}
+#auto-btn.active::before{content:'\25A0';font-size:23px;color:#fff4bd}
+.play-controls .secondary-control>span,.play-controls .secondary-control.active>span,.play-controls .secondary-control[aria-pressed=true]>span{position:absolute;top:auto;bottom:6px;left:0;width:100%;padding:0;border:0;background:none;opacity:1;font:700 9px/1 Arial,sans-serif;letter-spacing:.025em;text-align:center;white-space:nowrap;color:#ffecac;text-shadow:0 1px 2px #00251e}
+.play-controls .secondary-control.active,#turbo-btn[aria-pressed=true]{border-color:#fff6ba;background:radial-gradient(ellipse at 35% 15%,#fff0ab,#d49a29 65%,#765017);box-shadow:inset 0 2px #fff9d1,0 0 12px #f5c86270;filter:none}
+#turbo-btn[aria-pressed=true]::before{background:#083f34}
+#auto-btn.active::before,.play-controls .secondary-control.active>span,#turbo-btn[aria-pressed=true]>span{color:#103d2e;text-shadow:none}
+#minus-btn::before,#plus-btn::before{content:'\2212';display:block;font:400 30px/36px Arial,sans-serif;text-align:center;text-shadow:0 1px #0b372a}
+#plus-btn::before{content:'+'}
+#spin-btn{width:var(--ff-spin-size);height:var(--ff-spin-size);border:0;background:radial-gradient(circle,#0f9479 40%,#013c34 61%,#dbaf45 64%,#fff0a3 69%,#9d661b 74%);box-shadow:0 0 0 1px #ffeb9f99,0 0 14px #f7c75442,0 4px 7px #0008}
+#spin-btn .spin-disk{inset:0;width:100%;height:100%;object-fit:fill;filter:none}
+#spin-btn .spin-label,#spin-btn.busy .spin-label{position:absolute;left:0;bottom:7px;width:100%;font:700 9px/1 Arial,sans-serif;letter-spacing:.12em;opacity:1;background:none;color:#fff7c4;text-shadow:0 1px 2px #00382b,0 0 3px #00382b}
+@media(hover:hover){.play-controls button:not(:disabled):hover{filter:brightness(1.15)}}
+.game-stage[data-fullframe=landscape] .fullframe-art::before{width:var(--ff-scene-width)}
+.game-stage[data-fullframe=landscape] .fullframe-art::after{top:0;bottom:0;background-position:0 0;border-left:1px solid #ecc96d66;box-sizing:border-box}
+.game-stage[data-fullframe=landscape] .multiplier-rail .mult{font-size:calc(var(--ff-scene-width)*.0815)}
+/* Short landscape rows use intact, uniformly scaled ornament columns. Their
+   lanterns must not flatten into wide discs just to fill a side gutter. */
+.game-stage[data-fullframe=landscape] .art-board b:first-child{width:calc(var(--ff-board-height)*118/938);justify-self:end;background-size:100% 100%;background-position:0 0}
+.game-stage[data-fullframe=landscape] .art-board b:last-child{width:calc(var(--ff-board-height)*117/938);justify-self:start;background-size:100% 100%;background-position:0 0}
+.game-stage[data-fullframe=landscape] .art-board b:first-child::before,.game-stage[data-fullframe=landscape] .art-board b:first-child::after,.game-stage[data-fullframe=landscape] .art-board b:last-child::before,.game-stage[data-fullframe=landscape] .art-board b:last-child::after{display:none}

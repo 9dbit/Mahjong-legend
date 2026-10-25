@@ -1,10 +1,9 @@
 .git
-.github
+qa
+.studio-*
+studio_ui/node_modules
+web/studio
 __pycache__
 *.pyc
-reports
-research
-tests
-*.zip
 .env
-.DS_Store
+.env.*

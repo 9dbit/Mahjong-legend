@@ -23,7 +23,7 @@ MEASURE='''()=>{
  };
  const art=document.querySelector('.fullframe-art'),root=document.documentElement,body=document.body,view=visualViewport;
  return {
-   stage:{...r('#game-stage'),...paint(node('#game-stage'))},board:r('#board'),notice:r('.announcement'),meters:r('.credits-strip'),controls:r('.play-controls'),logo:r('.logo-fx'),disk:r('.spin-disk'),
+   stage:{...r('#game-stage'),...paint(node('#game-stage')),mode:node('#game-stage').dataset.fullframe},board:r('#board'),notice:r('.announcement'),meters:r('.credits-strip'),controls:r('.play-controls'),logo:r('.logo-fx'),disk:r('.spin-disk'),
    tiles:[...document.querySelectorAll('#board .tile')].map(e=>{const b=e.getBoundingClientRect();return b.width/b.height;}),
    buttons:['menu-btn','sound-btn','turbo-btn','minus-btn','spin-btn','plus-btn','auto-btn'].map(id=>r('#'+id)),
    overflow:[root.scrollWidth-innerWidth,root.scrollHeight-innerHeight],
@@ -50,6 +50,24 @@ def assert_artwork_coverage(g):
     assert stage['visible'] and art['container']['visible'] and covers(art['container'],stage),art
     assert [band['name'] for band in art['bands']]==[
         'art-crown','art-rail','art-board','art-hud','art-controls'],art
+    if stage.get('mode')=='landscape':
+        # Landscape gives the console its own full-size side panel. Check both
+        # painted regions rather than demanding a squeezed portrait stack.
+        crown,rail,board,hud,controls=art['bands']
+        cursor=stage['y']
+        for band in [art['before'],crown,rail,board]:
+            assert abs(band['y']-cursor)<=epsilon,(cursor,band)
+            assert band['x']<=stage['x']+epsilon and abs(band['right']-crown['right'])<=epsilon,band
+            assert band['visible'] and (band['h']<=.01 or band['image'] or band.get('parts')),band
+            cursor=band['bottom']
+        panel=art['after']
+        assert panel['visible'] and panel['image'] and panel['active'],panel
+        assert abs(panel['x']-crown['right'])<=epsilon and abs(panel['right']-stage['right'])<=epsilon,panel
+        assert abs(panel['y']-stage['y'])<=epsilon and abs(panel['bottom']-stage['bottom'])<=epsilon,panel
+        assert abs(hud['bottom']-controls['y'])<=epsilon,(hud,controls)
+        for band in [hud,controls]:
+            assert band['visible'] and band['image'] and covers(panel,band),band
+        return
     cursor=stage['y']
     for band in [art['before'],*art['bands'],art['after']]:
         assert abs(band['y']-cursor)<=epsilon,(cursor,band)
@@ -90,7 +108,9 @@ def assert_background_images(page):
       }
       return Promise.all(jobs);
     }''')
-    assert len(decoded)>=13 and all(item['ok'] for item in decoded),decoded
+    # Count is not a visual contract: independent native controls deliberately
+    # retire three baked button strips. Every referenced image must decode.
+    assert decoded and all(item['ok'] for item in decoded),decoded
     return decoded
 
 def assert_control_hits(page):
@@ -132,12 +152,16 @@ def assert_layout(page,w,h,top=0,bottom=0,left=0,right=0):
     if w<=h:assert abs(s['x'])<.5 and abs(s['w']-w)<.5,(w,h,g)
     assert max(g['overflow'])<=1,g
     assert len(g['tiles'])==23 and all(abs(v-2/3)<.002 for v in g['tiles']),g
-    assert g['board']['bottom']<=g['notice']['y']+.5,g
+    if s.get('mode')=='landscape':
+        assert g['board']['right']<=g['notice']['x']+.5,g
+    else:
+        assert g['board']['bottom']<=g['notice']['y']+.5,g
     assert g['notice']['bottom']<=g['meters']['y']+.5,g
     assert g['meters']['bottom']<=g['controls']['y']+.5,g
     assert g['controls']['bottom']<=h-bottom+.6,g
     assert all(b['y']>=top-.5 and b['bottom']<=h-bottom+.6 and b['x']>=left-.5 and b['right']<=w-right+.6 for b in g['buttons']),g
     assert all(min(b['w'],b['h'])>=8 for b in g['buttons']),g['buttons']
+    assert all(min(b['w'],b['h'])>=43.99 for b in g['buttons'][2:]),g['buttons']
     assert min(g['disk']['w'],g['disk']['h'])>=16,g['disk']
     assert abs(g['disk']['w']/g['disk']['h']-1)<.02,g['disk']
     assert abs(g['logo']['w']/g['logo']['h']-358/135)<.03,g['logo']

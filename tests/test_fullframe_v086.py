@@ -88,12 +88,13 @@ class GeneratedQAContracts(unittest.TestCase):
         geometry=self.covered_geometry()
         page=SimpleNamespace(evaluate=lambda _:geometry)
         self.assertEqual(assert_layout(page,390,690)['stage']['w'],390)
-        for mutation in ('tile','safe_area','logo','spin','collapsed_control'):
+        for mutation in ('tile','safe_area','logo','spin','collapsed_control','small_touch_target'):
             bad=deepcopy(geometry)
             if mutation=='tile':bad['tiles'][0]=1
             elif mutation=='safe_area':bad['buttons'][-1]['bottom']=691
             elif mutation=='logo':bad['logo']['w']=100
             elif mutation=='spin':bad['disk']['w']=75
+            elif mutation=='small_touch_target':bad['buttons'][3]['w']=40
             else:bad['buttons'][3]['h']=0
             with self.subTest(mutation=mutation),self.assertRaises(AssertionError):
                 assert_layout(SimpleNamespace(evaluate=lambda _:bad),390,690)
