@@ -14,7 +14,7 @@ jobs:
       - name: Install media verification tools
         run: sudo apt-get update && sudo apt-get install -y ffmpeg
       - name: Build locked artwork and aligned light masks
-        run: python tools/build_locked_ui.py && python tools/build_presentation_fx.py && python tools/build_approved_ui.py && python tools/build_portrait_ui.py && python tools/build_responsive_runtime.py && python tools/build_fullframe_ui.py
+        run: python tools/build_locked_ui.py && python tools/build_presentation_fx.py && python tools/build_approved_ui.py && python tools/build_portrait_ui.py && python tools/build_responsive_runtime.py && python tools/build_fullframe_ui.py && python tools/build_ornament_v094.py
       - name: Run engine, HTTP and asset tests
         run: python -m unittest discover -s tests -q
       - name: Install Chromium and WebKit
