@@ -287,7 +287,7 @@ export default function App() {
       setAssets((prev) => [accepted.asset, ...prev.filter((item) => item.id !== accepted.asset.id)]);
       setJobs((prev) => [accepted.job, ...prev.filter((item) => item.id !== accepted.job.id)]);
       await refresh();
-      setNotice(`Upload ${file.name} diterima. Status dan error worker tersedia di Audio Studio.`);
+      setNotice(`Upload diterima. ${file.name} sedang diproses; status dan error worker tersedia di Audio Studio.`);
     });
   }
   async function renderAsset(asset: Asset, recipe: Record<string, unknown>) {
