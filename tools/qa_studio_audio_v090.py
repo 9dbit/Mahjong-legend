@@ -90,6 +90,92 @@ NONBLOCKING = r'''async cfg => {
     return {configurationApplied:result,state:audio.state};
 }'''
 
+PAGE_LIFECYCLE = r'''async fixture => {
+    const audio=window.MahjongWildAudio;
+    const originalFetch=fetch, requests=[], aborted=[];
+    const earlyListeners=new Set(), add=window.addEventListener, remove=window.removeEventListener;
+    window.addEventListener=function(type,listener,...options){
+        if(type==='beforeunload') earlyListeners.add(listener);
+        return add.call(this,type,listener,...options);
+    };
+    window.removeEventListener=function(type,listener,...options){
+        if(type==='beforeunload') earlyListeners.delete(listener);
+        return remove.call(this,type,listener,...options);
+    };
+    window.fetch=(url,options={})=>{
+        requests.push(String(url));
+        return new Promise((resolve,reject)=>{
+            options.signal?.addEventListener('abort',()=>{
+                aborted.push(String(url)); reject(new DOMException('Fixture cancelled','AbortError'));
+            },{once:true});
+        });
+    };
+    await audio.configure(fixture.audio); await audio.unlock();
+    const pendingMusic=audio.setPhase('base');
+    // Two requests are active; the remaining effects and music are queued.
+    if(requests.length!==2) throw Error('Fixture did not fill the two-load queue');
+    const listenersWhilePending=earlyListeners.size;
+    if(fixture.event==='visibilitychange') {
+        Object.defineProperty(document,'hidden',{configurable:true,value:true});
+        document.dispatchEvent(new Event('visibilitychange'));
+    } else dispatchEvent(fixture.event==='pagehide'
+        ? new PageTransitionEvent('pagehide',{persisted:true}) : new Event('beforeunload'));
+    const settled=await Promise.race([pendingMusic.then(()=>true),new Promise(resolve=>setTimeout(()=>resolve(false),200))]);
+    const whileHidden={unlock:await audio.unlock(),play:await audio.play('tap'),music:await audio.setPhase('base')};
+    await new Promise(resolve=>setTimeout(resolve,10));
+    const hidden={requests:[...requests],aborted:[...aborted],state:audio.state,settled,whileHidden,
+        earlyListeners:earlyListeners.size};
+    window.fetch=originalFetch;
+    // A BFCache restoration keeps preferences and may restart from cached or
+    // newly fetched buffers. No synthetic user click is needed for this fixture.
+    if(fixture.event==='visibilitychange') {
+        delete document.hidden; document.dispatchEvent(new Event('visibilitychange'));
+    } else dispatchEvent(new PageTransitionEvent('pageshow',{persisted:true}));
+    for(let i=0;i<100&&!audio.state.musicPlaying;i++) await new Promise(resolve=>setTimeout(resolve,1));
+    const restored=audio.state;
+    // Once all loads finish, the temporary early-navigation listener must be
+    // removed. An idle beforeunload alone must no longer suspend this mixer.
+    dispatchEvent(new Event('beforeunload'));
+    return {event:fixture.event,hidden,restored,listenersWhilePending,listenersAfterDrain:earlyListeners.size,
+        early_listener_removed:audio.state.musicPlaying,
+        before:__audioQA.before,preferences:{...localStorage},simulated_bfcache:true};
+}'''
+
+STALE_MUSIC = r'''async cfg => {
+    const audio=window.MahjongWildAudio;
+    const isolated=structuredClone(cfg);
+    for(const event of Object.values(isolated.events)) event.enabled=false;
+    const originalFetch=fetch, requests=[];
+    window.fetch=(url,options={})=>{
+        requests.push(String(url));
+        return String(url).endsWith('jade_serenity.m4a')
+            ? new Promise((resolve,reject)=>options.signal.addEventListener('abort',()=>reject(new DOMException('Fixture cancelled','AbortError')),{once:true}))
+            : originalFetch(url,options);
+    };
+    await audio.configure(isolated); await audio.unlock();
+    const waiting=audio.setPhase('base');
+    const replacement=structuredClone(isolated); replacement.music.base=null;
+    await audio.configure(replacement);
+    const result=await waiting;
+    await new Promise(resolve=>setTimeout(resolve,10));
+    return {result,requests,state:audio.state};
+}'''
+
+BASELINE_FALLBACK = r'''async cfg => {
+    const audio=window.MahjongWildAudio;
+    const isolated=structuredClone(cfg);
+    for(const event of Object.values(isolated.events)) event.enabled=false;
+    const originalFetch=fetch, requests=[];
+    window.fetch=(url,...options)=>{
+        requests.push(String(url));
+        return String(url).endsWith('jade_serenity.m4a')
+            ? Promise.resolve({ok:false,status:415}) : originalFetch(url,...options);
+    };
+    await audio.configure(isolated); await audio.unlock();
+    const result=await audio.setPhase('base');
+    return {result,requests,state:audio.state};
+}'''
+
 
 def main():
     parser = argparse.ArgumentParser()
@@ -99,12 +185,14 @@ def main():
     args = parser.parse_args()
     baseline = baseline_config()["audio"]
     results = []
+    page_errors = []
     with sync_playwright() as driver:
         browser = getattr(driver, args.engine).launch(headless=True,
             **({"executable_path": args.browser} if args.browser else {}))
 
         def page_for(settings):
             page = browser.new_page()
+            page.on("pageerror", lambda error: page_errors.append(str(error)))
             page.route("https://audio-qa.invalid/", lambda route: route.fulfill(
                 status=200, content_type="text/html", body="<!doctype html><title>Studio audio QA</title>"))
             page.goto("https://audio-qa.invalid/")
@@ -178,9 +266,40 @@ def main():
         nonblocking = page.evaluate(NONBLOCKING, baseline)
         assert nonblocking["configurationApplied"], nonblocking
         page.close()
+        lifecycles = []
+        for event in ["pagehide","beforeunload","visibilitychange"]:
+            page = page_for({**settings,"music":True})
+            lifecycle = page.evaluate(PAGE_LIFECYCLE, {"audio":baseline,"event":event})
+            hidden = lifecycle["hidden"]
+            assert hidden["settled"] and len(hidden["requests"]) == len(hidden["aborted"]) == 2, lifecycle
+            assert lifecycle["listenersWhilePending"] == 1 and hidden["earlyListeners"] == lifecycle["listenersAfterDrain"] == 0, lifecycle
+            assert not any(hidden["whileHidden"].values()), lifecycle
+            assert hidden["state"]["loaded"] == hidden["state"]["voices"] == 0, lifecycle
+            assert not hidden["state"]["musicPlaying"] and not hidden["state"]["lastError"], lifecycle
+            assert lifecycle["restored"]["unlocked"] and lifecycle["restored"]["musicPlaying"], lifecycle
+            assert lifecycle["early_listener_removed"], lifecycle
+            assert not lifecycle["restored"]["lastError"], lifecycle
+            assert lifecycle["preferences"] == lifecycle["before"], lifecycle
+            lifecycles.append(lifecycle)
+            page.close()
+        page = page_for({**settings,"music":True})
+        stale_music = page.evaluate(STALE_MUSIC, baseline)
+        assert stale_music["result"] is False and len(stale_music["requests"]) == 1, stale_music
+        assert stale_music["requests"][0].endswith("jade_serenity.m4a"), stale_music
+        assert not stale_music["state"]["musicPlaying"] and not stale_music["state"]["lastError"], stale_music
+        page.close()
+        page = page_for({**settings,"music":True})
+        fallback = page.evaluate(BASELINE_FALLBACK, baseline)
+        assert fallback["result"] and fallback["state"]["musicPlaying"], fallback
+        assert [Path(url).suffix for url in fallback["requests"]] == [".m4a",".ogg"], fallback
+        assert not fallback["state"]["lastError"], fallback
+        page.close()
+        assert not page_errors, page_errors
         browser.close()
     report = {"engine":args.engine,"cases":results,"priority":priority,"stale_configuration":stale,
               "missing_music_nonblocking":nonblocking,
+              "page_lifecycle":lifecycles,"stale_music_no_fallback":stale_music,
+              "baseline_fallback":fallback,"page_errors":page_errors,
               "physical_listening_tested":False}
     if args.output:
         args.output.parent.mkdir(parents=True, exist_ok=True)

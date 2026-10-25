@@ -53,6 +53,44 @@ def rewrite_qa(name,text):
                  "            assert_layout(page,w,h)\n            assert g['overflow']<=1")
             edit("'../reel-v083/splash.js']:page.add_script_tag",
                  "'../reel-v083/splash.js','../fullframe-v086/layout.js']:page.add_script_tag")
+            # Native counters display their own labels. Keep this adaptation
+            # after the SHA-checked v085 input, just like the full-frame gate.
+            edit(".map(e=>({box:b(e),label:b(e.querySelector('small')),value:b(e.querySelector('.meter-value')),overflow:e.querySelector('.meter-value').scrollWidth-e.querySelector('.meter-value').clientWidth}))",
+                 ".map(e=>{const label=e.querySelector('small'),value=e.querySelector('.meter-value'),style=getComputedStyle(label);return {box:b(e),label:{...b(label),text:label.textContent.trim(),fontSize:parseFloat(style.fontSize),visible:style.display!=='none'&&style.visibility==='visible'&&parseFloat(style.opacity)>0&&style.clip==='auto'},value:{...b(value),fontSize:parseFloat(getComputedStyle(value).fontSize)},overflow:value.scrollWidth-value.clientWidth}})")
+            edit("""            for m in g['meters']:
+                assert m['label']['h']<=1.1, 'Accessible labels are visually hidden to match the approved counters'
+                assert m['value']['bottom']<=m['box']['bottom']+.6,m
+                assert m['value']['x']>=m['box']['x']-.6 and m['value']['right']<=m['box']['right']+.6,m""",
+                 """            assert [m['label']['text'] for m in g['meters']]==['SALDO','BET','MENANG'],g['meters']
+            for m in g['meters']:
+                assert m['label']['visible'] and m['label']['fontSize']>=8 and m['label']['h']>=7.9,m
+                assert m['value']['fontSize']>=16 and m['overflow']<=1,m
+                for part in ('label','value'):
+                    r=m[part]
+                    assert r['w']>0 and r['h']>0 and r['y']>=m['box']['y']-.6 and r['bottom']<=m['box']['bottom']+.6,m
+                    assert r['x']>=m['box']['x']-.6 and r['right']<=m['box']['right']+.6,m
+                assert m['label']['bottom']<=m['value']['y']+.6,m
+            assert all(a['box']['right']<=b['box']['x']+.6 for a,b in zip(g['meters'],g['meters'][1:])),g['meters']""")
+    elif name=='tools/qa_portrait_v085.py':
+        edit('from playwright.sync_api import sync_playwright, expect\n',
+             'from playwright.sync_api import sync_playwright, expect\nfrom qa_fullframe_v086 import assert_layout\n')
+        # The first RAF sample may already show a moving compositor layer.
+        # Compare it with the canvas's static origin, not an already-moving
+        # first sample that incorrectly adds another frame to input latency.
+        edit("""     if(!origins.has(c))origins.set(c,tr);
+     else if(tr!==origins.get(c)&&q.firstMovedMs===null&&q.inputAt!==null)q.firstMovedMs=performance.now()-q.inputAt;""",
+             """     if(!origins.has(c))origins.set(c,new DOMMatrix(c.style.transform||'none'));
+     const origin=origins.get(c),current=new DOMMatrix(tr);
+     // 0.01 CSS px excludes matrix-serialization rounding, not delayed frames.
+     const displaced=Math.hypot(current.m41-origin.m41,current.m42-origin.m42)>.01;
+     if(displaced&&q.firstMovedMs===null&&q.inputAt!==null)q.firstMovedMs=performance.now()-q.inputAt;""")
+        edit("""                assert metrics['board']['bottom']<metrics['notice']['y']
+                assert metrics['notice']['bottom']<metrics['meters']['y']
+                assert metrics['meters']['bottom']<metrics['controls']['y']
+                assert metrics['controls']['bottom']<=h+1,metrics""",
+             """                # Native rows may share an edge; landscape places the console
+                # beside the board. Verify coverage and all collisions directly.
+                assert_layout(page,w,h)""")
     elif name=='tools/local_preview.py':
         edit("'assets/reel-v083/splash.js']:page.add_script_tag",
              "'assets/reel-v083/splash.js','assets/fullframe-v086/layout.js']:page.add_script_tag")

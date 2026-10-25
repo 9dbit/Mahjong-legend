@@ -22,6 +22,7 @@
     music:{base:{asset:baselineMusic,gain:1,loop_start:0,loop_end:null},bonus:null}
   };
   let context = null, unlocked = false, epoch = 0, configRevision = 0, phase = 'base';
+  let pageActive = true, pageRevision = 0;
   let sfxBus = null, musicBus = null, duckBus = null, outputBus = null, analyser = null;
   let musicSource = null, musicTask = null, musicEpoch = 0, unlockPending = null;
   let lastError = '', droppedVoices = 0, activeLoads = 0;
@@ -122,23 +123,27 @@
     return bytes.buffer;
   }
   function pump() {
-    while (activeLoads < 2 && queue.length) {
+    while (pageActive && activeLoads < 2 && queue.length) {
       const task = queue.shift(); activeLoads++;
       void task().finally(() => { activeLoads--; pump(); });
     }
   }
   function load(url, reportError=true) {
-    if (!context) return Promise.resolve(null);
+    if (!context || !pageActive) return Promise.resolve(null);
     if (buffers.has(url)) { const hit = buffers.get(url); buffers.delete(url); buffers.set(url, hit); return Promise.resolve(hit.buffer); }
     if (pending.has(url)) return pending.get(url).promise;
     const revision = configRevision, controller = new AbortController();
     let finish;
     const promise = new Promise(resolve => { finish = resolve; });
-    const entry = {controller,promise}; pending.set(url, entry);
+    const entry = {controller,promise,finish}; pending.set(url, entry);
+    // WebKit may cancel fetches before pagehide, then run their continuations.
+    // Listen only while work is pending: Firefox can restrict BFCache while a
+    // beforeunload listener exists. Remove it on drain, and never prompt.
+    window.addEventListener('beforeunload', suspendPage);
     queue.push(async () => {
       let result = null, deadline = null, timedOut = false, cancel = null;
       try {
-        if (revision !== configRevision || controller.signal.aborted) return;
+        if (!pageActive || revision !== configRevision || controller.signal.aborted) return;
         const aborted = new Promise((_, reject) => {
           cancel = () => reject(new DOMException('Audio load cancelled', 'AbortError'));
           controller.signal.addEventListener('abort', cancel, {once:true});
@@ -152,20 +157,29 @@
         if (revision !== configRevision || controller.signal.aborted) return;
         result = cache(url, buffer);
       } catch (error) {
-        if (reportError && revision === configRevision && (error.name !== 'AbortError' || timedOut))
+        if (reportError && revision === configRevision && (!controller.signal.aborted || timedOut))
           lastError = timedOut?'Audio load timed out':error.message;
       } finally {
         if (deadline !== null) clearTimeout(deadline);
         if (cancel) controller.signal.removeEventListener('abort', cancel);
         if (pending.get(url) === entry) pending.delete(url);
+        if (!pending.size) window.removeEventListener('beforeunload', suspendPage);
         finish(result);
       }
     });
     pump(); return promise;
   }
+  function cancelLoads() {
+    // Settle queued callers as well as aborting the two active fetches. An old
+    // queue must not start new requests while its document is leaving/BF-cached.
+    queue.length = 0;
+    for (const entry of pending.values()) { entry.controller.abort(); entry.finish(null); }
+    pending.clear();
+    window.removeEventListener('beforeunload', suspendPage);
+  }
   function preload() {
     // Only this release's game effects. Studio's entire library is never loaded.
-    if (!context || !enabled || !unlocked) return;
+    if (!pageActive || !context || !enabled || !unlocked) return;
     for (const url of new Set(Object.values(config.events).filter(event => event.enabled).map(event => event.asset))) void load(url);
   }
   function releaseVoice(voice) {
@@ -191,17 +205,21 @@
   function musicKey(track) { return track ? JSON.stringify(track) : ''; }
   function startMusic() {
     const track = selectedMusic(), key = musicKey(track);
-    if (!track || !unlocked || !enabled || !musicEnabled || document.hidden || context?.state !== 'running') return Promise.resolve(false);
+    if (!pageActive || !track || !unlocked || !enabled || !musicEnabled || document.hidden || context?.state !== 'running') return Promise.resolve(false);
     if (musicSource?.key === key) return Promise.resolve(true);
     if (musicTask?.key === key) return musicTask.promise;
     const generation = musicEpoch, revision = configRevision;
+    const current = () => pageActive && generation === musicEpoch && revision === configRevision &&
+      musicKey(selectedMusic()) === key && enabled && musicEnabled && unlocked && !document.hidden && context.state === 'running';
     const task = {key,promise:null};
     task.promise = (async () => {
       let url = track.asset;
       let buffer = await load(url, url !== baselineMusic);
+      // A cancelled M4A load is not a codec failure. Check the document and
+      // release before scheduling OGG, not just before connecting its source.
+      if (!current()) return false;
       if (!buffer && url === baselineMusic) { url = baselineMusic.replace('.m4a','.ogg'); buffer = await load(url); }
-      if (!buffer || generation !== musicEpoch || revision !== configRevision || musicKey(selectedMusic()) !== key ||
-          !enabled || !musicEnabled || !unlocked || document.hidden || context.state !== 'running') return false;
+      if (!buffer || !current()) return false;
       const end = track.loop_end ?? buffer.duration;
       if (track.loop_start >= end || end > buffer.duration + .001) { lastError = 'Music loop exceeds clip duration'; return false; }
       // Keep the old track while the replacement loads, then replace it once.
@@ -221,13 +239,22 @@
     musicTask = task; return task.promise;
   }
   function unlock() {
-    if (!ensureContext()) return Promise.resolve(false);
+    if (!pageActive || !ensureContext()) return Promise.resolve(false);
+    const revision = pageRevision;
     // Resume synchronously in the pointer/key handler, before any fetch await.
     const resume = context.state === 'running' ? Promise.resolve() : context.resume();
-    if (!unlockPending) unlockPending = Promise.resolve(resume).then(() => {
+    if (unlockPending) {
+      // A BFCache/visibility resume can still await a user gesture on WebKit.
+      // Invoke resume again in that gesture and observe its promise as well.
+      void Promise.resolve(resume).catch(error => { if (pageActive && revision === pageRevision) lastError = error.message; });
+      return unlockPending;
+    }
+    const task = Promise.resolve(resume).then(() => {
+      if (!pageActive || revision !== pageRevision) return false;
       unlocked = context.state === 'running'; preload(); void startMusic(); return unlocked;
-    }).catch(error => { lastError = error.message; return false; }).finally(() => { unlockPending = null; });
-    return unlockPending;
+    }).catch(error => { if (pageActive && revision === pageRevision) lastError = error.message; return false; })
+      .finally(() => { if (unlockPending === task) unlockPending = null; });
+    unlockPending = task; return task;
   }
   function duckMusic() {
     if (!duckBus || !musicSource) return;
@@ -238,11 +265,12 @@
   }
   async function play(type, variation=0) {
     const event = config.events[type];
-    if (!event?.enabled || !enabled || volume === 0 || document.hidden || !context) return false;
+    if (!pageActive || !event?.enabled || !enabled || volume === 0 || document.hidden || !context) return false;
     const generation = epoch, revision = configRevision;
     if (unlockPending) await unlockPending;
+    if (!pageActive || generation !== epoch || revision !== configRevision) return false;
     const buffer = await load(event.asset);
-    if (generation !== epoch || revision !== configRevision || !buffer || !enabled || volume === 0 ||
+    if (!pageActive || generation !== epoch || revision !== configRevision || !buffer || !enabled || volume === 0 ||
         document.hidden || context.state !== 'running') return false;
     const now = context.currentTime, previous = lastPlayed.get(type);
     if (previous !== undefined && (now - previous) * 1000 < (cooldowns[type] || 0)) return false;
@@ -265,8 +293,7 @@
     const next = normalize(input); // An invalid config leaves the working mixer intact.
     if (JSON.stringify(next) === JSON.stringify(config)) return true;
     stop(); pauseMusic(); configRevision++;
-    for (const entry of pending.values()) entry.controller.abort();
-    pending.clear(); buffers.clear(); config = next; lastError = ''; applyLevels();
+    cancelLoads(); buffers.clear(); config = next; lastError = ''; applyLevels();
     // Applying a release must never wait for an audio download to finish a round.
     preload(); void startMusic(); return true;
   }
@@ -293,10 +320,27 @@
     const data = new Float32Array(analyser.fftSize); analyser.getFloatTimeDomainData(data);
     return Math.sqrt(data.reduce((total,sample) => total+sample*sample,0)/data.length);
   }
-  document.addEventListener('pointerdown', () => void unlock(), {passive:true});
-  document.addEventListener('keydown', () => void unlock());
-  document.addEventListener('visibilitychange', () => {if (document.hidden) { stop(); pauseMusic(); } else if (unlocked) void unlock();});
-  window.addEventListener('pagehide', () => { stop(); pauseMusic(); });
+  function suspendPage() {
+    pageActive = false; pageRevision++; unlockPending = null;
+    stop(); pauseMusic(); cancelLoads();
+  }
+  function unlockFromGesture(event) {
+    // A navigation cancelled by another page listener has no pageshow event.
+    // The next real interaction can resume audio without changing preferences.
+    if (event.isTrusted && !document.hidden) pageActive = true;
+    void unlock();
+  }
+  document.addEventListener('pointerdown', unlockFromGesture, {passive:true});
+  document.addEventListener('keydown', unlockFromGesture);
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) suspendPage();
+    else { pageActive = true; if (unlocked) void unlock(); }
+  });
+  window.addEventListener('pagehide', suspendPage);
+  window.addEventListener('pageshow', () => {
+    pageActive = true;
+    if (unlocked && !document.hidden) void unlock();
+  });
   window.MahjongWildAudio = {play,unlock,stop,configure,setPhase,setEnabled,setVolume,toggleMusic,setMusicVolume,
     get state() { return {enabled,volume,musicEnabled,musicVolume,outputGain:config.output_gain,unlocked,
       context:context?.state??'not-created',loaded:buffers.size,voices:voices.size,musicPlaying:!!musicSource,
