@@ -146,72 +146,31 @@ html.desktop-layout body{
 }
 
 
-/* Ornament v0.9.4: one continuous board-side backing, with the original
-   approved master sampled as uniformly scaled, feathered dragon/corner art.
-   The old top/middle/bottom independent resize panels must not paint. */
+/* Ornament v0.9.4: one unbroken image for each dragon body.
+   No separately rescaled upper, middle, or lower ornament. The original
+   approved portrait raster owns the lantern-to-tail and lower corner joins. */
 .fullframe-art .art-board b:first-child,
 .fullframe-art .art-board b:last-child{
   position:relative;
-  overflow:visible!important;
+  overflow:hidden!important;
   background-repeat:no-repeat!important;
   background-color:#650b0b;
 }
 .fullframe-art .art-board b:first-child{
   background-size:var(--ff-left-base-width) var(--ff-board-height)!important;
   background-position:left top!important;
+  box-shadow:inset -3px 0 10px rgba(249,175,63,.16);
 }
 .fullframe-art .art-board b:last-child{
   background-size:var(--ff-right-base-width) var(--ff-board-height)!important;
   background-position:right top!important;
+  box-shadow:inset 3px 0 10px rgba(249,175,63,.16);
 }
 .fullframe-art .art-board b:first-child::before,
 .fullframe-art .art-board b:last-child::before,
 .fullframe-art .art-board b:first-child::after,
 .fullframe-art .art-board b:last-child::after{
-  display:block!important;
-  content:'';
-  position:absolute;
-  background-repeat:no-repeat!important;
-  background-position:0 0!important;
-  background-size:100% 100%!important;
-  opacity:1;
-  pointer-events:none;
-  right:auto;
-  bottom:auto;
-}
-.fullframe-art .art-board b:first-child::before,
-.fullframe-art .art-board b:last-child::before{
-  top:0;
-  height:100%;
-  z-index:1;
-}
-.fullframe-art .art-board b:first-child::before{
-  left:0;
-  width:var(--ff-left-dragon-width);
-  background-image:url('/assets/ornament-v094/dragon-left.webp');
-}
-.fullframe-art .art-board b:last-child::before{
-  left:auto;
-  right:0;
-  width:var(--ff-right-dragon-width);
-  background-image:url('/assets/ornament-v094/dragon-right.webp');
-}
-.fullframe-art .art-board b:first-child::after,
-.fullframe-art .art-board b:last-child::after{
-  top:auto;
-  bottom:-2px;
-  z-index:2;
-}
-.fullframe-art .art-board b:first-child::after{
-  left:0;
-  width:var(--ff-left-corner-width);
-  height:var(--ff-left-corner-height);
-  background-image:url('/assets/ornament-v094/corner-left.webp');
-}
-.fullframe-art .art-board b:last-child::after{
-  left:auto;
-  right:0;
-  width:var(--ff-right-corner-width);
-  height:var(--ff-right-corner-height);
-  background-image:url('/assets/ornament-v094/corner-right.webp');
+  display:none!important;
+  content:none!important;
+  background-image:none!important;
 }
