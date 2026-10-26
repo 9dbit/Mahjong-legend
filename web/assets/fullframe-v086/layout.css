@@ -22,13 +22,13 @@ html.standalone,html.standalone body{height:100vh;height:100lvh}
 .fullframe-art .art-crown b{display:none}
 .fullframe-art .art-rail{top:var(--ff-rail-top);width:var(--ff-scene-width);height:var(--ff-rail-height);background-image:url('/assets/fullframe-v086/rail.webp')}
 .fullframe-art .art-board{top:var(--ff-board-top);width:var(--ff-scene-width);height:var(--ff-board-height);display:grid;grid-template-columns:var(--ff-board-left) var(--ff-board-width) 1fr}
-.art-board b:first-child{background-image:url('/assets/fullframe-v086/board-left.webp')}.art-board b:nth-child(2){background-image:url('/assets/fullframe-v086/board-center.webp')}.art-board b:last-child{background-image:url('/assets/fullframe-v086/board-right.webp')}
-.art-board b:first-child,.art-board b:last-child{position:relative;overflow:hidden;background-size:100% var(--ornament-middle-image);background-position:0 var(--ornament-middle-offset)}
+.art-board b:first-child{background-image:url('/assets/fullframe-v086/board-left.webp')}.art-board b:nth-child(2){background-image:url('/assets/fullframe-v086/board-center.webp')}.art-board b:last-of-type{background-image:url('/assets/fullframe-v086/board-right.webp')}
+.art-board b:first-child,.art-board b:last-of-type{position:relative;overflow:hidden;background-size:100% var(--ornament-middle-image);background-position:0 var(--ornament-middle-offset)}
 .art-board b:first-child{--ornament-top:var(--ff-left-top-height);--ornament-bottom:var(--ff-left-bottom-height);--ornament-top-image:var(--ff-left-top-image-height);--ornament-bottom-image:var(--ff-left-bottom-image-height);--ornament-middle-image:var(--ff-left-middle-image-height);--ornament-middle-offset:var(--ff-left-middle-offset);--ornament-image:url('/assets/fullframe-v086/board-left.webp')}
-.art-board b:last-child{--ornament-top:var(--ff-right-top-height);--ornament-bottom:var(--ff-right-bottom-height);--ornament-top-image:var(--ff-right-top-image-height);--ornament-bottom-image:var(--ff-right-bottom-image-height);--ornament-middle-image:var(--ff-right-middle-image-height);--ornament-middle-offset:var(--ff-right-middle-offset);--ornament-image:url('/assets/fullframe-v086/board-right.webp')}
-.art-board b:first-child::before,.art-board b:last-child::before,.art-board b:first-child::after,.art-board b:last-child::after{content:'';position:absolute;left:0;right:0;background-image:var(--ornament-image);background-repeat:no-repeat;pointer-events:none}
-.art-board b:first-child::before,.art-board b:last-child::before{top:0;height:var(--ornament-top);background-size:100% var(--ornament-top-image);background-position:0 0}
-.art-board b:first-child::after,.art-board b:last-child::after{bottom:0;height:var(--ornament-bottom);background-size:100% var(--ornament-bottom-image);background-position:0 100%}
+.art-board b:last-of-type{--ornament-top:var(--ff-right-top-height);--ornament-bottom:var(--ff-right-bottom-height);--ornament-top-image:var(--ff-right-top-image-height);--ornament-bottom-image:var(--ff-right-bottom-image-height);--ornament-middle-image:var(--ff-right-middle-image-height);--ornament-middle-offset:var(--ff-right-middle-offset);--ornament-image:url('/assets/fullframe-v086/board-right.webp')}
+.art-board b:first-child::before,.art-board b:last-of-type::before,.art-board b:first-child::after,.art-board b:last-of-type::after{content:'';position:absolute;left:0;right:0;background-image:var(--ornament-image);background-repeat:no-repeat;pointer-events:none}
+.art-board b:first-child::before,.art-board b:last-of-type::before{top:0;height:var(--ornament-top);background-size:100% var(--ornament-top-image);background-position:0 0}
+.art-board b:first-child::after,.art-board b:last-of-type::after{bottom:0;height:var(--ornament-bottom);background-size:100% var(--ornament-bottom-image);background-position:0 100%}
 .fullframe-art .art-hud{top:var(--ff-footer-top);height:var(--ff-hud-height)}
 .fullframe-art .art-controls{top:var(--ff-controls-top);height:var(--ff-controls-height)}
 .fullframe-art .art-controls b{display:none}
@@ -127,11 +127,11 @@ html.reels-running .art-crown::before,html.reels-running .art-crown::after,body.
 /* Short landscape rows use intact, uniformly scaled ornament columns. Their
    lanterns must not flatten into wide discs just to fill a side gutter. */
 .game-stage[data-fullframe=landscape] .art-board b:first-child{width:calc(var(--ff-board-height)*118/938);justify-self:end;background-size:100% 100%;background-position:0 0}
-.game-stage[data-fullframe=landscape] .art-board b:last-child{width:calc(var(--ff-board-height)*117/938);justify-self:start;background-size:100% 100%;background-position:0 0}
-.game-stage[data-fullframe=landscape] .art-board b:first-child::before,.game-stage[data-fullframe=landscape] .art-board b:first-child::after,.game-stage[data-fullframe=landscape] .art-board b:last-child::before,.game-stage[data-fullframe=landscape] .art-board b:last-child::after{display:none}
+.game-stage[data-fullframe=landscape] .art-board b:last-of-type{width:calc(var(--ff-board-height)*117/938);justify-self:start;background-size:100% 100%;background-position:0 0}
+.game-stage[data-fullframe=landscape] .art-board b:first-child::before,.game-stage[data-fullframe=landscape] .art-board b:first-child::after,.game-stage[data-fullframe=landscape] .art-board b:last-of-type::before,.game-stage[data-fullframe=landscape] .art-board b:last-of-type::after{display:none}
 
 /* v0.9.2. Ornamental half-tile caps do not participate in the 4/5/5/5/4 game grid. */
-.fullframe-art .art-board b:first-child,.fullframe-art .art-board b:last-child{background-color:#650b0b;background-repeat:no-repeat}
+.fullframe-art .art-board b:first-child,.fullframe-art .art-board b:last-of-type{background-color:#650b0b;background-repeat:no-repeat}
 .reel-theatre .board-frame{position:relative;isolation:isolate}
 .board .reel.short{position:relative;overflow:visible}
 .board .reel.short::before{content:'';position:absolute;left:0;right:0;bottom:calc(100% + .14cqw);height:25%;z-index:0;border-radius:11%;pointer-events:none;background:var(--corner-cap-image) center/100% 100% no-repeat;box-shadow:inset 0 0 0 1px #ffe7a68c,0 3px 7px #230800af,0 0 7px #ffbf5973}
@@ -165,7 +165,7 @@ html.desktop-layout body{
    No separately rescaled upper, middle, or lower ornament. The original
    approved portrait raster owns the lantern-to-tail and lower corner joins. */
 .fullframe-art .art-board b:first-child,
-.fullframe-art .art-board b:last-child{
+.fullframe-art .art-board b:last-of-type{
   position:relative;
   overflow:hidden!important;
   background-repeat:no-repeat!important;
@@ -176,15 +176,15 @@ html.desktop-layout body{
   background-position:left top!important;
   box-shadow:inset -3px 0 10px rgba(249,175,63,.16);
 }
-.fullframe-art .art-board b:last-child{
+.fullframe-art .art-board b:last-of-type{
   background-size:var(--ff-right-base-width) var(--ff-board-height)!important;
   background-position:right top!important;
   box-shadow:inset 3px 0 10px rgba(249,175,63,.16);
 }
 .fullframe-art .art-board b:first-child::before,
-.fullframe-art .art-board b:last-child::before,
+.fullframe-art .art-board b:last-of-type::before,
 .fullframe-art .art-board b:first-child::after,
-.fullframe-art .art-board b:last-child::after{
+.fullframe-art .art-board b:last-of-type::after{
   display:none!important;
   content:none!important;
   background-image:none!important;
@@ -199,7 +199,7 @@ html.desktop-layout body{
    into a *separate*, uniformly enlarged tail/cloud derivative. This also avoids
    duplicating the source's old straight interior framing stripe. */
 .fullframe-art .art-board b:first-child,
-.fullframe-art .art-board b:last-child{
+.fullframe-art .art-board b:last-of-type{
   -webkit-mask-image:linear-gradient(to bottom,#000 0%,#000 40%,#000b 46%,transparent 60%);
   mask-image:linear-gradient(to bottom,#000 0%,#000 40%,#000b 46%,transparent 60%);
 }
@@ -232,4 +232,73 @@ html.desktop-layout body{
   right:calc(var(--ff-tail-overlap,0px) - var(--ff-tail-right-width,0px));
   width:var(--ff-tail-right-width,0px);
   background-image:url('/assets/fullframe-v086/tail-right.webp');
+}
+
+/* Mobile-first portrait composition: six image-backed layers from the exact
+   approved dragon/lantern/cloud source. NEVER stretch the 938px master into
+   the full column height. Layout.js calculates both dimensions from ONE
+   uniform per-kind scale, while background-size:contain preserves aspect. */
+.fullframe-art .art-board > .mobile-ornament{
+  display:none;position:absolute;pointer-events:none;
+  background-color:transparent;background-repeat:no-repeat;
+  background-position:center center;background-size:contain;
+  box-shadow:none;transform:none;
+}
+.game-stage[data-fullframe="portrait"] .fullframe-art .art-board > .mobile-ornament{
+  display:block;
+}
+.game-stage[data-fullframe="portrait"] .fullframe-art .art-board > b:first-child,
+.game-stage[data-fullframe="portrait"] .fullframe-art .art-board > b:last-of-type{
+  opacity:0!important;
+}
+/* Retire the older combined tail pseudo-elements only in mobile portrait.
+   Desktop/landscape retain the previous verified continuous art. */
+.game-stage[data-fullframe="portrait"] .reel-theatre::before,
+.game-stage[data-fullframe="portrait"] .reel-theatre::after{
+  display:none!important;content:none!important;
+}
+.fullframe-art .art-board > .mobile-ornament--dragon{z-index:1}
+.fullframe-art .art-board > .mobile-ornament--lantern{z-index:2}
+.fullframe-art .art-board > .mobile-ornament--cloud{z-index:3}
+.fullframe-art .art-board > .mobile-ornament--lantern-left{
+  left:calc(var(--ff-board-left) - var(--ff-mobile-lantern-left-width));
+  top:calc(0px - var(--ff-mobile-lantern-top-offset));
+  width:var(--ff-mobile-lantern-left-width);
+  height:var(--ff-mobile-lantern-height);
+  background-image:url('/assets/fullframe-v086/mobile-lantern-left.webp');
+}
+.fullframe-art .art-board > .mobile-ornament--lantern-right{
+  right:calc(var(--ff-board-right-gutter) - var(--ff-mobile-lantern-right-width));
+  top:calc(0px - var(--ff-mobile-lantern-top-offset));
+  width:var(--ff-mobile-lantern-right-width);
+  height:var(--ff-mobile-lantern-height);
+  background-image:url('/assets/fullframe-v086/mobile-lantern-right.webp');
+}
+.fullframe-art .art-board > .mobile-ornament--dragon-left{
+  left:calc(var(--ff-board-left) - var(--ff-mobile-dragon-left-width) + var(--ff-mobile-ornament-overlap));
+  top:var(--ff-mobile-dragon-top-offset);
+  width:var(--ff-mobile-dragon-left-width);
+  height:var(--ff-mobile-dragon-height);
+  background-image:url('/assets/fullframe-v086/mobile-dragon-left.webp');
+}
+.fullframe-art .art-board > .mobile-ornament--dragon-right{
+  right:calc(var(--ff-board-right-gutter) - var(--ff-mobile-dragon-right-width) + var(--ff-mobile-ornament-overlap));
+  top:var(--ff-mobile-dragon-top-offset);
+  width:var(--ff-mobile-dragon-right-width);
+  height:var(--ff-mobile-dragon-height);
+  background-image:url('/assets/fullframe-v086/mobile-dragon-right.webp');
+}
+.fullframe-art .art-board > .mobile-ornament--cloud-left{
+  left:calc(var(--ff-board-left) - var(--ff-mobile-cloud-left-width) + var(--ff-mobile-ornament-overlap));
+  bottom:0;
+  width:var(--ff-mobile-cloud-left-width);
+  height:var(--ff-mobile-cloud-height);
+  background-image:url('/assets/fullframe-v086/mobile-cloud-left.webp');
+}
+.fullframe-art .art-board > .mobile-ornament--cloud-right{
+  right:calc(var(--ff-board-right-gutter) - var(--ff-mobile-cloud-right-width) + var(--ff-mobile-ornament-overlap));
+  bottom:0;
+  width:var(--ff-mobile-cloud-right-width);
+  height:var(--ff-mobile-cloud-height);
+  background-image:url('/assets/fullframe-v086/mobile-cloud-right.webp');
 }

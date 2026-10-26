@@ -30,7 +30,8 @@ MEASURE='''()=>{
    viewport:{layoutWidth:innerWidth,layoutHeight:innerHeight,clientWidth:root.clientWidth,clientHeight:root.clientHeight,visualWidth:view?.width??innerWidth,visualHeight:view?.height??innerHeight,standalone:matchMedia('(display-mode: standalone)').matches||!!navigator.standalone},
    root:{...r(root),...paint(root)},body:{...r(body),...paint(body)},backdrop:pseudo(body,'::before'),
    art:{container:{...r(art),...paint(art)},before:pseudo(art,'::before'),after:pseudo(art,'::after'),
-     bands:[...art.querySelectorAll(':scope > i')].map(e=>({name:e.className,...r(e),...paint(e),parts:[...e.children].filter(p=>getComputedStyle(p).display!=='none').map(p=>({...r(p),...paint(p)}))}))}
+     bands:[...art.querySelectorAll(':scope > i')].map(e=>({name:e.className,...r(e),...paint(e),parts:[...e.children].filter(p=>p.tagName==='B'&&getComputedStyle(p).display!=='none').map(p=>({...r(p),...paint(p)}))})),
+     ornaments:[...art.querySelectorAll('.mobile-ornament')].map(e=>({...r(e),...paint(e)}))}
  };
 }'''
 
@@ -68,6 +69,9 @@ def assert_artwork_coverage(g):
         for band in [hud,controls]:
             assert band['visible'] and band['image'] and covers(panel,band),band
         return
+    if stage.get('mode')=='portrait':
+        ornament=art.get('ornaments',[])
+        assert len(ornament)==6 and all(o['visible'] and o['image'] and o['w']>0 and o['h']>0 for o in ornament),ornament
     cursor=stage['y']
     for band in [art['before'],*art['bands'],art['after']]:
         assert abs(band['y']-cursor)<=epsilon,(cursor,band)
@@ -78,8 +82,9 @@ def assert_artwork_coverage(g):
             if parts:
                 assert len(parts)==3,band
                 edge=band['x']
-                for part in parts:
-                    assert part['visible'] and part['image'] and part['w']>.01,part
+                for part_index,part in enumerate(parts):
+                    replaced=(stage.get('mode')=='portrait' and band['name']=='art-board' and part_index in (0,2))
+                    assert (part['visible'] or replaced) and part['image'] and part['w']>.01,part
                     assert abs(part['x']-edge)<=epsilon and abs(part['y']-band['y'])<=epsilon and abs(part['bottom']-band['bottom'])<=epsilon,(band,part)
                     edge=part['right']
                 assert abs(edge-band['right'])<=epsilon,band
@@ -94,7 +99,7 @@ def assert_background_images(page):
       const entries=[[document.documentElement,null,'root'],[document.body,null,'body'],[document.body,'::before','backdrop']];
       const art=document.querySelector('.fullframe-art');
       entries.push([art,'::before','top-extension'],[art,'::after','bottom-extension']);
-      for(const e of art.querySelectorAll('i,b')){
+      for(const e of art.querySelectorAll('i,b,.mobile-ornament')){
         const label=e.className||e.parentElement.className+'-part';
         entries.push([e,null,label],[e,'::before',label+'-before'],[e,'::after',label+'-after']);
       }

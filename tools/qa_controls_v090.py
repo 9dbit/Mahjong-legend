@@ -67,50 +67,91 @@ def assert_footer_assets(page):
     return decoded
 
 
-def assert_source_proportional_ornaments(page):
-    """One thin gold edge and actual scaled alpha cutouts, never side inlays."""
-    data = page.evaluate('''() => {
-        const stage=document.querySelector('#game-stage');
-        const scene=document.querySelector('.reel-theatre');
-        const banner=document.querySelector('.announcement');
-        const sb=getComputedStyle(stage);
-        const val=n=>parseFloat(sb.getPropertyValue(n))||0;
-        const left=getComputedStyle(scene,'::before');
-        const right=getComputedStyle(scene,'::after');
-        const capLeft=getComputedStyle(banner,'::before');
-        const capRight=getComputedStyle(banner,'::after');
-        const tile=document.querySelector('#board .tile').getBoundingClientRect();
-        const box=c=>({width:parseFloat(c.width),height:parseFloat(c.height),
-             image:c.backgroundImage,visible:c.display!=='none'});
-        return {
-          boardHeight:val('--ff-board-height'),tileWidth:tile.width,
-          overlap:val('--ff-tail-overlap'),oldWings:val('--ff-wing-left')+val('--ff-wing-right'),
-          tailLeft:{...box(left),edge:parseFloat(left.left)+parseFloat(left.width)},
-          tailRight:{...box(right),edge:parseFloat(right.right)+parseFloat(right.width)},
-          goldLine:parseFloat(getComputedStyle(scene.querySelector('.board-frame')).outlineWidth),
-          capLeft:box(capLeft),capRight:box(capRight),
-          centerBanner:getComputedStyle(banner).backgroundImage
-        };
+def assert_mobile_ornaments(page):
+    """Six independent source-ratio sprites and zero obscured scored tiles."""
+    data = page.evaluate(r'''async () => {
+      const stage=document.querySelector('#game-stage');
+      const reel=document.querySelector('.reel-theatre');
+      const banner=document.querySelector('.announcement');
+      const sb=getComputedStyle(stage);
+      const val=n=>parseFloat(sb.getPropertyValue(n))||0;
+      const board=reel.getBoundingClientRect();
+      const tile=document.querySelector('#board .tile').getBoundingClientRect();
+      const nodes=[...document.querySelectorAll('.art-board > .mobile-ornament')];
+      const sprites=await Promise.all(nodes.map(async e=>{
+        const box=e.getBoundingClientRect(),css=getComputedStyle(e);
+        const match=css.backgroundImage.match(/url\(["']?([^"')]+)["']?\)/);
+        const img=new Image();
+        img.src=match?.[1]||'';
+        try { await img.decode(); } catch (error) {}
+        return {kind:e.className, left:box.left, right:box.right, top:box.top,
+          width:box.width, height:box.height,display:css.display,
+          pointerEvents:css.pointerEvents, fit:css.backgroundSize,
+          url:img.src, natural:[img.naturalWidth,img.naturalHeight],
+          decoded:img.complete&&img.naturalWidth>0};
+      }));
+      return {
+        mode:stage.dataset.fullframe,tileWidth:tile.width,
+        overlap:val('--ff-mobile-ornament-overlap'),
+        board:{left:board.left,right:board.right},
+        oldWings:val('--ff-wing-left')+val('--ff-wing-right'),
+        oldSideOpacities:[...document.querySelectorAll('.art-board > b')]
+          .filter((_,i)=>i!==1).map(e=>parseFloat(getComputedStyle(e).opacity)),
+        oldTailDisplays:['::before','::after'].map(p=>getComputedStyle(reel,p).display),
+        goldLine:parseFloat(getComputedStyle(reel.querySelector('.board-frame')).outlineWidth),
+        sprites,
+        caps:['::before','::after'].map(p=>{
+          const css=getComputedStyle(banner,p);
+          return {w:parseFloat(css.width),h:parseFloat(css.height),
+            image:css.backgroundImage};
+        }),
+        banner:getComputedStyle(banner).backgroundImage
+      };
     }''')
-    assert data['oldWings'] == 0, data
-    assert 0 < data['overlap'] <= data['tileWidth'] * .10 + .2, data
-    assert abs(data['overlap']-data['tileWidth']*.08) < .35, data
+    assert len(data['sprites']) == 6, data
+    assert 0 < data['overlap'] <= data['tileWidth']*.10+.12, data
+    assert abs(data['overlap']-data['tileWidth']*.08) < .18, data
     assert .5 <= data['goldLine'] <= 1.6, data
-    expected_h = (938-525)*data['boardHeight']/938*1.42
-    for side, natural_w in [('Left',118),('Right',117)]:
-        obj=data['tail'+side]
-        assert obj['visible'] and 'tail-'+side.lower()+'.webp' in obj['image'], obj
-        assert obj['image'].count('url(') == 1 and 'gradient' not in obj['image'], obj
-        expected_w=natural_w*data['boardHeight']/938*1.42
-        assert abs(obj['width']-expected_w)<.12 and abs(obj['height']-expected_h)<.12, obj
-        assert abs(obj['edge']-data['overlap'])<.12, obj
-        assert abs((obj['width']/natural_w)/(obj['height']/413)-1)<.012, obj
-    for side in ('Left','Right'):
-        cap=data['cap'+side]
-        assert cap['visible'] and 'notice-'+side.lower()+'.webp' in cap['image'], cap
-        assert abs(cap['width']/cap['height']-226/109)<.012, cap
-    assert 'notice-center.webp' in data['centerBanner'], data
+    assert data['oldWings'] == 0, data
+    for cap, side in zip(data['caps'], ('left','right')):
+        assert 'notice-'+side+'.webp' in cap['image'], cap
+        assert abs(cap['w']/cap['h']-226/109)<.012, cap
+    assert 'notice-center.webp' in data['banner'], data
+    if data['mode'] == 'portrait':
+        assert max(data['oldSideOpacities']) < .01, data
+        assert data['oldTailDisplays'] == ['none','none'], data
+    else:
+        assert all(item['display']=='none' for item in data['sprites']), data
+    seen=set()
+    for asset in data['sprites']:
+        kind=next((k for k in ('lantern','dragon','cloud')
+                   if 'mobile-ornament--'+k+'-' in asset['kind']),None)
+        side=next((x for x in ('left','right')
+                   if asset['kind'].endswith('-'+x)),None)
+        assert kind and side and (kind,side) not in seen, asset
+        seen.add((kind,side))
+        dimensions={'lantern':240,'dragon':505,'cloud':338}
+        natural=(118 if side=='left' else 117,dimensions[kind])
+        assert asset['decoded'] and tuple(asset['natural'])==natural, asset
+        assert '/assets/fullframe-v086/mobile-'+kind+'-'+side+'.webp' in asset['url'],asset
+        assert asset['pointerEvents']=='none' and asset['fit']=='contain',asset
+        # Hidden assets have no layout box in landscape; only portrait paints them.
+        if data['mode']!='portrait':
+            continue
+        # Width and height MUST derive from the SAME scale for all elements.
+        xscale=asset['width']/natural[0]
+        yscale=asset['height']/natural[1]
+        assert xscale>0 and abs(xscale/yscale-1)<.012,asset
+        if data['mode']=='portrait':
+            assert asset['display']!='none',asset
+            overlap=0 if kind=='lantern' else data['overlap']
+            if side=='left':
+                assert abs(asset['right']-data['board']['left']-overlap)<.5,asset
+            else:
+                assert abs(data['board']['right']-asset['left']-overlap)<.5,asset
+    assert len(seen)==6,data
     return data
+
 
 
 def main():
@@ -159,7 +200,7 @@ def main():
                 assert geometry['disk']['w'] >= spin['width'] - .5, geometry['disk']
                 for button in [visual['buttons'][0], visual['buttons'][4]]:
                     assert button['width'] >= 52, button
-                ornament_geometry = assert_source_proportional_ornaments(page)
+                ornament_geometry = assert_mobile_ornaments(page)
                 screenshot = f'{args.engine}-{width}x{height}-safe-{top}-{bottom}.png'
                 page.screenshot(path=str(output / screenshot))
                 receipt['layouts'].append({'viewport':[width,height], 'safe_area':[top,bottom],
