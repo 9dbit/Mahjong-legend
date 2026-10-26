@@ -99,7 +99,7 @@ def build():
     assert html.count(source_touch)==1, 'Locked PWA touch link changed'
     html=html.replace(source_touch,
         '<link rel="apple-touch-icon" sizes="180x180" href="/assets/approved-v082/icon-180.png?v=mahjong-gold-20261026">'
-        '\\n  <link rel="icon" type="image/png" sizes="192x192" href="/assets/approved-v082/icon-192.png?v=mahjong-gold-20261026">')
+        '\n  <link rel="icon" type="image/png" sizes="192x192" href="/assets/approved-v082/icon-192.png?v=mahjong-gold-20261026">')
     html=html.replace('<section id="panel-rules"', '<section id="panel-rules"')
     for label,ident in [('BASE MULTIPLIERS','rule-base'),('FREE SPIN MULTIPLIERS','rule-bonus'),('3 SCATTER','rule-free'),('SCATTER TAMBAHAN','rule-extra'),('MAKSIMUM PER PUTARAN','rule-cap')]:
         html=html.replace('<span>'+label+'</span><b>','<span>'+label+'</span><b id="'+ident+'">')
