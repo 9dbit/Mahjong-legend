@@ -194,11 +194,11 @@ html.desktop-layout body{
   mask-image:linear-gradient(to bottom,transparent,#000 4%,#000 96%,transparent);
 }
 .game-stage .reel-theatre::before{
-  right:100%;width:var(--ff-wing-left,0px);
+  left:auto;right:100%;width:var(--ff-wing-left,0px);
   border-right:2px solid rgba(254,205,105,.9);
 }
 .game-stage .reel-theatre::after{
-  left:100%;width:var(--ff-wing-right,0px);
+  right:auto;left:100%;width:var(--ff-wing-right,0px);
   border-left:2px solid rgba(254,205,105,.9);
 }
 .game-stage .reel-theatre .board-frame{position:relative;z-index:1}
