@@ -177,6 +177,30 @@ BASELINE_FALLBACK = r'''async cfg => {
 }'''
 
 
+INSTANT_FIRST_CLICK = r'''async config => {
+    const audio=window.MahjongWildAudio;
+    await audio.configure(config);
+    const warmed=await audio.warmMusic();
+    const before=audio.state;
+    if(!warmed || !before.musicPrepared)throw Error('BGM was not predecoded');
+    if(before.unlocked || before.musicPlaying)throw Error('Autoplay before user gesture');
+    await audio.unlock();
+    await audio.setPhase('base');
+    const after=audio.state;
+    if(!after.musicPlaying)throw Error('Continue did not schedule music');
+    const samples=(await __audioQA.actual.startRendering()).getChannelData(0);
+    const rms=(a,b)=>{
+      let sum=0,count=0;
+      for(let i=Math.floor(a*48000);i<Math.floor(b*48000);i++){
+        sum+=samples[i]*samples[i];count++;
+      }
+      return Math.sqrt(sum/count);
+    };
+    const first=rms(.03,.07),settled=rms(.55,.65);
+    return {before,after,first,settled,ratio:first/Math.max(settled,1e-9)};
+}'''
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--engine", choices=["chromium", "webkit"], default="chromium")
@@ -294,9 +318,18 @@ def main():
         assert [Path(url).suffix for url in fallback["requests"]] == [".m4a",".ogg"], fallback
         assert not fallback["state"]["lastError"], fallback
         page.close()
+        # With a decoded buffer, music begins at full audible gain during
+        # the FIRST 30-70ms, rather than ramping in over the old 650ms.
+        page = page_for({**settings,"music":True})
+        instant = page.evaluate(INSTANT_FIRST_CLICK, baseline)
+        assert instant["before"]["musicPrepared"] and not instant["before"]["unlocked"], instant
+        assert not instant["before"]["musicPlaying"] and instant["after"]["musicPlaying"], instant
+        assert instant["ratio"] > .9, instant
+        assert instant["after"]["musicStartedAt"] is not None, instant
+        page.close()
         assert not page_errors, page_errors
         browser.close()
-    report = {"engine":args.engine,"cases":results,"priority":priority,"stale_configuration":stale,
+    report = {"engine":args.engine,"cases":results,"instant_continue":instant,"priority":priority,"stale_configuration":stale,
               "missing_music_nonblocking":nonblocking,
               "page_lifecycle":lifecycles,"stale_music_no_fallback":stale_music,
               "baseline_fallback":fallback,"page_errors":page_errors,
