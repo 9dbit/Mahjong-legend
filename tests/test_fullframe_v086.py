@@ -42,6 +42,31 @@ class FullFrameUI(unittest.TestCase):
                 else:
                     self.assertEqual(art.mode,'RGB')
 
+    def test_mobile_ornaments_are_separate_source_proportional_assets(self):
+        manifest=json.loads((OUT/'manifest.json').read_text())['mobile_ornaments']
+        self.assertTrue(manifest['uniform_scale_only'])
+        self.assertLessEqual(manifest['desired_tile_overlap_fraction'],
+                             manifest['maximum_tile_overlap_fraction'])
+        self.assertEqual(manifest['crops'],
+                         {'lantern':[0,240],'dragon':[200,705],'cloud':[600,938]})
+        expect={'lantern':240,'dragon':505,'cloud':338}
+        for name,digest in manifest['files'].items():
+            self.assertEqual(hashlib.sha256((OUT/name).read_bytes()).hexdigest(),digest)
+            tokens=name.split('-')
+            kind,side=tokens[1:3]
+            width=118 if side=='left.webp' else 117
+            with self.subTest(asset=name),Image.open(OUT/name) as image:
+                self.assertEqual(image.mode,'RGBA')
+                self.assertEqual(image.size,(width,expect[kind]))
+                self.assertEqual(image.getchannel('A').getextrema(),(0,255))
+        self.assertEqual(len(manifest['files']),6)
+        css=(OUT/'layout.css').read_text()
+        js=(OUT/'layout.js').read_text()
+        self.assertIn('background-size:contain',css)
+        self.assertIn('fitScale(1.80)',js)
+        self.assertIn('mobile-ornament--cloud',css)
+        self.assertIn('mobile-ornament--lantern',css)
+
     def test_layout_cannot_issue_rounds(self):
         js=(OUT/'layout.js').read_text()
         for token in ['/api/spin','Math.random','balance=','fetch(']:self.assertNotIn(token,js)
