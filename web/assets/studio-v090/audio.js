@@ -291,7 +291,7 @@
     }
     const task = Promise.resolve(resume).then(() => {
       if (!pageActive || revision !== pageRevision) return false;
-      unlocked = context.state === 'running'; preload(); void startMusic(); return unlocked;
+      unlocked = context.state === 'running'; void warmMusic(); preload(); void startMusic(); return unlocked;
     }).catch(error => { if (pageActive && revision === pageRevision) lastError = error.message; return false; })
       .finally(() => { if (unlockPending === task) unlockPending = null; });
     unlockPending = task; return task;
@@ -343,11 +343,11 @@
   }
   async function setPhase(value) {
     if (!['base','bonus'].includes(value)) return false;
-    if (phase === value) return startMusic();
+    if (phase === value) { void warmMusic(); return startMusic(); }
     const oldKey = musicKey(selectedMusic()); phase = value;
     if (!selectedMusic()) { pauseMusic(); return false; }
-    if (oldKey !== musicKey(selectedMusic())) { musicEpoch++; musicTask = null; }
-    return startMusic();
+    if (oldKey !== musicKey(selectedMusic())) { musicEpoch++; musicTask = null; musicWarmup = null; }
+    void warmMusic(); return startMusic();
   }
   function setEnabled(value) {
     enabled = !!value; put('mw-sfx', enabled?'on':'off'); applyLevels();
