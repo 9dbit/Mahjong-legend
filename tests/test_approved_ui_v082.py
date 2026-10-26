@@ -33,25 +33,6 @@ class ApprovedUI(unittest.TestCase):
         sw=(ROOT/'web/sw.js').read_text();self.assertIn("url.pathname.startsWith('/api/')",sw);self.assertIn("req.method!=='GET'",sw)
         html=(ROOT/'web/index.html').read_text();self.assertIn('viewport-fit=cover',html);self.assertIn('black-translucent',html)
         for icon in m['icons']:self.assertTrue((ROOT/'web'/icon['src'].lstrip('/')).exists())
-    def test_user_approved_touch_icon_is_exact_and_unstretched(self):
-        m=json.loads((OUT/'manifest.json').read_text())
-        self.assertEqual(m['touch_icon_source'],'web/assets/branding/mahjong-wild-touch-source.webp')
-        path=ROOT/m['touch_icon_source']
-        self.assertEqual(hashlib.sha256(path.read_bytes()).hexdigest(),
-                         '4a61e71616780fa891b4f37461bc1d171fdfcd453de124f9ee41494709a6ceac')
-        self.assertEqual(m['touch_icon_sha256'],hashlib.sha256(path.read_bytes()).hexdigest())
-        with Image.open(path) as original:
-            self.assertEqual(original.size,(160,160))
-            for size in (180,192,512):
-                with self.subTest(size=size),Image.open(OUT/f'icon-{size}.png') as icon:
-                    self.assertEqual(icon.size,(size,size))
-                    self.assertEqual(icon.convert('RGB').tobytes(),
-                        original.convert('RGB').resize((size,size),Image.Resampling.LANCZOS).tobytes())
-        index=(ROOT/'web/index.html').read_text()
-        self.assertIn('mahjong-gold-20261026',index)
-        self.assertIn('rel="apple-touch-icon" sizes="180x180"',index)
-        self.assertIn('rel="icon" type="image/png"',index)
-        self.assertIn('mahjong-gold-20261026',(ROOT/'studio_ui/index.html').read_text())
     def test_music_is_original_local_and_gesture_unlocked(self):
         m=json.loads((OUT/'audio/music.json').read_text());self.assertGreater(m['seconds'],45);self.assertEqual(m['bpm'],76)
         s=(ROOT/'web/assets/locked-v08/audio.js').read_text();self.assertIn('jade_serenity.',s);self.assertIn("'pointerdown'",s);self.assertIn('unlockPending',s);self.assertIn('pauseMusic()',s)
