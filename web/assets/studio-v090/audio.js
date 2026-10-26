@@ -25,6 +25,7 @@
   let pageActive = true, pageRevision = 0;
   let sfxBus = null, musicBus = null, duckBus = null, outputBus = null, analyser = null;
   let musicSource = null, musicTask = null, musicEpoch = 0, unlockPending = null;
+  let musicWarmup = null, musicWarmupFailed = false, musicStartedAt = null;
   let lastError = '', droppedVoices = 0, activeLoads = 0;
   const buses = {}, buffers = new Map(), pending = new Map(), queue = [], voices = new Set();
   const counts = {}, lastPlayed = new Map();
@@ -85,6 +86,11 @@
   function activeURLs() {
     const urls = new Set([...voices].map(voice => voice.url));
     if (musicSource) urls.add(musicSource.url);
+    // The published soundtrack is decoded before Continue. Never evict it
+    // while caching the SFX triggered by the first user interaction.
+    const track = selectedMusic();
+    if (track?.asset) urls.add(track.asset);
+    if (track?.asset === baselineMusic) urls.add(baselineMusic.replace('.m4a','.ogg'));
     return urls;
   }
   function decodedBytes() { return [...buffers.values()].reduce((total, entry) => total + entry.bytes, 0); }
@@ -128,7 +134,7 @@
       void task().finally(() => { activeLoads--; pump(); });
     }
   }
-  function load(url, reportError=true) {
+  function load(url, reportError=true, highPriority=false) {
     if (!context || !pageActive) return Promise.resolve(null);
     if (buffers.has(url)) { const hit = buffers.get(url); buffers.delete(url); buffers.set(url, hit); return Promise.resolve(hit.buffer); }
     if (pending.has(url)) return pending.get(url).promise;
@@ -140,7 +146,7 @@
     // Listen only while work is pending: Firefox can restrict BFCache while a
     // beforeunload listener exists. Remove it on drain, and never prompt.
     window.addEventListener('beforeunload', suspendPage);
-    queue.push(async () => {
+    queue[highPriority?'unshift':'push'](async () => {
       let result = null, deadline = null, timedOut = false, cancel = null;
       try {
         if (!pageActive || revision !== configRevision || controller.signal.aborted) return;
@@ -203,6 +209,36 @@
   }
   function selectedMusic() { return config.music[phase] || config.music.base; }
   function musicKey(track) { return track ? JSON.stringify(track) : ''; }
+  function needsMusic() {
+    return !!selectedMusic() && enabled && musicEnabled && musicVolume > 0 &&
+      config.buses.music > 0 && config.output_gain > 0;
+  }
+  function musicPrepared() {
+    if (!needsMusic()) return true; // Respect saved mute and explicit no BGM.
+    const url = selectedMusic().asset;
+    return buffers.has(url) || (url === baselineMusic && buffers.has(url.replace('.m4a','.ogg')));
+  }
+  // Pre-decode the *published* soundtrack while the splash is visible. A
+  // suspended AudioContext can decode but cannot play until Continue's
+  // trusted gesture resumes it (Chrome, Safari/iOS, and WebKit).
+  function warmMusic() {
+    if (!needsMusic() || musicPrepared()) return Promise.resolve(true);
+    if (!pageActive || !ensureContext()) { musicWarmupFailed = true; return Promise.resolve(false); }
+    const track = selectedMusic(), key = musicKey(track), revision = configRevision;
+    if (musicWarmup?.key === key) return musicWarmup.promise;
+    musicWarmupFailed = false;
+    const task = {key,promise:null};
+    task.promise = (async () => {
+      let ready = await load(track.asset, track.asset !== baselineMusic, true);
+      if (!ready && track.asset === baselineMusic && revision === configRevision)
+        ready = await load(baselineMusic.replace('.m4a','.ogg'), true, true);
+      if (revision !== configRevision || musicKey(selectedMusic()) !== key) return false;
+      musicWarmupFailed = !ready;
+      return !!ready;
+    })().finally(() => { if (musicWarmup === task) musicWarmup = null; });
+    musicWarmup = task;
+    return task.promise;
+  }
   function startMusic() {
     const track = selectedMusic(), key = musicKey(track);
     if (!pageActive || !track || !unlocked || !enabled || !musicEnabled || document.hidden || context?.state !== 'running') return Promise.resolve(false);
@@ -223,6 +259,7 @@
       const end = track.loop_end ?? buffer.duration;
       if (track.loop_start >= end || end > buffer.duration + .001) { lastError = 'Music loop exceeds clip duration'; return false; }
       // Keep the old track while the replacement loads, then replace it once.
+      const replacing = !!musicSource;
       if (musicSource) {
         const old = musicSource; musicSource = null;
         try { old.source.stop(); } catch {}
@@ -231,10 +268,13 @@
       const source = context.createBufferSource(), gain = context.createGain();
       source.buffer = buffer; source.loop = true; source.loopStart = track.loop_start; source.loopEnd = end;
       source.connect(gain); gain.connect(musicBus);
-      const now = context.currentTime; gain.gain.setValueAtTime(0, now); gain.gain.linearRampToValueAtTime(track.gain, now + .65);
+      const now = context.currentTime; gain.gain.setValueAtTime(0, now);
+      // The soundtrack must be audible on the first Continue gesture. Only
+      // a 12ms anti-click ramp is needed, not the previous 650ms fade-in.
+      gain.gain.linearRampToValueAtTime(track.gain, now + (replacing ? .06 : .012));
       const record = {source,gain,url,key}; musicSource = record;
       source.onended = () => { if (musicSource === record) musicSource = null; source.disconnect(); gain.disconnect(); };
-      source.start(); return true;
+      source.start(0, track.loop_start); musicStartedAt = performance.now(); return true;
     })().finally(() => { if (musicTask === task) musicTask = null; });
     musicTask = task; return task.promise;
   }
@@ -292,10 +332,14 @@
   async function configure(input) {
     const next = normalize(input); // An invalid config leaves the working mixer intact.
     if (JSON.stringify(next) === JSON.stringify(config)) return true;
-    stop(); pauseMusic(); configRevision++;
-    cancelLoads(); buffers.clear(); config = next; lastError = ''; applyLevels();
-    // Applying a release must never wait for an audio download to finish a round.
-    preload(); void startMusic(); return true;
+    stop(); configRevision++; musicEpoch++; musicTask = null; musicWarmup = null;
+    cancelLoads(); buffers.clear(); config = next; musicWarmupFailed = false; lastError = ''; applyLevels();
+    // A published replacement keeps the old soundtrack audible until its
+    // next buffer has arrived. Explicit no-BGM still stops it immediately.
+    if (!selectedMusic()) pauseMusic();
+    // Give background music the first download slot, BEFORE the SFX cache.
+    // It must finish decoding on the splash, not after Continue.
+    void warmMusic(); preload(); void startMusic(); return true;
   }
   async function setPhase(value) {
     if (!['base','bonus'].includes(value)) return false;
@@ -312,7 +356,7 @@
   function setVolume(value) { volume = clamp(value); put('mw-volume', volume); applyLevels(); }
   function toggleMusic() {
     musicEnabled = !musicEnabled; put('mw-music', musicEnabled?'on':'off');
-    if (musicEnabled) void unlock(); else pauseMusic(); return musicEnabled;
+    if (musicEnabled) { void warmMusic(); void unlock(); } else pauseMusic(); return musicEnabled;
   }
   function setMusicVolume(value) { musicVolume = clamp(value); put('mw-music-volume', musicVolume); applyLevels(); }
   function level() {
@@ -325,8 +369,11 @@
     stop(); pauseMusic(); cancelLoads();
   }
   function unlockFromGesture(event) {
-    // A navigation cancelled by another page listener has no pageshow event.
-    // The next real interaction can resume audio without changing preferences.
+    // Never start music just because the splash backdrop was tapped.
+    // Continue is the first permitted playback gesture; pre-decode is silent.
+    const splash = document.getElementById('soft-tech-splash');
+    if (splash && !splash.classList.contains('dismissed') &&
+        !event.target?.closest?.('#soft-tech-continue')) return;
     if (event.isTrusted && !document.hidden) pageActive = true;
     void unlock();
   }
@@ -341,9 +388,11 @@
     pageActive = true;
     if (unlocked && !document.hidden) void unlock();
   });
-  window.MahjongWildAudio = {play,unlock,stop,configure,setPhase,setEnabled,setVolume,toggleMusic,setMusicVolume,
+  window.MahjongWildAudio = {play,unlock,stop,configure,setPhase,setEnabled,setVolume,toggleMusic,setMusicVolume,warmMusic,
     get state() { return {enabled,volume,musicEnabled,musicVolume,outputGain:config.output_gain,unlocked,
       context:context?.state??'not-created',loaded:buffers.size,voices:voices.size,musicPlaying:!!musicSource,
       level:level(),counts:{...counts},lastError,phase,configRevision,decodedBytes:decodedBytes(),droppedVoices,
-      musicAsset:musicSource?.url??null,buses:{...config.buses}}; }};
+      musicAsset:musicSource?.url??null,musicPrepared:musicPrepared(),
+      musicPreloading:!!musicWarmup,musicWarmupFailed,musicStartedAt,
+      buses:{...config.buses}}; }};
 })();
