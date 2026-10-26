@@ -224,7 +224,8 @@ def main():
                     # may move up to fit a larger visible Spin while the crown
                     # and board retain the improved v087 placement.
                     assert geometry['controls']['h'] >= 108, geometry['controls']
-                    assert geometry['disk']['w'] >= 80, geometry['disk']
+                    # 20% smaller visual Spin, without weakening its hit target.
+                    assert geometry['disk']['w'] >= 63.9, geometry['disk']
                     assert all(min(button['w'],button['h']) >= 44 for button in geometry['buttons'][2:]), geometry['buttons']
                 result = {'name': case['name'], 'viewport': case['size'], 'safe': case['safe'],
                           'movement_from_v086': movement, 'crown': crown_raster_comparison(page),
