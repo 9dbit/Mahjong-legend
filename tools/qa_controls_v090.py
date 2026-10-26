@@ -135,6 +135,9 @@ def assert_mobile_ornaments(page):
         assert asset['decoded'] and tuple(asset['natural'])==natural, asset
         assert '/assets/fullframe-v086/mobile-'+kind+'-'+side+'.webp' in asset['url'],asset
         assert asset['pointerEvents']=='none' and asset['fit']=='contain',asset
+        # Hidden assets have no layout box in landscape; only portrait paints them.
+        if data['mode']!='portrait':
+            continue
         # Width and height MUST derive from the SAME scale for all elements.
         xscale=asset['width']/natural[0]
         yscale=asset['height']/natural[1]
