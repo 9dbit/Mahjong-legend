@@ -35,7 +35,8 @@
     // release or its decoded first buffer. Otherwise there is a multi-second
     // silence while the file downloads after the trusted gesture.
     const latestAudio = !runtime || !!runtime.liveAudioRelease;
-    const decoded = !audioState || audioState.musicPrepared === true;
+    // Locked legacy/standalone game builds have no Studio audio-preload API.
+    const decoded = !runtime || !audioState || audioState.musicPrepared === true;
     const musicReady = latestAudio && decoded;
     const musicFailed = !!runtime?.liveAudioError || !!audioState?.musicWarmupFailed;
     // Count the fallback window from GAME readiness, not page navigation.
