@@ -392,7 +392,7 @@
     get state() { return {enabled,volume,musicEnabled,musicVolume,outputGain:config.output_gain,unlocked,
       context:context?.state??'not-created',loaded:buffers.size,voices:voices.size,musicPlaying:!!musicSource,
       level:level(),counts:{...counts},lastError,phase,configRevision,decodedBytes:decodedBytes(),droppedVoices,
-      musicAsset:musicSource?.url??null,musicPrepared:musicPrepared(),
+      musicAsset:musicSource?.url??null,musicExpected:needsMusic(),musicPrepared:musicPrepared(),
       musicPreloading:!!musicWarmup,musicWarmupFailed,musicStartedAt,
       buses:{...config.buses}}; }};
 })();
