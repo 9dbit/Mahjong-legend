@@ -72,7 +72,7 @@ def main():
                   .addEventListener('pointerdown',()=>{window.__continueAt=performance.now();},
                     {capture:true,once:true})''')
                 page.locator('#soft-tech-continue').click()
-                page.wait_for_function('MahjongWildAudio.state.musicPlaying',timeout=2500)
+                page.wait_for_function('() => window.MahjongWildAudio.state.musicPlaying',timeout=2500)
                 startup=page.evaluate('''() => ({
                   started:MahjongWildAudio.state.musicStartedAt,
                   clicked:window.__continueAt,
