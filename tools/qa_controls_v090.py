@@ -118,7 +118,8 @@ def main():
                       gapLeft:inner.left-outer.left,gapRight:outer.right-inner.right,
                       leftPaint:left.backgroundImage!=='none'&&left.display!=='none',
                       rightPaint:right.backgroundImage!=='none'&&right.display!=='none',
-                      correctAnchors:left.left==='auto'&&right.right==='auto',
+                      correctAnchors:(left.left==='auto'||Math.abs(parseFloat(left.left)+val('--ff-wing-left'))<1)&&
+                        (right.right==='auto'||Math.abs(parseFloat(right.right)+val('--ff-wing-right'))<1),
                       inlayWidths:[parseFloat(left.width),parseFloat(right.width)]};
                 }''')
                 if wings['mode'] != 'landscape':
