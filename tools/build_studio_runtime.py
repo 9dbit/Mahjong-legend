@@ -5,6 +5,7 @@ The new derivative is distinct from all legacy game.js assets.
 """
 from pathlib import Path
 import json
+import re
 
 ROOT=Path(__file__).resolve().parents[1]
 OUT=ROOT/'web/assets/studio-v090'
@@ -112,7 +113,10 @@ def build():
         html=html[:start]+'<p id="studio-rules-summary" class="small-note"></p><p class="small-note">Kredit virtual. RTP adalah estimasi statistik per versi aturan; hasil setiap ronde dapat diverifikasi.</p>'+html[end:]
     (ROOT/'web/index.html').write_text(html)
     sw=ROOT/'web/sw.js'
-    worker=sw.read_text().replace('presentation-087','presentation-098')
+    worker=sw.read_text()
+    worker,changed=re.subn(r"const CACHE='mahjong-wild-presentation-[0-9]+'",
+        "const CACHE='mahjong-wild-presentation-098'",worker)
+    if changed!=1: raise ValueError("PWA cache version anchor missing")
     if "url.pathname.startsWith('/studio')" not in worker:
         worker=worker.replace("url.pathname.startsWith('/api/')","(url.pathname.startsWith('/api/')||url.pathname.startsWith('/studio')||url.pathname.startsWith('/media/'))")
     sw.write_text(worker)
