@@ -11,6 +11,7 @@
   if (!splash || !button || !progress || !status) return;
   let released = false;
   let artReady = false;
+  let musicWaitStarted = null;
   const MUSIC_TIMEOUT_MS = 10000;
   const logo = splash.querySelector('.soft-tech-logo-image');
   const fallback = splash.querySelector('.soft-tech-logo-fallback');
@@ -37,13 +38,17 @@
     const decoded = !audioState || audioState.musicPrepared === true;
     const musicReady = latestAudio && decoded;
     const musicFailed = !!runtime?.liveAudioError || !!audioState?.musicWarmupFailed;
-    const musicTimedOut = performance.now() - started > MUSIC_TIMEOUT_MS;
+    // Count the fallback window from GAME readiness, not page navigation.
+    // A slow state/asset request must not make Continue prematurely audible-less.
+    if (ready && waited && musicWaitStarted === null) musicWaitStarted = performance.now();
+    const musicTimedOut = musicWaitStarted !== null &&
+      performance.now() - musicWaitStarted > MUSIC_TIMEOUT_MS;
     if (failed) {
       show(30, 'KONEKSI TERPUTUS. MUAT ULANG UNTUK MENCOBA LAGI.');
       button.disabled = true;
     } else if (ready && waited && (musicReady || musicFailed || musicTimedOut)) {
       splash.classList.add('is-ready');
-      show(100, musicReady ? 'SIAP BERMAIN · MUSIK SIAP' :
+      show(100, musicReady ? (audioState?.musicExpected ? 'SIAP BERMAIN · MUSIK SIAP' : 'SIAP BERMAIN') :
         'MUSIK BELUM TERSEDIA · GAME TETAP BISA DIMAINKAN');
       button.disabled = false;
     } else {
