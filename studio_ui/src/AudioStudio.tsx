@@ -226,7 +226,20 @@ export default function AudioStudio({
     setPlaying(false);
     setUndo([]);
     setRedo([]);
-    setRecipe({ ...cleanRecipe });
+    // Hydrate the recipe immediately when selection changes. Waiting for
+    // decodeAudioData used to overwrite edits typed during a slow preview.
+    setRecipe({
+      ...cleanRecipe,
+      trim_end:
+        selected?.metadata.duration ??
+        selected?.metadata.duration_seconds ??
+        null,
+      ...Object.fromEntries(
+        Object.entries(selected?.recipe ?? {}).filter(
+          ([key]) => key in cleanRecipe,
+        ),
+      ),
+    });
     setPeaks(metadataPeaks(selected));
     setLoading(false);
     if (!selected || selected.status !== "ready") return;
@@ -253,15 +266,13 @@ export default function AudioStudio({
             ...prev,
             [rawAsset.id]: { peaks: waveform, duration: b.duration },
           }));
-          setRecipe({
-            ...cleanRecipe,
-            trim_end: b.duration,
-            ...Object.fromEntries(
-              Object.entries(selected.recipe ?? {}).filter(
-                ([key]) => key in cleanRecipe,
-              ),
-            ),
-          });
+          // Decoder only fills a missing duration. Never reset a recipe
+          // after the user has started adjusting gain, trim or loop.
+          setRecipe((current) =>
+            current.trim_end == null
+              ? { ...current, trim_end: b.duration }
+              : current,
+          );
         }
       })
       .catch((e) => {
