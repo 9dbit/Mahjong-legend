@@ -74,7 +74,22 @@ html.reels-running .art-crown::before,html.reels-running .art-crown::after,body.
 .fullframe-art .art-hud{background-position:0 calc(var(--ff-footer-art-top) - var(--ff-footer-top))}
 .fullframe-art .art-controls{background-position:0 calc(var(--ff-footer-art-top) - var(--ff-controls-top))}
 .fullframe-art::after{background-position:0 calc(var(--ff-footer-art-top) - var(--ff-controls-top) - var(--ff-controls-height))}
-.announcement{display:flex;align-items:center;justify-content:center;padding:0;border:0;border-radius:0;box-shadow:none;background:url('/assets/approved-v082/frame.webp') 0 71.408351%/100% 1248.780488% no-repeat}
+/* Source-preserving 3-slice notice. Only the undecorated center tiles
+   horizontally; neither cloud cap, gold sculpture nor lettering is stretched. */
+.announcement{
+  display:flex;align-items:center;justify-content:center;isolation:isolate;
+  padding:0;border:0;border-radius:0;box-shadow:none;overflow:visible;
+  background:url('/assets/fullframe-v086/notice-center.webp') center center / auto 100% repeat-x;
+}
+.announcement::before,.announcement::after{
+  content:'';position:absolute;top:0;bottom:0;pointer-events:none;z-index:1;
+  width:calc(var(--ff-notice-height,30px) * 2.0733944954);
+  background-repeat:no-repeat;background-position:center;
+  background-size:100% 100%;
+}
+.announcement::before{left:0;background-image:url('/assets/fullframe-v086/notice-left.webp')}
+.announcement::after{right:0;background-image:url('/assets/fullframe-v086/notice-right.webp')}
+.announcement #stage-notice{position:relative;z-index:2;white-space:nowrap}
 .credits-strip{gap:6px}
 .credits-strip .meter{position:relative;padding:var(--ff-meter-padding,4px) 6px var(--ff-meter-padding,4px) clamp(24px,calc(var(--ff-controls-width)*.095),44px);gap:1px;border:0;border-radius:0;background-image:url('/assets/approved-v082/frame.webp');background-repeat:no-repeat;box-shadow:none;overflow:hidden}
 .credits-strip .meter:first-child{background-size:318.819188% 2363.076923%;background-position:4.721754% 77.294358%}
@@ -175,32 +190,46 @@ html.desktop-layout body{
   background-image:none!important;
 }
 
-/* Portrait metallic inlays fill the previously empty red gutters.
-   All five scored reels and original dragon/lantern art stay intact. */
+/* Ornament revision: remove all patterned side panels and use only
+   a thin gold rule at the scoring-reel edge. No columns, dots, tiles or beams. */
+.fullframe-art .art-board{
+  background:linear-gradient(90deg,#610b13 0%,#680b12 12%,#680b12 88%,#610b13 100%);
+}
+/* Keep the source lantern and upper dragon unwarped; crossfade the lower body
+   into a *separate*, uniformly enlarged tail/cloud derivative. This also avoids
+   duplicating the source's old straight interior framing stripe. */
+.fullframe-art .art-board b:first-child,
+.fullframe-art .art-board b:last-child{
+  -webkit-mask-image:linear-gradient(to bottom,#000 0%,#000 40%,#000b 46%,transparent 60%);
+  mask-image:linear-gradient(to bottom,#000 0%,#000 40%,#000b 46%,transparent 60%);
+}
+/* The actual 5-reel board retains its 2:3 symbol pixels and interaction.
+   The decorative gold line is a 1px outline, not an extra layout column. */
 .game-stage .reel-theatre{isolation:isolate;overflow:visible}
+.game-stage .reel-theatre .board-frame{
+  position:relative;z-index:1;outline:1px solid rgba(255,209,114,.86);
+  outline-offset:0;box-shadow:0 0 5px rgba(255,180,67,.38);
+}
+/* Every tail/cloud foreground sprite is resized by one common scale computed
+   from boardHeight/938. The opacity is in the *generated* source cutout, never
+   a crop of a stretched raster. Each reaches at most 8% of a tile into reels. */
 .game-stage .reel-theatre::before,.game-stage .reel-theatre::after{
-  content:"";display:block!important;position:absolute;top:0;bottom:0;
-  height:100%;z-index:0;pointer-events:none;box-sizing:border-box;
-  background-image:
-    radial-gradient(circle at 50% 20px,rgba(255,224,138,.78) 0 2px,rgba(197,124,35,.4) 3px,transparent 7px),
-    radial-gradient(ellipse at 50% 48%,rgba(10,106,88,.57) 0 15%,rgba(205,147,51,.48) 17%,transparent 29%),
-    repeating-linear-gradient(45deg,transparent 0 23px,rgba(255,197,91,.14) 24px,transparent 25px 48px),
-    repeating-linear-gradient(-45deg,transparent 0 23px,rgba(255,197,91,.1) 24px,transparent 25px 48px),
-    linear-gradient(90deg,#9c5b1b,#481011 12%,#7c180f 50%,#481011 88%,#aa691f);
-  background-size:100% 68px,100% 68px,auto,auto,100% 100%;
-  background-repeat:repeat-y,repeat-y,repeat,repeat,no-repeat;
-  box-shadow:inset 0 0 0 1px rgba(249,185,80,.35),inset 0 0 7px rgba(255,207,102,.25);
-  -webkit-mask-image:linear-gradient(to bottom,transparent,#000 4%,#000 96%,transparent);
-  mask-image:linear-gradient(to bottom,transparent,#000 4%,#000 96%,transparent);
+  content:'';display:block!important;position:absolute;top:auto;bottom:0;
+  min-width:0;height:var(--ff-tail-height,0px);z-index:5;
+  border:0;box-shadow:none;pointer-events:none;opacity:1;
+  background-color:transparent;background-repeat:no-repeat;
+  background-size:100% 100%;background-position:center;
+  -webkit-mask-image:none;mask-image:none;
 }
 .game-stage .reel-theatre::before{
-  left:auto;right:100%;width:var(--ff-wing-left,0px);
-  border-right:2px solid rgba(254,205,105,.9);
+  right:auto;
+  left:calc(var(--ff-tail-overlap,0px) - var(--ff-tail-left-width,0px));
+  width:var(--ff-tail-left-width,0px);
+  background-image:url('/assets/fullframe-v086/tail-left.webp');
 }
 .game-stage .reel-theatre::after{
-  right:auto;left:100%;width:var(--ff-wing-right,0px);
-  border-left:2px solid rgba(254,205,105,.9);
+  left:auto;
+  right:calc(var(--ff-tail-overlap,0px) - var(--ff-tail-right-width,0px));
+  width:var(--ff-tail-right-width,0px);
+  background-image:url('/assets/fullframe-v086/tail-right.webp');
 }
-.game-stage .reel-theatre .board-frame{position:relative;z-index:1}
-.game-stage[data-fullframe="landscape"] .reel-theatre::before,
-.game-stage[data-fullframe="landscape"] .reel-theatre::after{display:none!important}
