@@ -339,7 +339,13 @@
   }
   async function configure(input) {
     const next = normalize(input); // An invalid config leaves the working mixer intact.
-    if (JSON.stringify(next) === JSON.stringify(config)) return true;
+    // Even an unchanged baseline/published graph needs its very first BGM
+    // decoded before Continue. Skipping this would leave AudioContext
+    // "not-created" and defer fetching the soundtrack until after the tap.
+    if (JSON.stringify(next) === JSON.stringify(config)) {
+      void warmMusic();
+      return true;
+    }
     stop(); configRevision++; musicEpoch++; musicTask = null; musicWarmup = null;
     cancelLoads(); buffers.clear(); config = next; musicWarmupFailed = false; lastError = ''; applyLevels();
     // A published replacement keeps the old soundtrack audible until its
