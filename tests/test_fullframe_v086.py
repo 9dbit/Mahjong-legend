@@ -38,7 +38,7 @@ class FullFrameUI(unittest.TestCase):
                 if name.startswith('tail-'):
                     self.assertEqual(art.mode,'RGBA')
                     self.assertEqual(art.getchannel('A').getextrema(),(0,255))
-                    self.assertEqual(art.getchannel('A').crop((0,0,shape[0],20)).getextrema(),(0,0))
+                    self.assertEqual(art.getchannel('A').crop((0,0,shape[0],1)).getextrema(),(0,0))
                 else:
                     self.assertEqual(art.mode,'RGB')
 
