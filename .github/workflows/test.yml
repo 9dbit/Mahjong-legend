@@ -1,5 +1,15 @@
 name: Test Mahjong Wild
-on: [push, pull_request]
+# Feature branches are tested once via the PR; only main uses push checks.
+# Cancel obsolete PR revisions instead of running the entire suite twice on
+# every incremental GitHub commit (browser/codec suite takes several minutes).
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+concurrency:
+  group: mahjong-ci-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
 jobs:
   tests:
     runs-on: ubuntu-latest
@@ -87,6 +97,10 @@ jobs:
         run: npm ci && npm run build
       - name: Build complete versioned game runtime
         run: python tools/build_locked_ui.py && python tools/build_presentation_fx.py && python tools/build_approved_ui.py && python tools/build_portrait_ui.py && python tools/build_responsive_runtime.py --runtime-only && python tools/build_fullframe_ui.py --runtime-only && python tools/build_studio_runtime.py
+      - name: Verify compiled iPhone touch icon
+        env:
+          MW_EXPECT_FINAL_ICON: '1'
+        run: python -m unittest discover -s tests -p test_touch_icon_20261026.py -q
       - name: Validate schema migrations
         run: python manage.py check && python manage.py makemigrations --check --dry-run
       - name: Verify PostgreSQL settlement, studio contracts and backup restore

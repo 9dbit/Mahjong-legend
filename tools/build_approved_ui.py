@@ -198,12 +198,21 @@ def build():
     for pts in [[(105,112),(80,75),(95,48),(75,0)],[(105,112),(145,83),(167,100),(218,68)],[(105,112),(130,158),(117,187),(157,232)],[(105,112),(70,146),(36,128),(0,166)]]:
         d.line(pts,fill=(58,32,13,235),width=4);d.line([(x+2,y-1) for x,y in pts],fill=(255,236,159,235),width=2)
     save(crack,'effects/crack.webp')
-    # PWA icons from the approved seal, not a replacement brand.
-    for n in [180,192,512]:
-        icon=ref.crop((354,48,511,205)).resize((n,n),Image.Resampling.LANCZOS)
-        icon.save(OUT/f'icon-{n}.png')
+    # User-approved gold-dragon Mahjong Wild app icon, 26 Oct 2026.
+    # Ship exact source pixels uniformly resized, never replace with the old
+    # in-game seal or a synthetic icon. The source binary SHA is pinned.
+    touch=ROOT/'web/assets/branding/mahjong-wild-touch-source.webp'
+    touch_bytes=touch.read_bytes()
+    touch_hash=hashlib.sha256(touch_bytes).hexdigest()
+    assert touch_hash=='4a61e71616780fa891b4f37461bc1d171fdfcd453de124f9ee41494709a6ceac', 'User-approved touch icon changed unexpectedly'
+    with Image.open(touch) as raw:
+        icon_source=raw.convert('RGB')
+        assert icon_source.size==(160,160), 'Touch icon source must be square and unwarped'
+        for n in [180,192,512]:
+            icon=icon_source.resize((n,n),Image.Resampling.LANCZOS)
+            icon.save(OUT/f'icon-{n}.png',optimize=True)
     files={str(p.relative_to(OUT)):{'sha256':hashlib.sha256(p.read_bytes()).hexdigest(),'bytes':p.stat().st_size} for p in sorted(OUT.rglob('*')) if p.is_file() and p.suffix in ['.webp','.png','.m4a','.ogg','.wav']}
-    manifest={'ui_version':'0.8.3','math_version':'0.8.0','source':str(SOURCE.relative_to(ROOT)),'source_sha256':hashlib.sha256(SOURCE.read_bytes()).hexdigest(),'coordinate_size':SIZE,'note':'Exact source frame outside live placeholders. Symbols remain distinct. Device status indicators are native, never baked.','files':files}
+    manifest={'ui_version':'0.8.3','math_version':'0.8.0','source':str(SOURCE.relative_to(ROOT)),'source_sha256':hashlib.sha256(SOURCE.read_bytes()).hexdigest(),'coordinate_size':SIZE,'note':'Exact source frame outside live placeholders. Symbols remain distinct. Device status indicators are native, never baked.','touch_icon_source':'web/assets/branding/mahjong-wild-touch-source.webp','touch_icon_sha256':touch_hash,'files':files}
     (OUT/'manifest.json').write_text(json.dumps(manifest,indent=2)+'\n')
     (OUT/'release.json').write_text(json.dumps({'release':'0.8.3','math_version':'0.8.0','base_multipliers':[1,2,3,5],'bonus_multipliers':[2,3,5,8],'rtp_status':'not_revalidated_after_base_multiplier_change','virtual_credits_only':True})+'\n')
     print('Approved source compiled:',len(files),'assets; math unchanged.')
