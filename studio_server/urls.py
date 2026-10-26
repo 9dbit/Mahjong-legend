@@ -15,8 +15,18 @@ urlpatterns=[
     path('api/studio/jobs',v.jobs),path('api/studio/jobs/<uuid:job_id>/cancel',v.job_cancel),
     path('api/studio/releases',v.releases),path('api/studio/releases/<uuid:release_id>/activate',v.release_activate),
     path('media/<uuid:asset_id>/<str:sha>',v.published_media),
+    path('api/audio-live',v.live_audio),
     path('studio/preview/<str:token>',v.preview_page),
-    re_path(r'^api/preview/(?P<preview_token>[^/]+)/(?P<operation>state|spin|reset|verify|last-round)$',v.public_api),
+    re_path(r'^api/preview/(?P<preview_token>[^/]+)/audio-live
+    re_path(r'^api/(?P<operation>state|spin|reset|verify|last-round|diagnostics/spin)$',v.public_api),
+    re_path(r'^(?P<path>.*)$',v.static_page),
+]
+,v.live_audio),
+    re_path(r'^api/preview/(?P<preview_token>[^/]+)/(?P<operation>state|spin|reset|verify|last-round)
+    re_path(r'^api/(?P<operation>state|spin|reset|verify|last-round|diagnostics/spin)$',v.public_api),
+    re_path(r'^(?P<path>.*)$',v.static_page),
+]
+,v.public_api),
     re_path(r'^api/(?P<operation>state|spin|reset|verify|last-round|diagnostics/spin)$',v.public_api),
     re_path(r'^(?P<path>.*)$',v.static_page),
 ]
