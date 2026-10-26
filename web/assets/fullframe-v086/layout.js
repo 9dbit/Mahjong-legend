@@ -103,10 +103,17 @@
     for(const [side,sourceWidth] of [['left',118],['right',117]]) {
       put(side+'-base-width',sourceWidth*boardHeight/938);
     }
-    // Fill the excess side gutters with ornamental inlays, never skew tiles.
-    // On short landscape, intact dragon columns already hug the board.
-    put('wing-left',portrait?Math.max(0,center-boardWidth/2-leftDragon):0);
-    put('wing-right',portrait?Math.max(0,sceneWidth-center-boardWidth/2-rightDragon):0);
+    // The old patterned side frames are retired. Original dragon tails/clouds
+    // are enlarged uniformly from an actual source-art cutout. Their near-tile
+    // bounds never extend beyond 8% of one tile's width (hard limit: 10%).
+    const tailZoom=1.42;
+    const tileWidth=boardWidth/5;
+    const tailOverlap=Math.min(tileWidth*.08,tileWidth*.10);
+    put('tail-left-width',leftDragon*tailZoom);
+    put('tail-right-width',rightDragon*tailZoom);
+    put('tail-height',(938-525)*boardHeight/938*tailZoom);
+    put('tail-overlap',tailOverlap);
+    put('tile-width',tileWidth);
     put('footer-top',footerTop);put('hud-height',hud);
     // A 66px HUD has two non-overlapping lanes: 30px notice + 32px meters.
     // Preserve the tighter 58px fallback in short/safe-area viewports.
