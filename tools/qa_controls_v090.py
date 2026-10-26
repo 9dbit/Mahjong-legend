@@ -99,10 +99,36 @@ def main():
                 assert all(min(b['width'], b['height']) >= 44 for b in visual['buttons']), visual
                 assert all(b['background'] != 'none' for b in visual['buttons']), visual
                 spin = visual['buttons'][2]
-                assert 80 <= spin['width'] <= 96.01, spin
+                assert 63.99 <= spin['width'] <= 76.81, spin
+                old_spin = max(80,min(96,80+(geometry['controls']['w']-320)*16/70))
+                assert abs(spin['width']-.8*old_spin) < .65, (spin,old_spin)
                 assert geometry['disk']['w'] >= spin['width'] - .5, geometry['disk']
                 for button in [visual['buttons'][0], visual['buttons'][4]]:
                     assert button['width'] >= 52, button
+                # Inlays must meet untouched dragon pixels and real reel edges.
+                wings = page.evaluate('''() => {
+                    const stage=document.querySelector('#game-stage');
+                    const theatre=document.querySelector('.reel-theatre');
+                    const outer=document.querySelector('.art-board').getBoundingClientRect();
+                    const inner=theatre.getBoundingClientRect();
+                    const st=getComputedStyle(stage),left=getComputedStyle(theatre,'::before'),right=getComputedStyle(theatre,'::after');
+                    const val=n=>parseFloat(st.getPropertyValue(n))||0;
+                    return {mode:stage.dataset.fullframe,left:val('--ff-wing-left'),right:val('--ff-wing-right'),
+                      dragonLeft:val('--ff-left-base-width'),dragonRight:val('--ff-right-base-width'),
+                      gapLeft:inner.left-outer.left,gapRight:outer.right-inner.right,
+                      leftPaint:left.backgroundImage!=='none'&&left.display!=='none',
+                      rightPaint:right.backgroundImage!=='none'&&right.display!=='none',
+                      correctAnchors:(left.left==='auto'||Math.abs(parseFloat(left.left)+val('--ff-wing-left'))<1)&&
+                        (right.right==='auto'||Math.abs(parseFloat(right.right)+val('--ff-wing-right'))<1),
+                      inlayWidths:[parseFloat(left.width),parseFloat(right.width)]};
+                }''')
+                if wings['mode'] != 'landscape':
+                    assert wings['left'] > 0 and wings['right'] > 0, wings
+                    assert abs(wings['left']+wings['dragonLeft']-wings['gapLeft']) < .8, wings
+                    assert abs(wings['right']+wings['dragonRight']-wings['gapRight']) < .8, wings
+                    assert wings['leftPaint'] and wings['rightPaint'] and wings['correctAnchors'], wings
+                    assert abs(wings['inlayWidths'][0]-wings['left']) < .8, wings
+                    assert abs(wings['inlayWidths'][1]-wings['right']) < .8, wings
                 screenshot = f'{args.engine}-{width}x{height}-safe-{top}-{bottom}.png'
                 page.screenshot(path=str(output / screenshot))
                 receipt['layouts'].append({'viewport':[width,height], 'safe_area':[top,bottom],

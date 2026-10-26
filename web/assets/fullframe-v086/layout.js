@@ -65,14 +65,16 @@
     const minimumHeader = 305*crownScale+rail;
     // Visible buttons determine the console budget, not a scaled staircase
     // illustration. Phone hit targets never shrink below 44 CSS pixels.
-    const spin = Math.max(80,Math.min(96,80+(controlsWidth-320)*16/70));
+    // User-requested visual face is 20% smaller, still a 64px+ touch target.
+    const spin = .8*Math.max(80,Math.min(96,80+(controlsWidth-320)*16/70));
     const secondary = Math.max(52,Math.min(60,52+(controlsWidth-320)*8/110));
     const controlHeight = Math.max(108,spin+24);
     // The approved banner gets its full row on phones. Very short/square
     // windows retain the previous compact budget so extra decoration cannot
     // consume the board or reduce the full-size control targets.
     const compactHud = portrait && usable-minimumHeader-controlHeight < 142;
-    const hud = compactHud ? 58 : 78;
+    // Reclaim decorative HUD height for actual 2:3 scoring tiles.
+    const hud = compactHud ? 58 : 66;
     const footer = hud+controlHeight;
     const boardHeight = Math.max(1,Math.min(preferredBoard,usable-minimumHeader-(portrait?footer:0)));
     const boardWidth = (boardHeight+.0064*w)/1.5;
@@ -97,12 +99,19 @@
     // Each side is the complete 118/117x938 portrait source, painted once.
     // The native image aspect is preserved with no independent top/middle/
     // bottom stretch and no double lantern or duplicated golden scroll.
+    const leftDragon=118*boardHeight/938, rightDragon=117*boardHeight/938;
     for(const [side,sourceWidth] of [['left',118],['right',117]]) {
       put(side+'-base-width',sourceWidth*boardHeight/938);
     }
+    // Fill the excess side gutters with ornamental inlays, never skew tiles.
+    // On short landscape, intact dragon columns already hug the board.
+    put('wing-left',portrait?Math.max(0,center-boardWidth/2-leftDragon):0);
+    put('wing-right',portrait?Math.max(0,sceneWidth-center-boardWidth/2-rightDragon):0);
     put('footer-top',footerTop);put('hud-height',hud);
-    put('notice-height',compactHud?22:38);put('meter-offset',compactHud?24:40);
-    put('meter-height',compactHud?32:34);put('meter-padding',compactHud?2:4);
+    // A 66px HUD has two non-overlapping lanes: 30px notice + 32px meters.
+    // Preserve the tighter 58px fallback in short/safe-area viewports.
+    put('notice-height',compactHud?22:30);put('meter-offset',compactHud?24:32);
+    put('meter-height',32);put('meter-padding',2);
     put('panel-left',panelLeft);put('panel-width',panelWidth);
     put('footer-art-top',portrait?footerTop:0);put('footer-art-height',portrait?h-footerTop:h);
     put('controls-top',footerTop+hud);put('controls-height',controlHeight);
