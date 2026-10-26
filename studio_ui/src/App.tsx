@@ -812,6 +812,30 @@ export default function App() {
               assets={assets}
               onUpload={upload}
               onRender={renderAsset}
+              isBusy={!!busy}
+              onApplyMusic={async (mode) => {
+                await run("Applying background music", async () => {
+                  // Commit the complete working draft, not just a nested audio
+                  // field. That preserves unsaved edits and checks revision.
+                  const saved = await save();
+                  const result = await api<Validation>(
+                    "drafts/" + saved.id + "/validate",
+                    "POST",
+                    { revision: saved.revision },
+                    saved.revision,
+                  );
+                  setDraft((prev) =>
+                    prev && prev.id === saved.id
+                      ? { ...prev, validation: result }
+                      : prev,
+                  );
+                  setNotice(
+                    result.valid
+                      ? "Background music " + mode + " diterapkan ke draft dan validasi lulus. Klik Publish untuk mengaktifkan di game live."
+                      : "Pengaturan musik tersimpan di draft, tetapi validasi belum lulus. Buka Validation results untuk memperbaiki error sebelum Publish.",
+                  );
+                });
+              }}
               onImport={async (path) => {
                 await run("Importing baseline audio", async () => {
                   await api("assets/import-baseline", "POST", { path });
