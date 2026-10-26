@@ -71,6 +71,13 @@ def main():
                 assert db(validate_draft,draft)['valid'];release=db(publish,draft,owner,'Browser integration check')
                 pinned=context.request.get(base+'/api/state').json()
                 assert pinned['ticket']['id']==original['ticket']['id']
+                # Music adopts published audio without spending the old ticket.
+                public_audio=context.request.get(base+'/api/audio-live')
+                assert public_audio.status==200 and public_audio.json()['release_id']==str(release.id)
+                page.wait_for_function('(id)=>window.MahjongStudioRuntime?.liveAudioRelease===id',
+                    arg=str(release.id),timeout=25000)
+                assert page.evaluate('MahjongWildAudio.state.outputGain')==1.1
+                assert context.request.get(base+'/api/state').json()['ticket']['id']==original['ticket']['id']
                 with page.expect_response(lambda r:r.url==base+'/api/spin') as response:
                     page.locator('#spin-btn').click()
                 first=response.value.json();request=response.value.request.post_data_json
@@ -97,6 +104,10 @@ def main():
                 # Existing new-version ticket survives rollback; following one adopts baseline.
                 current=context.request.get(base+'/api/state').json();db(activate,baseline,owner,'Rollback regression')
                 assert context.request.get(base+'/api/state').json()['ticket']['id']==current['ticket']['id']
+                assert context.request.get(base+'/api/audio-live').json()['release_id']==str(baseline.id)
+                page.wait_for_function('(id)=>window.MahjongStudioRuntime?.liveAudioRelease===id',
+                    arg=str(baseline.id),timeout=25000)
+                assert page.evaluate('MahjongWildAudio.state.outputGain')==1.3
                 with page.expect_response(lambda r:r.url==base+'/api/spin') as response: page.locator('#spin-btn').click()
                 third=response.value.json();assert third['round_release_id']==str(release.id)
                 assert third['state']['manifest']['release_id']==str(baseline.id)

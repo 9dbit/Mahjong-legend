@@ -20,7 +20,7 @@ from django.views.decorators.csrf import csrf_exempt
 from . import game
 from .domain import digest, baseline_config, validate_config, ENGINE_HASH, decimal_value, integer, BASELINE_REFS, BASE_MUSIC, BASE_AUDIO
 from .models import Draft, Release, ActiveRelease, Asset, Job, AuditEvent, Round, PlayerSession, WorkerHeartbeat
-from .releases import active_release, validate_draft, publish, activate, make_release, audit
+from .releases import active_release, validate_draft, publish, activate, make_release, audit, manifest
 from .security import throttle
 from .storage import ContentStore
 from mahjong_legend.engine import sha256
@@ -299,6 +299,23 @@ def preview_page(request,token):
     html=(WEB/'index.html').read_text()
     html=html.replace('<head>','<head><meta name="studio-api-base" content="/api/preview/'+token+'">',1)
     return HttpResponse(html,content_type='text/html; charset=utf-8')
+
+@api(methods=('GET',))
+def live_audio(request,preview_token=None):
+    """Public read-only active audio, independent of a spin's pinned ticket.
+
+    Preview follows its immutable preview release; production follows the
+    currently active published release. It must never allocate a game session,
+    mutate a ticket, reveal an unpublished asset, or change spin policy.
+    """
+    release = preview_release(request,preview_token) if preview_token else active_release()
+    current = manifest(release,private=bool(preview_token))
+    response = reply({'release_id':current['release_id'],
+        'release_sha256':current['release_sha256'],
+        'audio':current['audio']})
+    response['Cache-Control']='no-store, max-age=0'
+    return response
+
 
 @csrf_exempt
 @api(methods=('GET','POST'))
