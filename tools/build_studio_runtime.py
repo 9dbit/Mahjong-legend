@@ -27,9 +27,13 @@ def build():
   async function syncLiveAudio(){
     if(liveAudioTask)return liveAudioTask;
     const task=(async()=>{
+      const controller=new AbortController();
+      // A broken /audio-live connection must not stall game initialization.
+      const deadline=setTimeout(()=>controller.abort(),4500);
       try{
         const res=await fetch(apiBase+'/audio-live',{method:'GET',
-          credentials:'same-origin',cache:'no-store',headers:{'Accept':'application/json'}});
+          credentials:'same-origin',cache:'no-store',signal:controller.signal,
+          headers:{'Accept':'application/json'}});
         if(!res.ok)throw Error('Live audio '+res.status);
         const data=await res.json();
         if(!data?.release_sha256||!data.audio?.music)throw Error('Invalid live audio release');
@@ -48,7 +52,7 @@ def build():
         liveAudioError=String(error?.message||error);
         if(window.MahjongStudioRuntime)window.MahjongStudioRuntime.liveAudioError=liveAudioError;
         return false; // Never block a spin or modify ticket state for sound.
-      }
+      }finally{clearTimeout(deadline);}
     })();
     liveAudioTask=task;
     try{return await task;}finally{if(liveAudioTask===task)liveAudioTask=null;}
@@ -62,14 +66,15 @@ def build():
     const m=next?.manifest;if(!m||m.release_sha256===activeManifest?.release_sha256)return;
     // Fetch the published soundtrack in PARALLEL with preparing the tiles.
     // Do not defer this request until the splash is already dismissible.
-    const initialAudioSync=syncLiveAudio();
+    const firstManifest=!activeManifest;
+    const initialAudioSync=firstManifest?syncLiveAudio():Promise.resolve(!!liveAudioSha);
     await window.MahjongReels.prepare(Object.values(m.tiles).flatMap(x=>[x.normal,x.gold]));
     const board=[...$('board').children].map(col=>[...col.children].filter(e=>e._tile).map(e=>e._tile));
     activeManifest=m;
     // The old spin ticket may pin old music for 24 hours. Fall back to its
     // soundtrack ONLY if the live-audio endpoint was unreachable.
     const activeAudioFound=await initialAudioSync;
-    if(!activeAudioFound&&!liveAudioSha)await audio()?.configure?.(m.audio);
+    if(firstManifest&&!activeAudioFound&&!liveAudioSha)await audio()?.configure?.(m.audio);
     const scene=m.scene||{};
     const bg=scene.background?`url("${scene.background}")`:'';
     $('game-stage').style.backgroundImage=bg;document.documentElement.style.backgroundImage=bg;
