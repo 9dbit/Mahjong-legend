@@ -49,14 +49,68 @@ def assert_footer_assets(page):
     assert decoded and all(asset['ok'] for asset in decoded), decoded
     expected = {'panel':'/assets/control-panel-v091/stage-clean.webp',
                 'spin-disk':'/assets/approved-v082/spin-disc.webp'}
-    for element in ['announcement', 'meter-0', 'meter-1', 'meter-2',
+    expected['announcement'] = '/assets/fullframe-v086/notice-center.webp'
+    for element in ['meter-0', 'meter-1', 'meter-2',
                     'turbo-btn', 'minus-btn', 'plus-btn', 'auto-btn']:
         expected[element] = '/assets/approved-v082/frame.webp'
     for element, path in expected.items():
         pseudo = '::after' if element in {'turbo-btn', 'auto-btn'} else None
         actual = [asset['path'] for asset in decoded if asset['element'] == element and asset['pseudo'] == pseudo]
         assert actual == [path], {'element':element, 'expected':path, 'actual':actual}
+    caps = {'::before':'/assets/fullframe-v086/notice-left.webp',
+            '::after':'/assets/fullframe-v086/notice-right.webp'}
+    for pseudo, name in caps.items():
+        matches = [item for item in decoded
+                   if item['element'] == 'announcement' and item['pseudo'] == pseudo]
+        assert len(matches) == 1 and matches[0]['path'] == name, matches
+        assert (matches[0]['width'],matches[0]['height']) == (226,109), matches
     return decoded
+
+
+def assert_source_proportional_ornaments(page):
+    """One thin gold edge and actual scaled alpha cutouts, never side inlays."""
+    data = page.evaluate('''() => {
+        const stage=document.querySelector('#game-stage');
+        const scene=document.querySelector('.reel-theatre');
+        const banner=document.querySelector('.announcement');
+        const sb=getComputedStyle(stage);
+        const val=n=>parseFloat(sb.getPropertyValue(n))||0;
+        const left=getComputedStyle(scene,'::before');
+        const right=getComputedStyle(scene,'::after');
+        const capLeft=getComputedStyle(banner,'::before');
+        const capRight=getComputedStyle(banner,'::after');
+        const tile=document.querySelector('#board .tile').getBoundingClientRect();
+        const box=c=>({width:parseFloat(c.width),height:parseFloat(c.height),
+             image:c.backgroundImage,visible:c.display!=='none'});
+        return {
+          boardHeight:val('--ff-board-height'),tileWidth:tile.width,
+          overlap:val('--ff-tail-overlap'),oldWings:val('--ff-wing-left')+val('--ff-wing-right'),
+          tailLeft:{...box(left),edge:parseFloat(left.left)+parseFloat(left.width)},
+          tailRight:{...box(right),edge:parseFloat(right.right)+parseFloat(right.width)},
+          goldLine:parseFloat(getComputedStyle(scene.querySelector('.board-frame')).outlineWidth),
+          capLeft:box(capLeft),capRight:box(capRight),
+          centerBanner:getComputedStyle(banner).backgroundImage
+        };
+    }''')
+    assert data['oldWings'] == 0, data
+    assert 0 < data['overlap'] <= data['tileWidth'] * .10 + .2, data
+    assert abs(data['overlap']-data['tileWidth']*.08) < .35, data
+    assert .5 <= data['goldLine'] <= 1.6, data
+    expected_h = (938-525)*data['boardHeight']/938*1.42
+    for side, natural_w in [('Left',118),('Right',117)]:
+        obj=data['tail'+side]
+        assert obj['visible'] and 'tail-'+side.lower()+'.webp' in obj['image'], obj
+        assert obj['image'].count('url(') == 1 and 'gradient' not in obj['image'], obj
+        expected_w=natural_w*data['boardHeight']/938*1.42
+        assert abs(obj['width']-expected_w)<.12 and abs(obj['height']-expected_h)<.12, obj
+        assert abs(obj['edge']-data['overlap'])<.12, obj
+        assert abs((obj['width']/natural_w)/(obj['height']/413)-1)<.012, obj
+    for side in ('Left','Right'):
+        cap=data['cap'+side]
+        assert cap['visible'] and 'notice-'+side.lower()+'.webp' in cap['image'], cap
+        assert abs(cap['width']/cap['height']-226/109)<.012, cap
+    assert 'notice-center.webp' in data['centerBanner'], data
+    return data
 
 
 def main():
@@ -105,36 +159,14 @@ def main():
                 assert geometry['disk']['w'] >= spin['width'] - .5, geometry['disk']
                 for button in [visual['buttons'][0], visual['buttons'][4]]:
                     assert button['width'] >= 52, button
-                # Inlays must meet untouched dragon pixels and real reel edges.
-                wings = page.evaluate('''() => {
-                    const stage=document.querySelector('#game-stage');
-                    const theatre=document.querySelector('.reel-theatre');
-                    const outer=document.querySelector('.art-board').getBoundingClientRect();
-                    const inner=theatre.getBoundingClientRect();
-                    const st=getComputedStyle(stage),left=getComputedStyle(theatre,'::before'),right=getComputedStyle(theatre,'::after');
-                    const val=n=>parseFloat(st.getPropertyValue(n))||0;
-                    return {mode:stage.dataset.fullframe,left:val('--ff-wing-left'),right:val('--ff-wing-right'),
-                      dragonLeft:val('--ff-left-base-width'),dragonRight:val('--ff-right-base-width'),
-                      gapLeft:inner.left-outer.left,gapRight:outer.right-inner.right,
-                      leftPaint:left.backgroundImage!=='none'&&left.display!=='none',
-                      rightPaint:right.backgroundImage!=='none'&&right.display!=='none',
-                      correctAnchors:(left.left==='auto'||Math.abs(parseFloat(left.left)+val('--ff-wing-left'))<1)&&
-                        (right.right==='auto'||Math.abs(parseFloat(right.right)+val('--ff-wing-right'))<1),
-                      inlayWidths:[parseFloat(left.width),parseFloat(right.width)]};
-                }''')
-                if wings['mode'] != 'landscape':
-                    assert wings['left'] > 0 and wings['right'] > 0, wings
-                    assert abs(wings['left']+wings['dragonLeft']-wings['gapLeft']) < .8, wings
-                    assert abs(wings['right']+wings['dragonRight']-wings['gapRight']) < .8, wings
-                    assert wings['leftPaint'] and wings['rightPaint'] and wings['correctAnchors'], wings
-                    assert abs(wings['inlayWidths'][0]-wings['left']) < .8, wings
-                    assert abs(wings['inlayWidths'][1]-wings['right']) < .8, wings
+                ornament_geometry = assert_source_proportional_ornaments(page)
                 screenshot = f'{args.engine}-{width}x{height}-safe-{top}-{bottom}.png'
                 page.screenshot(path=str(output / screenshot))
                 receipt['layouts'].append({'viewport':[width,height], 'safe_area':[top,bottom],
                                           'buttons':visual['buttons'], 'screenshot':screenshot,
                                           'decoded_scene_assets':scene_assets, 'decoded_footer_assets':footer_assets,
-                                          'stage':geometry['stage'], 'board':geometry['board']})
+                                          'stage':geometry['stage'], 'board':geometry['board'],
+                                          'ornaments':ornament_geometry})
                 page.close()
 
             # These are the original live buttons: one action still makes one
