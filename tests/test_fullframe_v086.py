@@ -22,6 +22,26 @@ class FullFrameUI(unittest.TestCase):
         for name in ['rail','hud','crown-center','controls-center','board-center']:
             with Image.open(OUT/f'{name}.webp') as im:
                 self.assertEqual(im.convert('RGB').tobytes(),source.crop(tuple(manifest['slices'][name])).tobytes())
+    def test_undistorted_dragon_and_banner_derivatives(self):
+        data=json.loads((OUT/'manifest.json').read_text())['ornament_derivatives']
+        self.assertEqual(data['tail_source_crop_start'],525)
+        self.assertEqual(data['tail_overlap_fraction_of_tile_width'],.08)
+        self.assertEqual(data['tail_zoom'],1.42)
+        for name,digest in data['files'].items():
+            self.assertEqual(hashlib.sha256((OUT/name).read_bytes()).hexdigest(),digest)
+        expected={'tail-left.webp':(118,413),'tail-right.webp':(117,413),
+                  'notice-left.webp':(226,109),'notice-center.webp':(16,109),
+                  'notice-right.webp':(226,109)}
+        for name,shape in expected.items():
+            with self.subTest(name=name),Image.open(OUT/name) as art:
+                self.assertEqual(art.size,shape)
+                if name.startswith('tail-'):
+                    self.assertEqual(art.mode,'RGBA')
+                    self.assertEqual(art.getchannel('A').getextrema(),(0,255))
+                    self.assertEqual(art.getchannel('A').crop((0,0,shape[0],1)).getextrema(),(0,0))
+                else:
+                    self.assertEqual(art.mode,'RGB')
+
     def test_layout_cannot_issue_rounds(self):
         js=(OUT/'layout.js').read_text()
         for token in ['/api/spin','Math.random','balance=','fetch(']:self.assertNotIn(token,js)

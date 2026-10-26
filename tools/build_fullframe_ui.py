@@ -1,7 +1,7 @@
 """Compile UI 0.8.7 after v085. The original artwork and math are untouched."""
 from pathlib import Path
 import hashlib,json
-from PIL import Image, ImageDraw, ImageFilter, ImageOps
+from PIL import Image, ImageChops, ImageDraw, ImageFilter, ImageOps
 ROOT=Path(__file__).resolve().parents[1]
 OUT=ROOT/'web/assets/fullframe-v086'
 
@@ -144,6 +144,79 @@ def rewrite_qa(name,text):
         edit("'ui_release':'0.8.7'", "'ui_release':'0.8.7','fullframe_390x690':fullframe")
     return text
 
+
+def build_ornament_derivatives():
+    """Build source-faithful cutouts, without stretching dragons or banner caps.
+
+    Only the original side rasters and approved source frame are used.
+    Tail/cloud alpha is calculated from gold/jade pixels and softened at the
+    join. The entire tail is later scaled *isotropically* in the CSS runtime.
+    """
+    cut_start = 525
+    products = []
+    for side in ('left', 'right'):
+        source = Image.open(OUT / f'board-{side}.webp').convert('RGBA')
+        w, h = source.size
+        assert (w, h) == ((118 if side == 'left' else 117), 938)
+        pix = source.load()
+        palette = Image.new('L', (w, h), 0)
+        teal = Image.new('L', (w, h), 0)
+        p, t = palette.load(), teal.load()
+        for y in range(cut_start, h):
+            for x in range(w):
+                red, green, blue, _ = pix[x, y]
+                jade = green > 48 and green > red * .84 and blue > red * .68
+                gold = red > 98 and green > 43 and red > green * 1.13 and blue < 180
+                t[x, y] = 255 if jade else 0
+                p[x, y] = 255 if jade or gold else 0
+        near_jade = teal.filter(ImageFilter.MaxFilter(13)).load()
+        # Remove the old straight interior gold beam. Keep actual jade/cloud
+        # outlines where they genuinely reach the inner edge.
+        for y in range(cut_start, h):
+            for x in range(w):
+                inner = x > 101 if side == 'left' else x < w - 102
+                if inner and y < 835 and not near_jade[x, y]:
+                    p[x, y] = 0
+        palette = (palette.filter(ImageFilter.MaxFilter(7))
+                          .filter(ImageFilter.MinFilter(5))
+                          .filter(ImageFilter.GaussianBlur(1.25)))
+        p = palette.load()
+        for y in range(cut_start, h):
+            opacity = min(1, max(0, (y - cut_start) / 83))
+            for x in range(w):
+                p[x, y] = round(p[x, y] * opacity)
+        cut = source.crop((0, cut_start, w, h))
+        alpha = ImageChops.multiply(palette.crop((0, cut_start, w, h)),
+                                    cut.getchannel('A'))
+        cut.putalpha(alpha)
+        assert alpha.getextrema() == (0, 255), f'Tail alpha generation failed: {side}'
+        path = OUT / f'tail-{side}.webp'
+        cut.save(path, 'WEBP', lossless=True, method=1)
+        products.append(path)
+    approved_path = ROOT / 'web/assets/approved-v082/frame.webp'
+    with Image.open(approved_path) as approved:
+        assert approved.size == (864, 1536), 'Approved banner source dimensions changed'
+        # The decorative left/right ends retain their native 226:109 ratio.
+        # The plain centre strip may repeat horizontally without enlarging
+        # the Chinese-cloud caps or the gold ornamental end sculptures.
+        for name, region in (
+            ('notice-left', (0, 1008, 226, 1117)),
+            ('notice-center', (360, 1008, 376, 1117)),
+            ('notice-right', (638, 1008, 864, 1117)),
+        ):
+            path = OUT / f'{name}.webp'
+            approved.crop(region).save(path, 'WEBP', lossless=True, method=1)
+            products.append(path)
+    return {
+        'tail_source_crop_start': cut_start,
+        'tail_zoom': 1.42,
+        'tail_overlap_fraction_of_tile_width': .08,
+        'banner_cap_source_ratio': [226, 109],
+        'approved_banner_sha256': hashlib.sha256(approved_path.read_bytes()).hexdigest(),
+        'files': {path.name: hashlib.sha256(path.read_bytes()).hexdigest() for path in products},
+    }
+
+
 def build(runtime_only=False):
     OUT.mkdir(parents=True,exist_ok=True)
     with Image.open(ROOT/'web/assets/portrait-v085/frame.webp') as art:
@@ -167,6 +240,7 @@ def build(runtime_only=False):
                     draw_alpha.line((x,0,x,piece.height),fill=opacity)
                 piece.putalpha(alpha)
             piece.save(OUT/f'{name}.webp','WEBP',lossless=True,method=1)
+    ornament_derivatives = build_ornament_derivatives()
     # Extend the approved decorative clouds into a soft, source-colored join.
     # Blur only a background edge strip; never repeat logo/control symbols in
     # the extra space. The protected center pixels are not blended or edited.
@@ -194,6 +268,10 @@ def build(runtime_only=False):
     sw=ROOT/'web/sw.js';sw.write_text(replace_checked(sw.read_text().replace('presentation-086','presentation-085'),'presentation-085','presentation-087','service worker cache'))
     (OUT/'release.json').write_text(json.dumps({'release':'0.8.7','math_version':'0.8.0','fullframe':True,'tile_ratio':'2:3','virtual_credits_only':True})+'\n')
     (OUT/'manifest.json').write_text(json.dumps({'source':'web/assets/portrait-v085/frame.webp','slices':{k:v for k,v in slices.items() if k not in ['crown-left','crown-right','controls-left','controls-right']},'edge_extensions':{'crown':{'crop':[0,0,200,70],'scaled_height':305,'width':220},'controls':{'crop':[0,1748,220,1859],'scaled_height':328,'width':220},'right_cloud':'mirrored left cloud','join':{'left_source_x':12,'right_source_x':851,'source_strip_blur':24,'blend_start':.25,'blend_end':1,'curve':'smoothstep','protected_centers':'unchanged'}},'files':{f'{n}.webp':hashlib.sha256((OUT/f'{n}.webp').read_bytes()).hexdigest() for n in slices}},indent=2)+'\n')
+    manifest_path = OUT / 'manifest.json'
+    manifest = json.loads(manifest_path.read_text())
+    manifest['ornament_derivatives'] = ornament_derivatives
+    manifest_path.write_text(json.dumps(manifest, indent=2) + '\n')
     # These are release labels, not changes to the server-authoritative math.
     for name in ['game.js','reels.js']:
         script=ROOT/'web/assets/portrait-v085'/name
