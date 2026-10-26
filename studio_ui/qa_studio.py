@@ -133,8 +133,13 @@ async def verify(args, base, credentials, env):
         audio = next(x for x in items if x['is_derivative'] and x['kind']=='audio')
         await page.locator(f'[data-asset-id="{audio["id"]}"]').click()
         await page.get_by_role('button', name='Play', exact=True).wait_for(state='visible')
+        # Edit while decode may still be running, then prove the asynchronous
+        # preview did NOT wipe the user's recipe.
         await page.get_by_label('Gain · dB', exact=True).fill('-6')
         await page.get_by_label('Trim akhir · s', exact=True).fill('0.1')
+        await page.wait_for_function("() => !Array.from(document.querySelectorAll('button')).find(b => b.textContent.trim()==='Play')?.disabled")
+        assert float(await page.get_by_label('Gain · dB', exact=True).input_value()) == -6
+        assert float(await page.get_by_label('Trim akhir · s', exact=True).input_value()) == .1
         await page.get_by_role('button', name='Play', exact=True).click()
         await page.get_by_role('button', name='Analisis clip', exact=True).click()
         assert await page.locator('canvas.spectrogram').count()==1
