@@ -140,6 +140,12 @@ def build():
     ]
     (OUT/'game.js').write_text('\n'.join(lines)+'\n')
     html=(ROOT/'web/index.html').read_text().replace('/assets/portrait-v085/game.js','/assets/studio-v090/game.js').replace('/assets/locked-v08/audio.js','/assets/studio-v090/audio.js').replace('?v=087','?v=098').replace('0.8.7','0.9.2')
+    # Explicitly rev both audio and splash script URLs for installed iPhone
+    # PWAs. The underlying source remains immutable until this final compiler.
+    html=html.replace('/assets/studio-v090/audio.js?v=082',
+        '/assets/studio-v090/audio.js?v=099')
+    html=html.replace('/assets/reel-v083/splash.js?v=084',
+        '/assets/reel-v083/splash.js?v=099')
     # Only mutate the FINAL compiled game HTML; responsive builder verifies
     # that the locked upstream source remains byte-identical until this stage.
     source_touch='<link rel="apple-touch-icon" href="/assets/approved-v082/icon-180.png">'
@@ -161,7 +167,7 @@ def build():
     sw=ROOT/'web/sw.js'
     worker=sw.read_text()
     worker,changed=re.subn(r"const CACHE='mahjong-wild-presentation-[0-9]+'",
-        "const CACHE='mahjong-wild-presentation-098'",worker)
+        "const CACHE='mahjong-wild-presentation-099'",worker)
     if changed!=1: raise ValueError("PWA cache version anchor missing")
     if "url.pathname.startsWith('/studio')" not in worker:
         worker=worker.replace("url.pathname.startsWith('/api/')","(url.pathname.startsWith('/api/')||url.pathname.startsWith('/studio')||url.pathname.startsWith('/media/'))")
