@@ -300,6 +300,23 @@ def preview_page(request,token):
     html=html.replace('<head>','<head><meta name="studio-api-base" content="/api/preview/'+token+'">',1)
     return HttpResponse(html,content_type='text/html; charset=utf-8')
 
+@api(methods=('GET',))
+def live_audio(request,preview_token=None):
+    """Public read-only active audio, independent of a spin's pinned ticket.
+
+    Preview follows its immutable preview release; production follows the
+    currently active published release. It must never allocate a game session,
+    mutate a ticket, reveal an unpublished asset, or change spin policy.
+    """
+    release = preview_release(request,preview_token) if preview_token else active_release()
+    current = manifest(release,private=bool(preview_token))
+    response = reply({'release_id':current['release_id'],
+        'release_sha256':current['release_sha256'],
+        'audio':current['audio']})
+    response['Cache-Control']='no-store, max-age=0'
+    return response
+
+
 @csrf_exempt
 @api(methods=('GET','POST'))
 def public_api(request,operation,preview_token=None):
