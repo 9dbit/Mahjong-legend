@@ -20,7 +20,7 @@ from django.views.decorators.csrf import csrf_exempt
 from . import game
 from .domain import digest, baseline_config, validate_config, ENGINE_HASH, decimal_value, integer, BASELINE_REFS, BASE_MUSIC, BASE_AUDIO
 from .models import Draft, Release, ActiveRelease, Asset, Job, AuditEvent, Round, PlayerSession, WorkerHeartbeat
-from .releases import active_release, validate_draft, publish, activate, make_release, audit
+from .releases import active_release, validate_draft, publish, activate, make_release, audit, manifest
 from .security import throttle
 from .storage import ContentStore
 from mahjong_legend.engine import sha256
