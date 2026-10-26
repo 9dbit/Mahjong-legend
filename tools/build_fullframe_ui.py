@@ -2,6 +2,7 @@
 from pathlib import Path
 import hashlib,json
 from PIL import Image, ImageChops, ImageDraw, ImageFilter, ImageOps
+from tools.build_mobile_ornaments import build_mobile_ornaments
 ROOT=Path(__file__).resolve().parents[1]
 OUT=ROOT/'web/assets/fullframe-v086'
 
@@ -241,6 +242,7 @@ def build(runtime_only=False):
                 piece.putalpha(alpha)
             piece.save(OUT/f'{name}.webp','WEBP',lossless=True,method=1)
     ornament_derivatives = build_ornament_derivatives()
+    mobile_ornaments = build_mobile_ornaments(OUT)
     # Extend the approved decorative clouds into a soft, source-colored join.
     # Blur only a background edge strip; never repeat logo/control symbols in
     # the extra space. The protected center pixels are not blended or edited.
@@ -271,6 +273,7 @@ def build(runtime_only=False):
     manifest_path = OUT / 'manifest.json'
     manifest = json.loads(manifest_path.read_text())
     manifest['ornament_derivatives'] = ornament_derivatives
+    manifest['mobile_ornaments'] = mobile_ornaments
     manifest_path.write_text(json.dumps(manifest, indent=2) + '\n')
     # These are release labels, not changes to the server-authoritative math.
     for name in ['game.js','reels.js']:
