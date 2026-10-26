@@ -124,11 +124,15 @@ def build():
     lines=text.splitlines()
     startup=next(i for i,line in enumerate(lines) if "Promise.all([req('/api/state')" in line)
     lines[startup]="  req('/api/state').then(async next=>{await refresh(next);mult(false);window.MahjongReels.prewarm($('board'));notice(next.migration_notice?'SESI BARU · CEK INFO':'SIAP BERMAIN');}).catch(e=>{notice('KONEKSI GAGAL. MUAT ULANG.');$('spin-btn').disabled=true;console.error(e.message);});"
-    lines.append("  setInterval(()=>{if(!document.hidden)void syncLiveAudio();},12000);")
-    lines.append("  document.addEventListener('visibilitychange',()=>{if(!document.hidden)void syncLiveAudio();});")
-    lines.append("  window.addEventListener('pageshow',()=>{void syncLiveAudio();});")
-    lines.append("  window.addEventListener('focus',()=>{if(!document.hidden)void syncLiveAudio();});")
-    (OUT/'game.js').write_text('\\n'.join(lines)+'\\n')
+    # Insert INSIDE the existing game IIFE, before its closing brace.
+    closing=next(i for i in range(len(lines)-1,-1,-1) if lines[i].strip()=='})();')
+    lines[closing:closing]=[
+      "  setInterval(()=>{if(!document.hidden)void syncLiveAudio();},12000);",
+      "  document.addEventListener('visibilitychange',()=>{if(!document.hidden)void syncLiveAudio();});",
+      "  window.addEventListener('pageshow',()=>{void syncLiveAudio();});",
+      "  window.addEventListener('focus',()=>{if(!document.hidden)void syncLiveAudio();});",
+    ]
+    (OUT/'game.js').write_text('\n'.join(lines)+'\n')
     html=(ROOT/'web/index.html').read_text().replace('/assets/portrait-v085/game.js','/assets/studio-v090/game.js').replace('/assets/locked-v08/audio.js','/assets/studio-v090/audio.js').replace('?v=087','?v=098').replace('0.8.7','0.9.2')
     # Only mutate the FINAL compiled game HTML; responsive builder verifies
     # that the locked upstream source remains byte-identical until this stage.
