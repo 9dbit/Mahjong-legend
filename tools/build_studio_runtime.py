@@ -93,6 +93,13 @@ def build():
     lines[startup]="  req('/api/state').then(async next=>{await refresh(next);mult(false);window.MahjongReels.prewarm($('board'));notice(next.migration_notice?'SESI BARU · CEK INFO':'SIAP BERMAIN');}).catch(e=>{notice('KONEKSI GAGAL. MUAT ULANG.');$('spin-btn').disabled=true;console.error(e.message);});"
     (OUT/'game.js').write_text('\n'.join(lines)+'\n')
     html=(ROOT/'web/index.html').read_text().replace('/assets/portrait-v085/game.js','/assets/studio-v090/game.js').replace('/assets/locked-v08/audio.js','/assets/studio-v090/audio.js').replace('?v=087','?v=098').replace('0.8.7','0.9.2')
+    # Only mutate the FINAL compiled game HTML; responsive builder verifies
+    # that the locked upstream source remains byte-identical until this stage.
+    source_touch='<link rel="apple-touch-icon" href="/assets/approved-v082/icon-180.png">'
+    assert html.count(source_touch)==1, 'Locked PWA touch link changed'
+    html=html.replace(source_touch,
+        '<link rel="apple-touch-icon" sizes="180x180" href="/assets/approved-v082/icon-180.png?v=mahjong-gold-20261026">'
+        '\\n  <link rel="icon" type="image/png" sizes="192x192" href="/assets/approved-v082/icon-192.png?v=mahjong-gold-20261026">')
     html=html.replace('<section id="panel-rules"', '<section id="panel-rules"')
     for label,ident in [('BASE MULTIPLIERS','rule-base'),('FREE SPIN MULTIPLIERS','rule-bonus'),('3 SCATTER','rule-free'),('SCATTER TAMBAHAN','rule-extra'),('MAKSIMUM PER PUTARAN','rule-cap')]:
         html=html.replace('<span>'+label+'</span><b>','<span>'+label+'</span><b id="'+ident+'">')
