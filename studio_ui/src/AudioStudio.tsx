@@ -72,6 +72,8 @@ export default function AudioStudio({
   onUpload,
   onRender,
   onImport,
+  onApplyMusic,
+  isBusy,
   onError,
 }: {
   config: StudioConfig;
@@ -82,6 +84,8 @@ export default function AudioStudio({
   onUpload: (file: File, kind: string) => Promise<void>;
   onRender: (asset: Asset, recipe: Record<string, unknown>) => Promise<void>;
   onImport: (path: string) => Promise<void>;
+  onApplyMusic: (mode: "base" | "bonus") => Promise<void>;
+  isBusy: boolean;
   onError: (message: string) => void;
 }) {
   const audio = useMemo(() => {
@@ -98,10 +102,11 @@ export default function AudioStudio({
       metadata: {},
       is_baseline: true,
     }));
+    // Keep READY originals visible as editable source rows. Uploads must
+    // never disappear after the ingest worker changes status to Ready.
+    // Only verified derivatives/baseline may be routed to game events/music.
     return [
-      ...assets.filter(
-        (a) => a.kind === "audio" && (a.is_derivative || a.status !== "ready"),
-      ),
+      ...assets.filter((a) => a.kind === "audio"),
       ...base,
     ];
   }, [assets, config.audio]);
@@ -224,7 +229,11 @@ export default function AudioStudio({
     setRecipe({ ...cleanRecipe });
     setPeaks(metadataPeaks(selected));
     setLoading(false);
-    if (!selected || selected.status !== "ready" || (!selected.is_derivative && !selected.is_baseline)) return;
+    if (!selected || selected.status !== "ready") return;
+    // Original uploads are intentionally private (the content endpoint returns
+    // 403). Rendering is a server-side job and must remain enabled without
+    // trying to decode that private original in the browser.
+    if (!selected.is_derivative && !selected.is_baseline) return;
     if (!rawAsset) {
       onError(
         "Neutral source derivative belum tersedia. Dengarkan hasil render; import kembali original untuk melanjutkan editing.",
@@ -337,7 +346,7 @@ export default function AudioStudio({
     <>
       <option value="">No sound</option>
       {audio
-        .filter((a) => a.status === "ready")
+        .filter((a) => a.status === "ready" && (a.is_derivative || a.is_baseline))
         .map((a) => (
           <option value={a.id} key={a.id}>
             {a.name}
@@ -717,7 +726,12 @@ export default function AudioStudio({
                 </div>
                 <button
                   className="button primary full"
-                  disabled={!canEdit || loading || !buffer}
+                  aria-label={selected.is_baseline ? "Import baseline audio for editing" : "Render audio derivative"}
+                  disabled={!canEdit || selected.status !== "ready" || isBusy}
+                  title={!canEdit ? "Role ini tidak memiliki izin edit" :
+                    selected.status !== "ready" ? "Proses ingest audio sampai Ready" :
+                    selected.is_baseline ? "Import baseline ke Studio, tanpa perlu decode preview" :
+                    "Render di worker berdasarkan original; preview browser bersifat opsional"}
                   onClick={() =>
                     void (selected.is_baseline
                       ? onImport(selected.id)
@@ -731,6 +745,13 @@ export default function AudioStudio({
                     ? "Import untuk editing"
                     : "Render derivative"}
                 </button>
+                {selected.status === "ready" && !buffer && !loading && (
+                  <p className="muted small" role="status">
+                    {selected.is_baseline
+                      ? "Import tetap dapat digunakan meskipun preview audio browser tidak tersedia."
+                      : "Decode preview tidak tersedia. Render server tetap bisa dijalankan; hasil siap akan muncul di library."}
+                  </p>
+                )}
                 <button
                   className="button subtle full"
                   onClick={() => {
@@ -1000,6 +1021,20 @@ export default function AudioStudio({
                       </Field>
                     </div>
                   )}
+                  <button
+                    className="button primary full"
+                    type="button"
+                    aria-label={"Apply " + mode + " background music"}
+                    disabled={!canEdit || isBusy}
+                    title={!canEdit ? "Perlu izin edit Game Studio" : isBusy ? "Selesaikan proses sebelumnya" : "Simpan dan validasi pengaturan musik ke draft"}
+                    onClick={() => void onApplyMusic(mode)}
+                  >
+                    {isBusy ? "Processing…" : "Apply to draft"}
+                  </button>
+                  <p className="muted small" role="note">
+                    Apply menyimpan dan memvalidasi draft. Untuk mengubah musik
+                    pada game live, klik Publish setelah validasi lulus.
+                  </p>
                   {track?.asset && (
                     <audio
                       className="native-audio"
