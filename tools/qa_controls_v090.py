@@ -117,13 +117,17 @@ def main():
                       dragonLeft:val('--ff-left-base-width'),dragonRight:val('--ff-right-base-width'),
                       gapLeft:inner.left-outer.left,gapRight:outer.right-inner.right,
                       leftPaint:left.backgroundImage!=='none'&&left.display!=='none',
-                      rightPaint:right.backgroundImage!=='none'&&right.display!=='none'};
+                      rightPaint:right.backgroundImage!=='none'&&right.display!=='none',
+                      correctAnchors:left.left==='auto'&&right.right==='auto',
+                      inlayWidths:[parseFloat(left.width),parseFloat(right.width)]};
                 }''')
                 if wings['mode'] != 'landscape':
                     assert wings['left'] > 0 and wings['right'] > 0, wings
                     assert abs(wings['left']+wings['dragonLeft']-wings['gapLeft']) < .8, wings
                     assert abs(wings['right']+wings['dragonRight']-wings['gapRight']) < .8, wings
-                    assert wings['leftPaint'] and wings['rightPaint'], wings
+                    assert wings['leftPaint'] and wings['rightPaint'] and wings['correctAnchors'], wings
+                    assert abs(wings['inlayWidths'][0]-wings['left']) < .8, wings
+                    assert abs(wings['inlayWidths'][1]-wings['right']) < .8, wings
                 screenshot = f'{args.engine}-{width}x{height}-safe-{top}-{bottom}.png'
                 page.screenshot(path=str(output / screenshot))
                 receipt['layouts'].append({'viewport':[width,height], 'safe_area':[top,bottom],
