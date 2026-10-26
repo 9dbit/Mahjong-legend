@@ -249,7 +249,15 @@
       musicKey(selectedMusic()) === key && enabled && musicEnabled && unlocked && !document.hidden && context.state === 'running';
     const task = {key,promise:null};
     task.promise = (async () => {
+      // Reuse the pre-gesture decode, including OGG fallback. Retrying a
+      // previously rejected M4A on Continue causes an avoidable second fetch
+      // and defeats the instant-start requirement on Safari/WebKit.
+      if (musicWarmup?.key === key) await musicWarmup.promise;
+      if (!current()) return false;
       let url = track.asset;
+      if (url === baselineMusic && !buffers.has(url) &&
+          buffers.has(baselineMusic.replace('.m4a','.ogg')))
+        url = baselineMusic.replace('.m4a','.ogg');
       let buffer = await load(url, url !== baselineMusic);
       // A cancelled M4A load is not a codec failure. Check the document and
       // release before scheduling OGG, not just before connecting its source.
