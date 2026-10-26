@@ -174,3 +174,33 @@ html.desktop-layout body{
   content:none!important;
   background-image:none!important;
 }
+
+/* Portrait metallic inlays fill the previously empty red gutters.
+   All five scored reels and original dragon/lantern art stay intact. */
+.game-stage .reel-theatre{isolation:isolate;overflow:visible}
+.game-stage .reel-theatre::before,.game-stage .reel-theatre::after{
+  content:"";display:block!important;position:absolute;top:0;bottom:0;
+  height:100%;z-index:0;pointer-events:none;box-sizing:border-box;
+  background-image:
+    radial-gradient(circle at 50% 20px,rgba(255,224,138,.78) 0 2px,rgba(197,124,35,.4) 3px,transparent 7px),
+    radial-gradient(ellipse at 50% 48%,rgba(10,106,88,.57) 0 15%,rgba(205,147,51,.48) 17%,transparent 29%),
+    repeating-linear-gradient(45deg,transparent 0 23px,rgba(255,197,91,.14) 24px,transparent 25px 48px),
+    repeating-linear-gradient(-45deg,transparent 0 23px,rgba(255,197,91,.1) 24px,transparent 25px 48px),
+    linear-gradient(90deg,#9c5b1b,#481011 12%,#7c180f 50%,#481011 88%,#aa691f);
+  background-size:100% 68px,100% 68px,auto,auto,100% 100%;
+  background-repeat:repeat-y,repeat-y,repeat,repeat,no-repeat;
+  box-shadow:inset 0 0 0 1px rgba(249,185,80,.35),inset 0 0 7px rgba(255,207,102,.25);
+  -webkit-mask-image:linear-gradient(to bottom,transparent,#000 4%,#000 96%,transparent);
+  mask-image:linear-gradient(to bottom,transparent,#000 4%,#000 96%,transparent);
+}
+.game-stage .reel-theatre::before{
+  right:100%;width:var(--ff-wing-left,0px);
+  border-right:2px solid rgba(254,205,105,.9);
+}
+.game-stage .reel-theatre::after{
+  left:100%;width:var(--ff-wing-right,0px);
+  border-left:2px solid rgba(254,205,105,.9);
+}
+.game-stage .reel-theatre .board-frame{position:relative;z-index:1}
+.game-stage[data-fullframe="landscape"] .reel-theatre::before,
+.game-stage[data-fullframe="landscape"] .reel-theatre::after{display:none!important}
