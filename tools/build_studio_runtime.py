@@ -21,7 +21,7 @@ def build():
     text=replace(text,"  const tileAssets='/assets/portrait-v085/';", """  const tileAssets='/assets/portrait-v085/';
   const apiBase=document.querySelector('meta[name="studio-api-base"]')?.content||'/api';
   let activeManifest=null;
-  let liveAudioSha=null,liveAudioTask=null,liveAudioError=null;
+  let liveAudioSha=null,liveAudioRelease=null,liveAudioTask=null,liveAudioError=null;
   // Audio follows the active published release; spin tiles and payouts remain
   // bound to the immutable ticket release. This request is read-only.
   async function syncLiveAudio(){
@@ -37,6 +37,7 @@ def build():
           await audio()?.configure?.(data.audio);
           liveAudioSha=data.release_sha256;
         }
+        liveAudioRelease=data.release_id;
         liveAudioError=null;
         if(window.MahjongStudioRuntime){
           window.MahjongStudioRuntime.liveAudioRelease=data.release_id;
@@ -59,11 +60,16 @@ def build():
   function savePending(value){pendingSpin=value;try{value?sessionStorage.setItem(pendingKey,JSON.stringify(value)):sessionStorage.removeItem(pendingKey);}catch{}}
   async function applyManifest(next){
     const m=next?.manifest;if(!m||m.release_sha256===activeManifest?.release_sha256)return;
+    // Fetch the published soundtrack in PARALLEL with preparing the tiles.
+    // Do not defer this request until the splash is already dismissible.
+    const initialAudioSync=syncLiveAudio();
     await window.MahjongReels.prepare(Object.values(m.tiles).flatMap(x=>[x.normal,x.gold]));
     const board=[...$('board').children].map(col=>[...col.children].filter(e=>e._tile).map(e=>e._tile));
     activeManifest=m;
-    // Do not roll music backward when a 24h ticket still pins old gameplay.
-    if(!liveAudioSha)await audio()?.configure?.(m.audio);
+    // The old spin ticket may pin old music for 24 hours. Fall back to its
+    // soundtrack ONLY if the live-audio endpoint was unreachable.
+    const activeAudioFound=await initialAudioSync;
+    if(!activeAudioFound&&!liveAudioSha)await audio()?.configure?.(m.audio);
     const scene=m.scene||{};
     const bg=scene.background?`url("${scene.background}")`:'';
     $('game-stage').style.backgroundImage=bg;document.documentElement.style.backgroundImage=bg;
@@ -73,7 +79,7 @@ def build():
     scene.footer?$('game-stage').style.setProperty('--ff-console-art',`url("${scene.footer}")`):$('game-stage').style.removeProperty('--ff-console-art');
     if(board.length===5&&board.every(c=>c.length)){ $('board').replaceChildren();render(board); }
     const autoRoot=document.querySelector('.auto-options');if(autoRoot){autoRoot.replaceChildren(...m.bet.auto_counts.map(n=>{const b=node('button','',String(n));b.type='button';b.dataset.autospins=String(n);return b;}));}
-    window.MahjongStudioRuntime={...window.MahjongStudioRuntime,release:m.release_id,manifest:m,preview:apiBase!=='/api',liveAudioError};
+    window.MahjongStudioRuntime={...window.MahjongStudioRuntime,release:m.release_id,manifest:m,preview:apiBase!=='/api',liveAudioRelease,liveAudioError};
   }""")
     text=replace(text,'Math.round(ms*(turbo?.38:1))','Math.round(ms*(turbo?.38:1)/(activeManifest?.presentation.animation_speed||1))')
     text=replace(text,"`${tileAssets}tiles/${data.symbol}-${data.enhanced?'gold':'normal'}.webp`",'tileUrl(data)')
