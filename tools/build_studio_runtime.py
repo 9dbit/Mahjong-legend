@@ -21,6 +21,37 @@ def build():
     text=replace(text,"  const tileAssets='/assets/portrait-v085/';", """  const tileAssets='/assets/portrait-v085/';
   const apiBase=document.querySelector('meta[name="studio-api-base"]')?.content||'/api';
   let activeManifest=null;
+  let liveAudioSha=null,liveAudioTask=null,liveAudioError=null;
+  // Audio follows the active published release; spin tiles and payouts remain
+  // bound to the immutable ticket release. This request is read-only.
+  async function syncLiveAudio(){
+    if(liveAudioTask)return liveAudioTask;
+    const task=(async()=>{
+      try{
+        const res=await fetch(apiBase+'/audio-live',{method:'GET',
+          credentials:'same-origin',cache:'no-store',headers:{'Accept':'application/json'}});
+        if(!res.ok)throw Error('Live audio '+res.status);
+        const data=await res.json();
+        if(!data?.release_sha256||!data.audio?.music)throw Error('Invalid live audio release');
+        if(data.release_sha256!==liveAudioSha){
+          await audio()?.configure?.(data.audio);
+          liveAudioSha=data.release_sha256;
+        }
+        liveAudioError=null;
+        if(window.MahjongStudioRuntime){
+          window.MahjongStudioRuntime.liveAudioRelease=data.release_id;
+          window.MahjongStudioRuntime.liveAudioError=null;
+        }
+        return true;
+      }catch(error){
+        liveAudioError=String(error?.message||error);
+        if(window.MahjongStudioRuntime)window.MahjongStudioRuntime.liveAudioError=liveAudioError;
+        return false; // Never block a spin or modify ticket state for sound.
+      }
+    })();
+    liveAudioTask=task;
+    try{return await task;}finally{if(liveAudioTask===task)liveAudioTask=null;}
+  }
   const tileUrl=t=>activeManifest?.tiles?.[t.symbol]?.[t.enhanced?'gold':'normal']||`${tileAssets}tiles/${t.symbol}-${t.enhanced?'gold':'normal'}.webp`;
   const pendingKey='mw-pending:'+apiBase;
   let pendingSpin=null;
@@ -31,7 +62,8 @@ def build():
     await window.MahjongReels.prepare(Object.values(m.tiles).flatMap(x=>[x.normal,x.gold]));
     const board=[...$('board').children].map(col=>[...col.children].filter(e=>e._tile).map(e=>e._tile));
     activeManifest=m;
-    await audio()?.configure?.(m.audio);
+    // Do not roll music backward when a 24h ticket still pins old gameplay.
+    if(!liveAudioSha)await audio()?.configure?.(m.audio);
     const scene=m.scene||{};
     const bg=scene.background?`url("${scene.background}")`:'';
     $('game-stage').style.backgroundImage=bg;document.documentElement.style.backgroundImage=bg;
@@ -41,7 +73,7 @@ def build():
     scene.footer?$('game-stage').style.setProperty('--ff-console-art',`url("${scene.footer}")`):$('game-stage').style.removeProperty('--ff-console-art');
     if(board.length===5&&board.every(c=>c.length)){ $('board').replaceChildren();render(board); }
     const autoRoot=document.querySelector('.auto-options');if(autoRoot){autoRoot.replaceChildren(...m.bet.auto_counts.map(n=>{const b=node('button','',String(n));b.type='button';b.dataset.autospins=String(n);return b;}));}
-    window.MahjongStudioRuntime={release:m.release_id,manifest:m,preview:apiBase!=='/api'};
+    window.MahjongStudioRuntime={...window.MahjongStudioRuntime,release:m.release_id,manifest:m,preview:apiBase!=='/api',liveAudioError};
   }""")
     text=replace(text,'Math.round(ms*(turbo?.38:1))','Math.round(ms*(turbo?.38:1)/(activeManifest?.presentation.animation_speed||1))')
     text=replace(text,"`${tileAssets}tiles/${data.symbol}-${data.enhanced?'gold':'normal'}.webp`",'tileUrl(data)')
@@ -63,7 +95,7 @@ def build():
     const root=$('paytable-list');root.replaceChildren();for(const[s,values]of Object.entries(next.rules.paytable)){const row=node('div','paytable-item');const label=node('span','symbol-label'),icon=node('img','paytable-tile');icon.src=tileUrl({symbol:s,enhanced:false});icon.alt=`Tile ${s}`;label.append(icon,node('b','',s));row.append(label,...values.map(v=>node('span','',String(v))));root.append(row);}
     const summary=$('studio-rules-summary');if(summary)summary.textContent=`Multiplier base: ${next.rules.base_multipliers.join(' → ')}. Bonus: ${next.rules.bonus_multipliers.join(' → ')}. Free spins untuk 3 scatter: ${next.rules.free_spins_for_3_scatters}, +${next.rules.extra_free_spins} per scatter tambahan. Batas seluruh ronde: ${next.max_payout_x}×.`;
     for(const[id,value]of Object.entries({'rule-base':next.rules.base_multipliers.map(v=>'x'+v).join(' / '),'rule-bonus':next.rules.bonus_multipliers.map(v=>'x'+v).join(' / '),'rule-free':next.rules.free_spins_for_3_scatters+' FREE SPINS','rule-extra':'+'+next.rules.extra_free_spins+' FREE SPINS','rule-cap':next.max_payout_x+'x BET'})){if($(id))$(id).textContent=value;}
-    mult(false);''')
+    mult(false);void syncLiveAudio();''')
     text=replace(text,'fetch(path,{signal:',"fetch(path.startsWith('/api/')?apiBase+path.slice(4):path,{signal:")
     text=text.replace('disabled=busy||auto>0',"disabled=busy||auto>0||state?.ticket?.status==='pending'")
     text=replace(text,"$('auto-btn').disabled=busy&&!auto;", "$('auto-btn').disabled=(busy&&!auto)||state?.ticket?.status==='pending';")
@@ -92,7 +124,11 @@ def build():
     lines=text.splitlines()
     startup=next(i for i,line in enumerate(lines) if "Promise.all([req('/api/state')" in line)
     lines[startup]="  req('/api/state').then(async next=>{await refresh(next);mult(false);window.MahjongReels.prewarm($('board'));notice(next.migration_notice?'SESI BARU · CEK INFO':'SIAP BERMAIN');}).catch(e=>{notice('KONEKSI GAGAL. MUAT ULANG.');$('spin-btn').disabled=true;console.error(e.message);});"
-    (OUT/'game.js').write_text('\n'.join(lines)+'\n')
+    lines.append("  setInterval(()=>{if(!document.hidden)void syncLiveAudio();},12000);")
+    lines.append("  document.addEventListener('visibilitychange',()=>{if(!document.hidden)void syncLiveAudio();});")
+    lines.append("  window.addEventListener('pageshow',()=>{void syncLiveAudio();});")
+    lines.append("  window.addEventListener('focus',()=>{if(!document.hidden)void syncLiveAudio();});")
+    (OUT/'game.js').write_text('\\n'.join(lines)+'\\n')
     html=(ROOT/'web/index.html').read_text().replace('/assets/portrait-v085/game.js','/assets/studio-v090/game.js').replace('/assets/locked-v08/audio.js','/assets/studio-v090/audio.js').replace('?v=087','?v=098').replace('0.8.7','0.9.2')
     # Only mutate the FINAL compiled game HTML; responsive builder verifies
     # that the locked upstream source remains byte-identical until this stage.
