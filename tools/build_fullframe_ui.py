@@ -2,7 +2,10 @@
 from pathlib import Path
 import hashlib,json
 from PIL import Image, ImageChops, ImageDraw, ImageFilter, ImageOps
-from tools.build_mobile_ornaments import build_mobile_ornaments
+if __package__:
+    from tools.build_mobile_ornaments import build_mobile_ornaments
+else:
+    from build_mobile_ornaments import build_mobile_ornaments
 ROOT=Path(__file__).resolve().parents[1]
 OUT=ROOT/'web/assets/fullframe-v086'
 
