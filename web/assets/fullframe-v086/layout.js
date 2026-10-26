@@ -4,6 +4,18 @@
   const stage = document.getElementById('game-stage');
   if (!stage) return;
   const root = document.documentElement;
+  // Six independent image layers, no baked UI or stretched side cabinet.
+  const sideArt = stage.querySelector('.fullframe-art .art-board');
+  if (sideArt && !sideArt.querySelector('.mobile-ornament')) {
+    for (const part of ['dragon','cloud','lantern']) {
+      for (const side of ['left','right']) {
+        const layer = document.createElement('span');
+        layer.className = `mobile-ornament mobile-ornament--${part} mobile-ornament--${part}-${side}`;
+        layer.setAttribute('aria-hidden','true');
+        sideArt.appendChild(layer);
+      }
+    }
+  }
   const standaloneMedia = matchMedia('(display-mode: standalone)');
   let pending = 0, warmTimer = 0, previous = '', lastBoardWidth = null;
   const px = value => `${Math.max(0, value).toFixed(6)}px`;
@@ -114,6 +126,32 @@
     put('tail-height',(938-525)*boardHeight/938*tailZoom);
     put('tail-overlap',tailOverlap);
     put('tile-width',tileWidth);
+    // Mobile-first ornament geometry. Every source pixel receives exactly
+    // one scale factor for X and Y. A 12px decorative bleed at most is
+    // permitted outside the stage; no tiles or UI controls change size.
+    const leftGutter = center-boardWidth/2;
+    const rightGutter = sceneWidth-center-boardWidth/2;
+    const shorterGutter = Math.max(0,Math.min(
+      leftGutter-safeLeft,rightGutter-(portrait?safeRight:0)));
+    const bleed = 12;
+    const fitScale = desiredZoom => Math.min(
+      boardHeight/938*desiredZoom,(shorterGutter+bleed)/118);
+    const lanternScale = fitScale(1.80);
+    const dragonScale = fitScale(1.55);
+    const cloudScale = fitScale(1.85);
+    put('board-right-gutter',rightGutter);
+    put('mobile-lantern-left-width',118*lanternScale);
+    put('mobile-lantern-right-width',117*lanternScale);
+    put('mobile-lantern-height',240*lanternScale);
+    put('mobile-lantern-top-offset',Math.min(7,boardHeight*.018));
+    put('mobile-dragon-left-width',118*dragonScale);
+    put('mobile-dragon-right-width',117*dragonScale);
+    put('mobile-dragon-height',505*dragonScale);
+    put('mobile-dragon-top-offset',boardHeight*.155);
+    put('mobile-cloud-left-width',118*cloudScale);
+    put('mobile-cloud-right-width',117*cloudScale);
+    put('mobile-cloud-height',338*cloudScale);
+    put('mobile-ornament-overlap',Math.min(tileWidth*.08,tileWidth*.10));
     put('footer-top',footerTop);put('hud-height',hud);
     // A 66px HUD has two non-overlapping lanes: 30px notice + 32px meters.
     // Preserve the tighter 58px fallback in short/safe-area viewports.
