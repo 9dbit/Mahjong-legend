@@ -108,8 +108,10 @@
     put('wing-left',portrait?Math.max(0,center-boardWidth/2-leftDragon):0);
     put('wing-right',portrait?Math.max(0,sceneWidth-center-boardWidth/2-rightDragon):0);
     put('footer-top',footerTop);put('hud-height',hud);
-    put('notice-height',compactHud?22:38);put('meter-offset',compactHud?24:40);
-    put('meter-height',compactHud?32:34);put('meter-padding',compactHud?2:4);
+    // A 66px HUD has two non-overlapping lanes: 30px notice + 32px meters.
+    // Preserve the tighter 58px fallback in short/safe-area viewports.
+    put('notice-height',compactHud?22:30);put('meter-offset',compactHud?24:32);
+    put('meter-height',32);put('meter-padding',2);
     put('panel-left',panelLeft);put('panel-width',panelWidth);
     put('footer-art-top',portrait?footerTop:0);put('footer-art-height',portrait?h-footerTop:h);
     put('controls-top',footerTop+hud);put('controls-height',controlHeight);
