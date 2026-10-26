@@ -726,7 +726,7 @@ export default function AudioStudio({
                 </div>
                 <button
                   className="button primary full"
-                  aria-label={selected.is_baseline ? "Import baseline audio for editing" : "Render audio derivative"}
+                  aria-label={selected.is_baseline ? "Import untuk editing" : "Render derivative"}
                   disabled={!canEdit || selected.status !== "ready" || isBusy}
                   title={!canEdit ? "Role ini tidak memiliki izin edit" :
                     selected.status !== "ready" ? "Proses ingest audio sampai Ready" :
