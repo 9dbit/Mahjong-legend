@@ -25,7 +25,7 @@ from PIL import Image
 from . import game
 from .domain import baseline_config
 from .management.commands.studio_backup import (BackupError, FIXTURE_NAME, backup_models,
-                                                 create_backup, verify_backup)
+                                                 create_backup, verification_receipt, verify_backup)
 from .management.commands.studio_restore import restore_backup
 from .media import render_tile
 from .models import (Asset, AuditEvent, AuthThrottle, Draft, Job, LedgerEntry,
@@ -251,3 +251,76 @@ class StudioBackupTests(TransactionTestCase):
         self.assertNotIn(self.admin_session_key, output.getvalue())
         with self.assertRaises(CommandError):
             call_command("studio_restore", str(self.archive), stdout=StringIO())
+
+    def test_private_receipt_identifies_exact_archive_without_database_queries_or_secrets(self):
+        manifest = self.fixture()
+        receipt_path = self.root / "verified.json"
+        output = StringIO()
+        with self.assertNumQueries(0):
+            call_command("studio_backup", verify=str(self.archive), receipt=str(receipt_path), stdout=output)
+        receipt = json.loads(receipt_path.read_text())
+        self.assertEqual(receipt, json.loads(output.getvalue()))
+        self.assertEqual(receipt["format"], "mahjong-studio-backup-receipt/1")
+        self.assertTrue(receipt["verified"])
+        self.assertEqual(receipt["archive_sha256"], sha256(self.archive.read_bytes()).hexdigest())
+        self.assertEqual(receipt["archive_bytes"], self.archive.stat().st_size)
+        self.assertEqual(receipt["records"], sum(manifest["counts"].values()))
+        self.assertEqual(receipt["objects"], len(manifest["objects"]))
+        for key in ("engine_sha256", "schema_sha256"):
+            self.assertEqual(receipt[key], manifest[key])
+        self.assertEqual(receipt["fixture_sha256"], manifest["fixture"]["sha256"])
+        self.assertEqual(receipt["backup_created_at"], manifest["created_at"])
+        self.assertLessEqual(timezone.datetime.fromisoformat(receipt["verified_at"]), timezone.now())
+        self.assertEqual(stat.S_IMODE(receipt_path.stat().st_mode), 0o600)
+        for secret in (self.next_seed, self.user.password, self.admin_session_key, self.user.username,
+                       str(self.archive), self.assets[0].object_key):
+            self.assertNotIn(secret, output.getvalue())
+
+    def test_receipt_refuses_existing_files_and_symlinks_without_overwriting(self):
+        self.fixture()
+        original_archive = self.archive.read_bytes()
+        existing = self.root / "existing.json"
+        existing.write_text("keep original")
+        link = self.root / "linked.json"
+        link.symlink_to(existing)
+        dangling = self.root / "dangling.json"
+        dangling.symlink_to(self.root / "missing.json")
+        for target in (existing, link, dangling, self.archive):
+            with self.subTest(target=target.name), self.assertRaisesRegex(CommandError, "already exists"):
+                call_command("studio_backup", verify=str(self.archive), receipt=str(target), stdout=StringIO())
+        self.assertEqual(existing.read_text(), "keep original")
+        self.assertEqual(self.archive.read_bytes(), original_archive)
+        self.assertTrue(link.is_symlink())
+        self.assertTrue(dangling.is_symlink())
+        self.assertFalse(list(self.root.glob(".studio-receipt-*")))
+
+    def test_failed_verification_never_creates_receipt(self):
+        self.fixture()
+        key = self.assets[0].object_key
+        def corrupt(members):
+            info, data = members[key]
+            members[key] = info, bytes([data[0] ^ 1]) + data[1:]
+        archive = self.rewrite(change=corrupt)
+        receipt = self.root / "failed.json"
+        with self.assertRaisesRegex(CommandError, "SHA-256"):
+            call_command("studio_backup", verify=str(archive), receipt=str(receipt), stdout=StringIO())
+        self.assertFalse(receipt.exists())
+
+    def test_receipt_requires_explicit_verification(self):
+        output, receipt = self.root / "new.zip", self.root / "invalid.json"
+        with self.assertRaisesRegex(CommandError, "requires --verify"):
+            call_command("studio_backup", str(output), receipt=str(receipt), stdout=StringIO())
+        self.assertFalse(output.exists())
+        self.assertFalse(receipt.exists())
+
+    def test_archive_changed_during_verification_never_gets_a_receipt(self):
+        self.fixture()
+        from .management.commands.studio_backup import verify_open_archive
+        def changed(archive):
+            manifest = verify_open_archive(archive)
+            with self.archive.open("ab") as output:
+                output.write(b"changed during verification")
+            return manifest
+        with patch("game_studio.management.commands.studio_backup.verify_open_archive", side_effect=changed):
+            with self.assertRaisesRegex(BackupError, "changed during verification"):
+                verification_receipt(self.archive)
