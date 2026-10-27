@@ -1,7 +1,9 @@
 """Approved mobile jade cloud must remain transparent, symmetric and unwarped."""
 from pathlib import Path
 import unittest
+import hashlib
 import xml.etree.ElementTree as ET
+from PIL import Image
 
 ROOT=Path(__file__).resolve().parents[1]
 ART=ROOT/'web/assets/ornaments'
@@ -19,7 +21,14 @@ class JadeCloudPresentation(unittest.TestCase):
         self.assertEqual(closing.attrib['viewBox'],'0 0 120 180')
         css=CSS.read_text()
         geometry=JS.read_text()
-        self.assertIn("approved-cloud-v097.svg",css)
+        self.assertIn("approved-cloud-cutout-v097.webp",css)
+        image=ART/'approved-cloud-cutout-v097.webp'
+        self.assertEqual(hashlib.sha256(image.read_bytes()).hexdigest(),
+                         '87f3099d9593d53ae62fffb710b060c745c3044df1a6c4d7b856245caa4dcd2b')
+        with Image.open(image) as cutout:
+            self.assertEqual(cutout.size,(128,274))
+            self.assertEqual(cutout.mode,'RGBA')
+            self.assertEqual(cutout.getchannel('A').getextrema(),(0,255))
         self.assertIn("reel-endcap-v097.svg",css)
         self.assertIn("background-size:contain",css)
         self.assertIn("transform:scaleX(-1)",css)
