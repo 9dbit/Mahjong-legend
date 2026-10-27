@@ -11,6 +11,24 @@ python manage.py studio_backup /private-backups/mahjong-2026-10-25.zip
 python manage.py studio_backup --verify /private-backups/mahjong-2026-10-25.zip
 ```
 
+To retain machine-readable verification evidence, choose a fresh private receipt filename:
+
+```bash
+python manage.py studio_backup --verify /private-backups/mahjong-2026-10-25.zip --receipt /private-backups/mahjong-2026-10-25.verified.json
+```
+
+The optional receipt records the SHA-256 and byte length of the complete verified archive,
+verification/backup timestamps, record/object counts, and archived engine/schema/fixture hashes.
+Verification and hashing use the same open file and reject changes detected during the check.
+The JSON receipt is written atomically with mode `0600`, never overwrites an existing file or
+symlink, and is produced only after verification succeeds. Verification does not query or modify
+the live database. Existing command output remains unchanged unless `--receipt` is supplied.
+
+A receipt proves archive integrity at verification time. It does not prove an offsite copy,
+retention schedule, a successful restore, physical-device acceptance, or the exact source commit
+that created the backup. Keep the matching deployment image/commit and private storage/restore
+receipts separately. Neither the archive nor its receipt is an authenticated signature.
+
 The final ZIP and temporary fixtures have mode `0600`; temporary directories have mode `0700`. The command creates the final file atomically without replacing an existing file. A missing or corrupt stored object causes the backup to fail rather than produce a partial successful archive. Output contains only verification status, record/object counts and the engine hash.
 
 The archive contains:
