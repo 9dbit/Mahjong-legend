@@ -144,9 +144,9 @@ def assert_mobile_ornaments(page):
         assert kind and side and (kind,side) not in seen, asset
         seen.add((kind,side))
         dimensions={'lantern':240,'dragon':505,'cloud':410}
-        natural=(192 if kind=='cloud' else (118 if side=='left' else 117),dimensions[kind])
+        natural=((128,274) if kind=='cloud' else (118 if side=='left' else 117,dimensions[kind]))
         assert asset['decoded'] and tuple(asset['natural'])==natural, asset
-        path=('/assets/ornaments/approved-cloud-v097.svg'
+        path=('/assets/ornaments/approved-cloud-cutout-v097.webp'
               if kind=='cloud' else '/assets/fullframe-v086/mobile-'+kind+'-'+side+'.webp')
         assert path in asset['url'],asset
         if kind=='cloud' and data['mode']=='portrait':
