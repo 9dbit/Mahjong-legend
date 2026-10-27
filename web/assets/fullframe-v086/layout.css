@@ -310,7 +310,7 @@ html.desktop-layout body{
    counterpart is a true mirror, not a distorted second raster. */
 .game-stage .fullframe-art .art-board > .mobile-ornament--cloud-left,
 .game-stage .fullframe-art .art-board > .mobile-ornament--cloud-right {
-  background-image:url('/assets/ornaments/approved-cloud-v097.svg');
+  background-image:url('/assets/ornaments/approved-cloud-cutout-v097.webp');
   background-size:contain;
   background-position:center bottom;
   background-repeat:no-repeat;
