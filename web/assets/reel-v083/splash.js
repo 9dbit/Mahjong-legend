@@ -11,6 +11,8 @@
   if (!splash || !button || !progress || !status) return;
   let released = false;
   let artReady = false;
+  let musicWaitStarted = null;
+  const MUSIC_TIMEOUT_MS = 10000;
   const logo = splash.querySelector('.soft-tech-logo-image');
   const fallback = splash.querySelector('.soft-tech-logo-fallback');
   if (logo) { const updateLogo = () => { const ok = logo.complete && logo.naturalWidth > 0; fallback.hidden = ok; logo.hidden = !ok; }; logo.addEventListener('load', updateLogo); logo.addEventListener('error', updateLogo); if (logo.complete) updateLogo(); }
@@ -27,17 +29,34 @@
     const failed = notice?.textContent?.includes('KONEKSI GAGAL');
     const waited = performance.now() - started > (reduced ? 450 : 1200);
     artReady = !!ready;
-    if (ready && waited) {
-      splash.classList.add('is-ready');
-      show(100, 'SIAP BERMAIN');
-      button.disabled = false;
-    } else if (failed) {
+    const runtime = window.MahjongStudioRuntime;
+    const audioState = window.MahjongWildAudio?.state;
+    // On a live Studio game, Continue must not beat the *published* audio
+    // release or its decoded first buffer. Otherwise there is a multi-second
+    // silence while the file downloads after the trusted gesture.
+    const latestAudio = !runtime || !!runtime.liveAudioRelease;
+    // Locked legacy/standalone game builds have no Studio audio-preload API.
+    const decoded = !runtime || !audioState || audioState.musicPrepared === true;
+    const musicReady = latestAudio && decoded;
+    const musicFailed = !!runtime?.liveAudioError || !!audioState?.musicWarmupFailed;
+    // Count the fallback window from GAME readiness, not page navigation.
+    // A slow state/asset request must not make Continue prematurely audible-less.
+    if (ready && waited && musicWaitStarted === null) musicWaitStarted = performance.now();
+    const musicTimedOut = musicWaitStarted !== null &&
+      performance.now() - musicWaitStarted > MUSIC_TIMEOUT_MS;
+    if (failed) {
       show(30, 'KONEKSI TERPUTUS. MUAT ULANG UNTUK MENCOBA LAGI.');
       button.disabled = true;
+    } else if (ready && waited && (musicReady || musicFailed || musicTimedOut)) {
+      splash.classList.add('is-ready');
+      show(100, musicReady ? (audioState?.musicExpected ? 'SIAP BERMAIN · MUSIK SIAP' : 'SIAP BERMAIN') :
+        'MUSIK BELUM TERSEDIA · GAME TETAP BISA DIMAINKAN');
+      button.disabled = false;
     } else {
-      show(waited ? 80 : Math.round(20 + (performance.now() - started) / 22),
-        'MENYIAPKAN GAME SYSTEM');
-      setTimeout(check, 120);
+      show(ready && waited ? 92 : waited ? 80 :
+        Math.round(20 + (performance.now() - started) / 22),
+        ready && waited ? 'MENYIAPKAN MUSIK GAME' : 'MENYIAPKAN GAME SYSTEM');
+      setTimeout(check, 100);
     }
   }
   button.addEventListener('click', () => {

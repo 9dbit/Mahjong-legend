@@ -21,15 +21,19 @@ def build():
     text=replace(text,"  const tileAssets='/assets/portrait-v085/';", """  const tileAssets='/assets/portrait-v085/';
   const apiBase=document.querySelector('meta[name="studio-api-base"]')?.content||'/api';
   let activeManifest=null;
-  let liveAudioSha=null,liveAudioTask=null,liveAudioError=null;
+  let liveAudioSha=null,liveAudioRelease=null,liveAudioTask=null,liveAudioError=null;
   // Audio follows the active published release; spin tiles and payouts remain
   // bound to the immutable ticket release. This request is read-only.
   async function syncLiveAudio(){
     if(liveAudioTask)return liveAudioTask;
     const task=(async()=>{
+      const controller=new AbortController();
+      // A broken /audio-live connection must not stall game initialization.
+      const deadline=setTimeout(()=>controller.abort(),4500);
       try{
         const res=await fetch(apiBase+'/audio-live',{method:'GET',
-          credentials:'same-origin',cache:'no-store',headers:{'Accept':'application/json'}});
+          credentials:'same-origin',cache:'no-store',signal:controller.signal,
+          headers:{'Accept':'application/json'}});
         if(!res.ok)throw Error('Live audio '+res.status);
         const data=await res.json();
         if(!data?.release_sha256||!data.audio?.music)throw Error('Invalid live audio release');
@@ -37,6 +41,7 @@ def build():
           await audio()?.configure?.(data.audio);
           liveAudioSha=data.release_sha256;
         }
+        liveAudioRelease=data.release_id;
         liveAudioError=null;
         if(window.MahjongStudioRuntime){
           window.MahjongStudioRuntime.liveAudioRelease=data.release_id;
@@ -47,7 +52,7 @@ def build():
         liveAudioError=String(error?.message||error);
         if(window.MahjongStudioRuntime)window.MahjongStudioRuntime.liveAudioError=liveAudioError;
         return false; // Never block a spin or modify ticket state for sound.
-      }
+      }finally{clearTimeout(deadline);}
     })();
     liveAudioTask=task;
     try{return await task;}finally{if(liveAudioTask===task)liveAudioTask=null;}
@@ -59,11 +64,17 @@ def build():
   function savePending(value){pendingSpin=value;try{value?sessionStorage.setItem(pendingKey,JSON.stringify(value)):sessionStorage.removeItem(pendingKey);}catch{}}
   async function applyManifest(next){
     const m=next?.manifest;if(!m||m.release_sha256===activeManifest?.release_sha256)return;
+    // Fetch the published soundtrack in PARALLEL with preparing the tiles.
+    // Do not defer this request until the splash is already dismissible.
+    const firstManifest=!activeManifest;
+    const initialAudioSync=firstManifest?syncLiveAudio():Promise.resolve(!!liveAudioSha);
     await window.MahjongReels.prepare(Object.values(m.tiles).flatMap(x=>[x.normal,x.gold]));
     const board=[...$('board').children].map(col=>[...col.children].filter(e=>e._tile).map(e=>e._tile));
     activeManifest=m;
-    // Do not roll music backward when a 24h ticket still pins old gameplay.
-    if(!liveAudioSha)await audio()?.configure?.(m.audio);
+    // The old spin ticket may pin old music for 24 hours. Fall back to its
+    // soundtrack ONLY if the live-audio endpoint was unreachable.
+    const activeAudioFound=await initialAudioSync;
+    if(firstManifest&&!activeAudioFound&&!liveAudioSha)await audio()?.configure?.(m.audio);
     const scene=m.scene||{};
     const bg=scene.background?`url("${scene.background}")`:'';
     $('game-stage').style.backgroundImage=bg;document.documentElement.style.backgroundImage=bg;
@@ -73,7 +84,7 @@ def build():
     scene.footer?$('game-stage').style.setProperty('--ff-console-art',`url("${scene.footer}")`):$('game-stage').style.removeProperty('--ff-console-art');
     if(board.length===5&&board.every(c=>c.length)){ $('board').replaceChildren();render(board); }
     const autoRoot=document.querySelector('.auto-options');if(autoRoot){autoRoot.replaceChildren(...m.bet.auto_counts.map(n=>{const b=node('button','',String(n));b.type='button';b.dataset.autospins=String(n);return b;}));}
-    window.MahjongStudioRuntime={...window.MahjongStudioRuntime,release:m.release_id,manifest:m,preview:apiBase!=='/api',liveAudioError};
+    window.MahjongStudioRuntime={...window.MahjongStudioRuntime,release:m.release_id,manifest:m,preview:apiBase!=='/api',liveAudioRelease,liveAudioError};
   }""")
     text=replace(text,'Math.round(ms*(turbo?.38:1))','Math.round(ms*(turbo?.38:1)/(activeManifest?.presentation.animation_speed||1))')
     text=replace(text,"`${tileAssets}tiles/${data.symbol}-${data.enhanced?'gold':'normal'}.webp`",'tileUrl(data)')
@@ -134,6 +145,12 @@ def build():
     ]
     (OUT/'game.js').write_text('\n'.join(lines)+'\n')
     html=(ROOT/'web/index.html').read_text().replace('/assets/portrait-v085/game.js','/assets/studio-v090/game.js').replace('/assets/locked-v08/audio.js','/assets/studio-v090/audio.js').replace('?v=087','?v=098').replace('0.8.7','0.9.2')
+    # Explicitly rev both audio and splash script URLs for installed iPhone
+    # PWAs. The underlying source remains immutable until this final compiler.
+    html=html.replace('/assets/studio-v090/audio.js?v=082',
+        '/assets/studio-v090/audio.js?v=099')
+    html=html.replace('/assets/reel-v083/splash.js?v=084',
+        '/assets/reel-v083/splash.js?v=099')
     # Only mutate the FINAL compiled game HTML; responsive builder verifies
     # that the locked upstream source remains byte-identical until this stage.
     source_touch='<link rel="apple-touch-icon" href="/assets/approved-v082/icon-180.png">'
@@ -155,7 +172,7 @@ def build():
     sw=ROOT/'web/sw.js'
     worker=sw.read_text()
     worker,changed=re.subn(r"const CACHE='mahjong-wild-presentation-[0-9]+'",
-        "const CACHE='mahjong-wild-presentation-098'",worker)
+        "const CACHE='mahjong-wild-presentation-099'",worker)
     if changed!=1: raise ValueError("PWA cache version anchor missing")
     if "url.pathname.startsWith('/studio')" not in worker:
         worker=worker.replace("url.pathname.startsWith('/api/')","(url.pathname.startsWith('/api/')||url.pathname.startsWith('/studio')||url.pathname.startsWith('/media/'))")

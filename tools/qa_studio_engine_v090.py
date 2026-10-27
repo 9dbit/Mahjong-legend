@@ -56,7 +56,33 @@ def main():
                 context=browser.new_context(viewport={'width':390,'height':690},reduced_motion='reduce')
                 page=context.new_page();page.on('pageerror',lambda e:report['errors'].append(str(e)))
                 page.goto(base,wait_until='networkidle')
-                expect(page.locator('#soft-tech-continue')).to_be_enabled(timeout=30000);page.locator('#soft-tech-continue').click()
+                expect(page.locator('#soft-tech-continue')).to_be_enabled(timeout=30000)
+                # Published audio MUST be fully decoded while the splash is
+                # visible, with no autoplay before the trusted Continue click.
+                prepared=page.evaluate('''() => ({
+                  audio:MahjongWildAudio.state,
+                  live:MahjongStudioRuntime?.liveAudioRelease,
+                  status:document.querySelector('#soft-tech-status').textContent,
+                })''')
+                assert prepared['live']==str(baseline.id),prepared
+                assert prepared['audio']['musicPrepared'],prepared
+                assert not prepared['audio']['unlocked'] and not prepared['audio']['musicPlaying'],prepared
+                assert 'MUSIK SIAP' in prepared['status'],prepared
+                page.evaluate('''() => document.querySelector('#soft-tech-continue')
+                  .addEventListener('pointerdown',()=>{window.__continueAt=performance.now();},
+                    {capture:true,once:true})''')
+                page.locator('#soft-tech-continue').click()
+                page.wait_for_function('() => window.MahjongWildAudio.state.musicPlaying',timeout=2500)
+                startup=page.evaluate('''() => ({
+                  started:MahjongWildAudio.state.musicStartedAt,
+                  clicked:window.__continueAt,
+                  musicAsset:MahjongWildAudio.state.musicAsset,
+                  playing:MahjongWildAudio.state.musicPlaying,
+                })''')
+                assert startup['playing'] and startup['started'] is not None,startup
+                assert startup['clicked'] is not None,startup
+                startup_delay=startup['started']-startup['clicked']
+                assert 0<=startup_delay<950,('Continue music start must be sub-second',startup,startup_delay)
                 expect(page.locator('#soft-tech-splash')).to_be_hidden()
                 page.wait_for_function('window.MahjongStudioRuntime?.manifest')
                 original=context.request.get(base+'/api/state').json()
@@ -119,7 +145,9 @@ def main():
                 assert_layout(page,390,844,59,34)
                 assert not report['errors'],report['errors']
                 report.update(result='PASS',ticket_pinning=True,offered_decimal_strings=True,idempotent_retry=True,
-                    rollback=True,replay=True,persistent_cookie_balance=True,accepted_rounds=3,ledger_rounds=db(lambda:LedgerEntry.objects.filter(kind='round').count()))
+                    rollback=True,replay=True,persistent_cookie_balance=True,accepted_rounds=3,
+                    music_predecoded_before_continue=True,music_start_delay_ms=round(startup_delay,2),
+                    ledger_rounds=db(lambda:LedgerEntry.objects.filter(kind='round').count()))
                 browser.close()
         finally:
             server.shutdown();server.server_close()
