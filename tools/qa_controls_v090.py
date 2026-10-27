@@ -87,6 +87,7 @@ def assert_mobile_ornaments(page):
         return {kind:e.className, left:box.left, right:box.right, top:box.top,
           width:box.width, height:box.height,display:css.display,
           pointerEvents:css.pointerEvents, fit:css.backgroundSize,
+          transform:css.transform,
           url:img.src, natural:[img.naturalWidth,img.naturalHeight],
           decoded:img.complete&&img.naturalWidth>0};
       }));
@@ -100,6 +101,18 @@ def assert_mobile_ornaments(page):
         oldTailDisplays:['::before','::after'].map(p=>getComputedStyle(reel,p).display),
         goldLine:parseFloat(getComputedStyle(reel.querySelector('.board-frame')).outlineWidth),
         sprites,
+        shortReels:[...document.querySelectorAll('#board > .reel.short')].map(e=>{
+          const first=e.querySelector('.tile'), fr=first.getBoundingClientRect();
+          const board=document.querySelector('#board').getBoundingClientRect();
+          const before=getComputedStyle(e,'::before'),after=getComputedStyle(e,'::after');
+          return {top:fr.top-board.top,count:e.querySelectorAll('.tile').length,
+            beforeDisplay:before.display,afterDisplay:after.display,
+            afterImage:after.backgroundImage,
+            afterTop:parseFloat(after.top),afterHeight:parseFloat(after.height),
+            reelHeight:e.getBoundingClientRect().height,
+            boardHeight:board.height,
+            scoredTileCount:[...e.querySelectorAll('.tile')].filter(x=>!!x._tile).length};
+        }),
         caps:['::before','::after'].map(p=>{
           const css=getComputedStyle(banner,p);
           return {w:parseFloat(css.width),h:parseFloat(css.height),
@@ -130,10 +143,17 @@ def assert_mobile_ornaments(page):
                    if asset['kind'].endswith('-'+x)),None)
         assert kind and side and (kind,side) not in seen, asset
         seen.add((kind,side))
-        dimensions={'lantern':240,'dragon':505,'cloud':338}
-        natural=(118 if side=='left' else 117,dimensions[kind])
+        dimensions={'lantern':240,'dragon':505,'cloud':410}
+        natural=((128,274) if kind=='cloud' else (118 if side=='left' else 117,dimensions[kind]))
         assert asset['decoded'] and tuple(asset['natural'])==natural, asset
-        assert '/assets/fullframe-v086/mobile-'+kind+'-'+side+'.webp' in asset['url'],asset
+        path=('/assets/ornaments/approved-cloud-cutout-v097.webp'
+              if kind=='cloud' else '/assets/fullframe-v086/mobile-'+kind+'-'+side+'.webp')
+        assert path in asset['url'],asset
+        if kind=='cloud' and data['mode']=='portrait':
+            if side=='right':
+                assert asset['transform'].startswith('matrix(-1,'),asset
+            else:
+                assert asset['transform']=='none',asset
         assert asset['pointerEvents']=='none' and asset['fit']=='contain',asset
         # Hidden assets have no layout box in landscape; only portrait paints them.
         if data['mode']!='portrait':
@@ -150,6 +170,18 @@ def assert_mobile_ornaments(page):
             else:
                 assert abs(data['board']['right']-asset['left']-overlap)<.5,asset
     assert len(seen)==6,data
+    # Both four-tile reels must start flush with the TOP of the first visible
+    # row, not a motionless tile-shaped :before. The fifth slot is sealed by
+    # a non-scoring ornament that begins after the last actual tile.
+    assert len(data['shortReels'])==2,data
+    for reel in data['shortReels']:
+        assert reel['count']==reel['scoredTileCount']==4,reel
+        assert abs(reel['top'])<=2.2,reel
+        assert reel['beforeDisplay']=='none',reel
+        assert reel['afterDisplay']!='none',reel
+        assert 'reel-endcap-v097.svg' in reel['afterImage'],reel
+        assert 0<=reel['afterTop']-reel['reelHeight']<=4.5,reel
+        assert reel['afterHeight']>reel['boardHeight']*.15,reel
     return data
 
 

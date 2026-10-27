@@ -263,7 +263,7 @@ def build(runtime_only=False):
             Image.composite(right_edge,ImageOps.mirror(cloud),ImageOps.mirror(mask)).save(OUT/f'{stem}-right.webp','WEBP',lossless=True,method=1)
     target=ROOT/'web/index.html';html=target.read_text().replace('?v=086','?v=087')
     html=replace_checked(html,'/assets/locked-v08/audio.js?v=085','/assets/locked-v08/audio.js?v=087','index / audio gain cache key')
-    html=replace_checked(html,'</head>','  <link rel="stylesheet" href="/assets/fullframe-v086/layout.css?v=087">\n  <script src="/assets/fullframe-v086/layout.js?v=087" defer></script>\n</head>','index / fullframe loaders')
+    html=replace_checked(html,'</head>','  <link rel="stylesheet" href="/assets/fullframe-v086/layout.css?v=100">\n  <script src="/assets/fullframe-v086/layout.js?v=100" defer></script>\n</head>','index / fullframe loaders')
     # Compose from approved pixels. Dynamic values remain independent DOM nodes.
     skin='<div class="fullframe-art" aria-hidden="true"><i class="art-crown"><b></b><b></b><b></b></i><i class="art-rail"></i><i class="art-board"><b></b><b></b><b></b></i><i class="art-hud"></i><i class="art-controls"><b></b><b></b><b></b></i></div>'
     if 'class="fullframe-art"' in html and skin not in html:
