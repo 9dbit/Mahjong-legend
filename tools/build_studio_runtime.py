@@ -159,6 +159,23 @@ def build():
     html=html.replace(source_touch,
         '<link rel="apple-touch-icon" sizes="180x180" href="/assets/approved-v082/icon-180.png?v=mahjong-gold-20261026">'
         '\n  <link rel="icon" type="image/png" sizes="192x192" href="/assets/approved-v082/icon-192.png?v=mahjong-gold-20261026">')
+    # Give iOS LinkPresentation a full-size preview, rather than only a favicon.
+    # A new path also avoids persistent Safari touch-icon caches keyed by URL.
+    icon_name='assets/branding/mahjong-wild-fullframe-20261027-512.png'
+    touch_name='assets/branding/mahjong-wild-fullframe-20261027-180.png'
+    for name,size in ((icon_name,512),(touch_name,180)):
+        (ROOT/'web'/name).write_bytes((ROOT/f'web/assets/approved-v082/icon-{size}.png').read_bytes())
+    html=html.replace('/assets/approved-v082/icon-180.png?v=mahjong-gold-20261026', '/'+touch_name)
+    origin='https://mahjong-legend-web-production.up.railway.app'
+    social=(
+        '<meta property="og:title" content="Mahjong Wild">\n'
+        '  <meta property="og:type" content="website">\n'
+        f'  <meta property="og:image" content="{origin}/{icon_name}">\n'
+        '  <meta property="og:image:width" content="512">\n'
+        '  <meta property="og:image:height" content="512">\n'
+        '  <meta property="og:image:alt" content="Mahjong Wild">\n'
+    )
+    html=html.replace('</head>',social+'</head>')
     html=html.replace('<section id="panel-rules"', '<section id="panel-rules"')
     for label,ident in [('BASE MULTIPLIERS','rule-base'),('FREE SPIN MULTIPLIERS','rule-bonus'),('3 SCATTER','rule-free'),('SCATTER TAMBAHAN','rule-extra'),('MAKSIMUM PER PUTARAN','rule-cap')]:
         html=html.replace('<span>'+label+'</span><b>','<span>'+label+'</span><b id="'+ident+'">')
