@@ -308,8 +308,8 @@ html.desktop-layout body{
    The 192x410 rounded/cloud-scroll sculpture is independently sized
    from the source ratio, not stretched to board height. Its right-hand
    counterpart is a true mirror, not a distorted second raster. */
-.game-stage[data-fullframe="portrait"] .fullframe-art .art-board > .mobile-ornament--cloud-left,
-.game-stage[data-fullframe="portrait"] .fullframe-art .art-board > .mobile-ornament--cloud-right {
+.game-stage .fullframe-art .art-board > .mobile-ornament--cloud-left,
+.game-stage .fullframe-art .art-board > .mobile-ornament--cloud-right {
   background-image:url('/assets/ornaments/approved-cloud-v097.svg');
   background-size:contain;
   background-position:center bottom;
@@ -317,7 +317,7 @@ html.desktop-layout body{
   transform-origin:center;
   opacity:1;
 }
-.game-stage[data-fullframe="portrait"] .fullframe-art .art-board > .mobile-ornament--cloud-right {
+.game-stage .fullframe-art .art-board > .mobile-ornament--cloud-right {
   transform:scaleX(-1);
 }
 
