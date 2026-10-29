@@ -24,7 +24,7 @@ def build():
        'async function run({root, board, buildReel, urlFor, filler, visualFiller, shouldSkip, onStop, turbo})')
     reel_text=replace(reel_text, '''    const sequences = board.map((col, i) => {
       const earlier = prior[i]?.length === col.length ? prior[i] : col;
-      const interim = Array.from({length: turbo ? 6 : 8}, (_, j) => filler(i, j));
+      const interim = Array.from({length: turbo ? 3 : 4}, (_, j) => filler(i, j));
       return {col, all: [...col, ...interim, ...earlier], steps: col.length + interim.length};
     });''', '''    // Extra full-size corner tile visuals scroll in the GPU atlas only.
     const stage = root.closest('.game-stage');
@@ -36,7 +36,7 @@ def build():
     const sequences = board.map((col, i) => {
       const earlier = prior[i]?.length === col.length ? prior[i] : col;
       const visual = onScreen(col, i), oldVisual = onScreen(earlier, i);
-      const interim = Array.from({length: turbo ? 6 : 8}, (_, j) => filler(i, j));
+      const interim = Array.from({length: turbo ? 3 : 4}, (_, j) => filler(i, j));
       return {col, visibleCount:visual.length, all: [...visual, ...interim, ...oldVisual],
         steps: visual.length + interim.length};
     });''')
