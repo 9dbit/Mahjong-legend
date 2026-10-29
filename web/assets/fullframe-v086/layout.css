@@ -395,3 +395,72 @@ html.desktop-layout body{
   height:var(--ff-mobile-cloud-height);
   background-image:url('/assets/fullframe-v086/mobile-cloud-right.webp');
 }
+
+
+/* Mahjong Wild MASTER V105: source-faithful responsive composition.
+   Original logo/dragons/controls remain in the existing approved source.
+   Do not bake scored symbols, wallet values, buttons or page chrome in raster. */
+.game-stage[data-master-art^="v105"] .fullframe-art .art-crown{
+  background-position:center top!important;
+  background-repeat:no-repeat;
+  background-size:var(--ff-crown-width) calc(var(--ff-crown-unit)*1859)!important;
+}
+.game-stage[data-master-art^="v105"] .reel-theatre > .jade-cloud-foreground{
+  z-index:19;
+  filter:drop-shadow(0 5px 7px #4a0318d9)
+         drop-shadow(0 1px 4px #200006bb)!important;
+}
+.game-stage[data-master-art^="v105"] .reel-theatre > .jade-top-corner{
+  display:none;position:absolute;top:-1.5%;
+  z-index:20;pointer-events:none;user-select:none;
+  width:calc(var(--ff-tile-width)*1.25);
+  height:calc(var(--ff-tile-width)*.88);
+  background-repeat:no-repeat;background-position:top center;
+  background-size:contain;
+  filter:drop-shadow(0 2px 4px #460714c9);
+}
+.game-stage[data-master-art^="v105"]:is([data-fullframe="portrait"],[data-fullframe="desktop"]) .reel-theatre > .jade-top-corner{display:block}
+.game-stage[data-master-art^="v105"] .reel-theatre > .jade-top-corner--left{
+  left:calc(var(--ff-tile-width)*-.28);
+  background-image:url('/assets/ornaments/jade-corner-v105.svg');
+}
+.game-stage[data-master-art^="v105"] .reel-theatre > .jade-top-corner--right{
+  right:calc(var(--ff-tile-width)*-.28);
+  background-image:url('/assets/ornaments/jade-corner-v105.svg');
+  transform:scaleX(-1);
+}
+/* User-supplied approved raster derivatives are the highest-fidelity layer
+   whenever the locked master asset pack is installed. In fallback mode the
+   existing verified source artwork remains visible with new v105 geometry. */
+.game-stage .reel-theatre > .approved-master-side{
+  display:none;position:absolute;top:0;height:100%;z-index:21;
+  pointer-events:none;user-select:none;
+  background-repeat:no-repeat;background-size:100% 100%;
+  filter:drop-shadow(0 2px 3px #4f0712af);
+  width:calc(var(--ff-board-width)*260/583);
+}
+.game-stage[data-master-art="v105-locked"] .reel-theatre > .approved-master-side{display:block}
+.game-stage[data-master-art="v105-locked"] .reel-theatre > .approved-master-side--left{
+  left:calc(var(--ff-board-width)*-179/583);
+  background-image:url('/assets/approved-master-v105/side-left-dragon-jade.webp');
+}
+.game-stage[data-master-art="v105-locked"] .reel-theatre > .approved-master-side--right{
+  right:calc(var(--ff-board-width)*-179/583);
+  background-image:url('/assets/approved-master-v105/side-right-dragon-jade.webp');
+}
+.game-stage[data-master-art="v105-locked"] .fullframe-art .art-crown{
+  background-image:url('/assets/approved-master-v105/header-crown-approved.webp')!important;
+  background-size:100% auto!important;
+  background-position:center top!important;
+}
+.game-stage[data-master-art="v105-locked"] .logo-fx{
+  opacity:0!important; /* Title already exists inside the locked raster */
+}
+.game-stage[data-master-art="v105-locked"] .game-header #menu-btn,
+.game-stage[data-master-art="v105-locked"] .game-header #sound-btn{
+  opacity:.01!important; /* Retain hit areas / events without duplicate icons */
+}
+.game-stage[data-master-art="v105-locked"] .fullframe-art .art-board > .mobile-ornament,
+.game-stage[data-master-art="v105-locked"] .reel-theatre > .jade-cloud-foreground{
+  visibility:hidden!important; /* Layered source art replaces older sprites */
+}

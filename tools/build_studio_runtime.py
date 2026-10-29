@@ -227,20 +227,32 @@ def build():
     html=html.replace('/assets/studio-v090/audio.js?v=082',
         '/assets/studio-v090/audio.js?v=099')
     html=replace(html,'/assets/reel-v083/splash.js?v=098',
-                 '/assets/studio-v090/splash.js?v=104')
+                 '/assets/studio-v090/splash.js?v=105')
+    # Enable the exact approved photo-source layer only after every required
+    # derivative is present; incomplete packs never produce broken images.
+    master_dir=ROOT/'web/assets/approved-master-v105'
+    required=('header-crown-approved.webp','side-left-dragon-jade.webp',
+              'side-right-dragon-jade.webp','top-left-corner-approved.webp',
+              'top-right-corner-approved.webp')
+    locked=all((master_dir/name).is_file() for name in required)
+    master_mode='v105-locked' if locked else 'v105-fallback'
     # The jade is intentionally outside .board-frame, so tile-field masking
     # can never cut the sculpture. These nodes carry no gameplay state.
     html=replace(html,'<main class="game-stage" id="game-stage"',
-                 '<main class="game-stage" id="game-stage" data-corner-reels="masked-v103"')
+                 '<main class="game-stage" id="game-stage" data-corner-reels="masked-v103" data-master-art="'+master_mode+'"')
     html=replace(html,'<div id="effects-layer" class="effects-layer" aria-hidden="true"></div>',
+       '<span class="jade-top-corner jade-top-corner--left" aria-hidden="true"></span>'
+       '<span class="jade-top-corner jade-top-corner--right" aria-hidden="true"></span>'
+       '<span class="approved-master-side approved-master-side--left" aria-hidden="true"></span>'
+       '<span class="approved-master-side approved-master-side--right" aria-hidden="true"></span>'
        '<span class="jade-cloud-foreground jade-cloud-foreground--left" aria-hidden="true"></span>'
        '<span class="jade-cloud-foreground jade-cloud-foreground--right" aria-hidden="true"></span>'
        '<div id="effects-layer" class="effects-layer" aria-hidden="true"></div>')
-    html=replace(html,'/assets/fullframe-v086/layout.css?v=098','/assets/fullframe-v086/layout.css?v=104')
-    html=replace(html,'/assets/fullframe-v086/layout.js?v=098','/assets/fullframe-v086/layout.js?v=104')
-    html=replace(html,'/assets/portrait-v085/reels.js?v=098','/assets/studio-v090/reels.js?v=104')
+    html=replace(html,'/assets/fullframe-v086/layout.css?v=098','/assets/fullframe-v086/layout.css?v=105')
+    html=replace(html,'/assets/fullframe-v086/layout.js?v=098','/assets/fullframe-v086/layout.js?v=105')
+    html=replace(html,'/assets/portrait-v085/reels.js?v=098','/assets/studio-v090/reels.js?v=105')
     html=replace(html,'/assets/studio-v090/game.js?v=098',
-                 '/assets/studio-v090/game.js?v=104')
+                 '/assets/studio-v090/game.js?v=105')
     # Only mutate the FINAL compiled game HTML; responsive builder verifies
     # that the locked upstream source remains byte-identical until this stage.
     source_touch='<link rel="apple-touch-icon" href="/assets/approved-v082/icon-180.png">'
@@ -262,7 +274,7 @@ def build():
     sw=ROOT/'web/sw.js'
     worker=sw.read_text()
     worker,changed=re.subn(r"const CACHE='mahjong-wild-presentation-[0-9]+'",
-        "const CACHE='mahjong-wild-presentation-104'",worker)
+        "const CACHE='mahjong-wild-presentation-105'",worker)
     if changed!=1: raise ValueError("PWA cache version anchor missing")
     if "url.pathname.startsWith('/studio')" not in worker:
         worker=worker.replace("url.pathname.startsWith('/api/')","(url.pathname.startsWith('/api/')||url.pathname.startsWith('/studio')||url.pathname.startsWith('/media/'))")

@@ -64,7 +64,7 @@
     const key = [viewportWidth,w,h,safeTop,safeBottom,safeLeft,safeRight,standalone,desktop].join(':');
     if (key === previous) return;
     previous = key;
-    const fraction = Math.max(.62,Math.min(.728,.728-(1859/864-usable/innerWidth)*.17));
+    const fraction = Math.max(.64,Math.min(.760,.760-(1859/864-usable/innerWidth)*.17));
     // A square/split-screen viewport still needs room for the header and Spin.
     // Bound the board height before allocating those panels, preserving 2:3
     // tile geometry instead of allowing zero-height controls or cropping them.
@@ -72,8 +72,11 @@
     const preferredBoard = Math.min(1.5*innerWidth*fraction-.0064*w,usable-minimumPanels);
     // Reserve the entire original-width crown before sizing the reels. The
     // former height-first budget shrank it into a narrow, visibly separate box.
-    const crownScale = sceneWidth/864;
-    const rail = 89*crownScale;
+    // Approved V105: shorter source-proportional crown, not a vertically
+    // squeezed logo. The multiplier uses its independent full-width scale.
+    // Saved headroom is reassigned to live 2:3 tile cells, not empty margin.
+    const crownScale = sceneWidth/864 * (portrait ? .645 : 1);
+    const rail = 89*(sceneWidth/864)*(portrait ? .78 : 1);
     const minimumHeader = 305*crownScale+rail;
     // Visible buttons determine the console budget, not a scaled staircase
     // illustration. Phone hit targets never shrink below 44 CSS pixels.
@@ -102,7 +105,8 @@
     lastBoardWidth=boardWidth;
     put('width',w);put('height',h);put('safe',safeTop);
     put('header',header);put('crown-height',305*crownScale);put('crown-top',crownTop);
-    put('crown-left',0);put('crown-width',sceneWidth);put('scene-width',sceneWidth);
+    put('crown-left',portrait?(sceneWidth-864*crownScale)/2:0);
+    put('crown-width',portrait?864*crownScale:sceneWidth);put('scene-width',sceneWidth);
     put('crown-edge-left',12*crownScale);put('crown-edge-right',12*crownScale);
     put('header-inset-left',safeLeft);put('header-inset-right',portrait?safeRight:0);
     put('rail-top',safeTop+crown);put('rail-height',rail);
@@ -137,8 +141,12 @@
     const fitScale = desiredZoom => Math.min(
       boardHeight/938*desiredZoom,(shorterGutter+bleed)/118);
     const lanternScale = fitScale(1.80);
-    const dragonScale = fitScale(1.55);
-    const cloudScale = fitScale(1.85);
+    const dragonScale = fitScale(1.70);
+    // Jade retains the source 118:338 aspect and can overlap the bottom
+    // visual-only corner by at most one third of a full-size tile.
+    const cloudBleed = Math.min(tileWidth*.33,28);
+    const cloudScale = Math.min(boardHeight/938*2.04,
+      (shorterGutter+cloudBleed)/118);
     put('board-right-gutter',rightGutter);
     put('mobile-lantern-left-width',118*lanternScale);
     put('mobile-lantern-right-width',117*lanternScale);

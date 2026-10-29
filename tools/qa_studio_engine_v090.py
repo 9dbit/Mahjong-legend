@@ -54,6 +54,18 @@ def assert_approved_masked_corners(page):
         clip:getComputedStyle(board).clipPath,corners,jade,behind};
     }""")
     assert data['enabled']=='masked-v103',data
+    master=page.evaluate("""() => ({
+      mode:document.querySelector('#game-stage').dataset.masterArt,
+      top:[...document.querySelectorAll('.reel-theatre > .jade-top-corner')].map(e=>({
+        background:getComputedStyle(e).backgroundImage,
+        display:getComputedStyle(e).display,positive:parseFloat(getComputedStyle(e).zIndex)>8
+      }))
+    })""")
+    assert master['mode'] in ('v105-fallback','v105-locked'),master
+    assert len(master['top'])==2 and all(x['positive'] for x in master['top']),master
+    if data['mode'] in ('portrait','desktop'):
+        assert all(x['display']!='none' and 'jade-corner-v105.svg' in x['background']
+                   for x in master['top']),master
     assert data['rows']==[4,5,5,5,4],data
     assert len(data['corners'])==2,data
     if data['mode'] in ('portrait','desktop'):
@@ -167,6 +179,13 @@ def main():
                 assert_layout(page,390,690)
                 report['masked_corner_initial']=assert_approved_masked_corners(page)
                 report['corner_pixels_portrait']=assert_visible_corner_pixels(page)
+                report['master_v105_portrait']=page.evaluate("""() => ({
+                  mode:document.querySelector('#game-stage').dataset.masterArt,
+                  header:parseFloat(getComputedStyle(document.querySelector('#game-stage'))
+                    .getPropertyValue('--ff-crown-height')),
+                  board:document.querySelector('#board').getBoundingClientRect().height
+                })""")
+                assert report['master_v105_portrait']['header']>0
                 page.screenshot(path=str(args.output/f'{args.engine}-game.png'))
                 # Desktop portrait-shaped cabinet reports mode "desktop".
                 # Regression must capture its pixels before any game round.
