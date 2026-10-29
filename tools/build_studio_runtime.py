@@ -236,10 +236,33 @@ def build():
               'top-right-corner-approved.webp')
     locked=all((master_dir/name).is_file() for name in required)
     master_mode='v105-locked' if locked else 'v105-fallback'
+    # Optional WebP assets are never mentioned as url(...) in the public
+    # stylesheet until installed. The live byte-hash scanner must NEVER claim
+    # missing-source assets are part of fallback mode.
+    master_files={
+      'crown':'header-crown-approved.webp',
+      'left':'side-left-dragon-jade.webp',
+      'right':'side-right-dragon-jade.webp',
+      'top-left':'top-left-corner-approved.webp',
+      'top-right':'top-right-corner-approved.webp'
+    }
     # The jade is intentionally outside .board-frame, so tile-field masking
     # can never cut the sculpture. These nodes carry no gameplay state.
     html=replace(html,'<main class="game-stage" id="game-stage"',
                  '<main class="game-stage" id="game-stage" data-corner-reels="masked-v103" data-master-art="'+master_mode+'"')
+    if locked:
+        urls={key:'/assets/approved-master-v105/'+filename
+              for key,filename in master_files.items()}
+        css_names={'crown':'--mw-master-crown','left':'--mw-master-left',
+                   'right':'--mw-master-right','top-left':'--mw-master-top-left',
+                   'top-right':'--mw-master-top-right'}
+        inline=';'.join(css_names[key]+':url(&quot;'+url+'&quot;)'
+                        for key,url in urls.items())
+        html=replace(html,'data-master-art="'+master_mode+'"',
+                          'data-master-art="'+master_mode+'" style="'+inline+'"')
+        html=replace(html,'</head>',
+                     ''.join('<link rel="preload" as="image" href="'+url+'">'
+                             for url in urls.values())+'</head>')
     html=replace(html,'<div id="effects-layer" class="effects-layer" aria-hidden="true"></div>',
        '<span class="jade-top-corner jade-top-corner--left" aria-hidden="true"></span>'
        '<span class="jade-top-corner jade-top-corner--right" aria-hidden="true"></span>'

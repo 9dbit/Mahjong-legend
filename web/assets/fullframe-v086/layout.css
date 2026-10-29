@@ -422,11 +422,11 @@ html.desktop-layout body{
 .game-stage[data-master-art^="v105"]:is([data-fullframe="portrait"],[data-fullframe="desktop"]) .reel-theatre > .jade-top-corner{display:block}
 .game-stage[data-master-art^="v105"] .reel-theatre > .jade-top-corner--left{
   left:calc(var(--ff-tile-width)*-.28);
-  background-image:url('/assets/ornaments/jade-corner-v105.svg');
+  background-image:var(--mw-master-top-left,url('/assets/ornaments/jade-corner-v105.svg'));
 }
 .game-stage[data-master-art^="v105"] .reel-theatre > .jade-top-corner--right{
   right:calc(var(--ff-tile-width)*-.28);
-  background-image:url('/assets/ornaments/jade-corner-v105.svg');
+  background-image:var(--mw-master-top-right,url('/assets/ornaments/jade-corner-v105.svg'));
   transform:scaleX(-1);
 }
 /* User-supplied approved raster derivatives are the highest-fidelity layer
@@ -442,14 +442,14 @@ html.desktop-layout body{
 .game-stage[data-master-art="v105-locked"] .reel-theatre > .approved-master-side{display:block}
 .game-stage[data-master-art="v105-locked"] .reel-theatre > .approved-master-side--left{
   left:calc(var(--ff-board-width)*-179/583);
-  background-image:url('/assets/approved-master-v105/side-left-dragon-jade.webp');
+  background-image:var(--mw-master-left,none);
 }
 .game-stage[data-master-art="v105-locked"] .reel-theatre > .approved-master-side--right{
   right:calc(var(--ff-board-width)*-179/583);
-  background-image:url('/assets/approved-master-v105/side-right-dragon-jade.webp');
+  background-image:var(--mw-master-right,none);
 }
 .game-stage[data-master-art="v105-locked"] .fullframe-art .art-crown{
-  background-image:url('/assets/approved-master-v105/header-crown-approved.webp')!important;
+  background-image:var(--mw-master-crown,none)!important;
   background-size:100% auto!important;
   background-position:center top!important;
 }
