@@ -108,6 +108,11 @@ def main():
                 page=context.new_page();page.on('pageerror',lambda e:report['errors'].append(str(e)))
                 page.goto(base,wait_until='networkidle')
                 expect(page.locator('#soft-tech-continue')).to_be_enabled(timeout=30000)
+                # A transient fallback can resolve after Continue first becomes
+                # enabled. Confirm the final decoded audio state, not a stale label.
+                page.wait_for_function(
+                    "() => document.querySelector('#soft-tech-status')?.textContent.includes('MUSIK SIAP')",
+                    timeout=7000)
                 # Published audio MUST be fully decoded while the splash is
                 # visible, with no autoplay before the trusted Continue click.
                 prepared=page.evaluate('''() => ({
