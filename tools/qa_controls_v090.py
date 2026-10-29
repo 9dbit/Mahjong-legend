@@ -106,6 +106,7 @@ def assert_mobile_ornaments(page):
           const board=document.querySelector('#board').getBoundingClientRect();
           const before=getComputedStyle(e,'::before'),after=getComputedStyle(e,'::after');
           return {top:fr.top-board.top,count:e.querySelectorAll('.tile').length,
+            visualCorners:[...e.querySelectorAll('.corner-visual')].map(x=>x.dataset.corner),
             beforeDisplay:before.display,afterDisplay:after.display,
             afterImage:after.backgroundImage,
             afterTop:parseFloat(after.top),afterHeight:parseFloat(after.height),
@@ -175,18 +176,24 @@ def assert_mobile_ornaments(page):
             else:
                 assert abs(data['board']['right']-asset['left']-overlap)<.5,asset
     assert len(seen)==6,data
-    # Both four-tile reels must start flush with the TOP of the first visible
-    # row, not a motionless tile-shaped :before. The fifth slot is sealed by
-    # a non-scoring ornament that begins after the last actual tile.
+    # Both outside reels still have exactly four scored tile cells. The
+    # Studio presentation adds standard-size, half-masked non-scoring tiles
+    # above and below them; locked legacy renderers keep the old cap.
     assert len(data['shortReels'])==2,data
     for reel in data['shortReels']:
         assert reel['count']==reel['scoredTileCount']==4,reel
-        assert abs(reel['top'])<=2.2,reel
         assert reel['beforeDisplay']=='none',reel
-        assert reel['afterDisplay']!='none',reel
-        assert 'reel-endcap-v097.svg' in reel['afterImage'],reel
-        assert 0<=reel['afterTop']-reel['reelHeight']<=4.5,reel
-        assert reel['afterHeight']>reel['boardHeight']*.15,reel
+        if data['animatedCorners']:
+            assert reel['visualCorners']==['top','bottom'],reel
+            assert reel['afterDisplay']=='none',reel
+            assert abs(reel['reelHeight']/reel['boardHeight']-1.2)<.015,reel
+            assert abs(reel['top']-reel['boardHeight']*.10)<2.5,reel
+        else:
+            assert abs(reel['top'])<=2.2,reel
+            assert reel['afterDisplay']!='none',reel
+            assert 'reel-endcap-v097.svg' in reel['afterImage'],reel
+            assert 0<=reel['afterTop']-reel['reelHeight']<=4.5,reel
+            assert reel['afterHeight']>reel['boardHeight']*.15,reel
     return data
 
 
