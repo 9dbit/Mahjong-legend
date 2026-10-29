@@ -92,11 +92,10 @@ def build():
     # The previous replacement also sees the fallback in our inserted helper.
     text=text.replace('||tileUrl(t);','||`${tileAssets}tiles/${t.symbol}-${t.enhanced?\'gold\':\'normal\'}.webp`;')
     text=replace(text,"if(!['W','S'].includes(data.symbol)){const glow", "if(!['W','S'].includes(data.symbol)&&tileUrl(data).startsWith(tileAssets)){const glow")
-    # The short outside reels start with their FIRST scored tile at the
-    # visible top boundary. Their lower one-tile space is an ornamental SVG,
-    # not a fake, permanently frozen duplicate of a scoring tile.
-    if text.count("function reel(col,index){const e=node('div',`reel${col.length===4?' short':''}`);") != 1:
-        raise ValueError("Unexpected reel builder; review first-row animation")
+    # The corner cap is a non-interactive pseudo-element, never a winning tile node.
+    old_reel="function reel(col,index){const e=node('div',`reel${col.length===4?' short':''}`);"
+    new_reel=old_reel+"if(col.length===4){const cap=col[col.length-1];e.style.setProperty('--corner-cap-image',`url(\"${tileUrl(cap)}\")`);}"
+    text=replace(text,old_reel,new_reel)
     text=replace(text,'  function refresh(next){\n    state=next;options=next.bet_options?.map(Number)||options;', '''  async function refresh(next){
     await applyManifest(next);
     if(!state)stake=String(next.spin_price);

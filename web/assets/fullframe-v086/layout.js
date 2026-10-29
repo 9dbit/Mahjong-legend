@@ -138,12 +138,7 @@
       boardHeight/938*desiredZoom,(shorterGutter+bleed)/118);
     const lanternScale = fitScale(1.80);
     const dragonScale = fitScale(1.55);
-    // A separately composed 192x410 cloud sculpture replaces the old
-    // 118x338 source-strip mask. One factor always scales BOTH axes; the
-    // gutter bounds its width while the artwork keeps its rounded silhouette.
-    const cloudScale = Math.min(
-      boardHeight/938*1.70,(shorterGutter+bleed)/192
-    );
+    const cloudScale = fitScale(1.85);
     put('board-right-gutter',rightGutter);
     put('mobile-lantern-left-width',118*lanternScale);
     put('mobile-lantern-right-width',117*lanternScale);
@@ -153,9 +148,9 @@
     put('mobile-dragon-right-width',117*dragonScale);
     put('mobile-dragon-height',505*dragonScale);
     put('mobile-dragon-top-offset',boardHeight*.155);
-    put('mobile-cloud-left-width',192*cloudScale);
-    put('mobile-cloud-right-width',192*cloudScale);
-    put('mobile-cloud-height',410*cloudScale);
+    put('mobile-cloud-left-width',118*cloudScale);
+    put('mobile-cloud-right-width',117*cloudScale);
+    put('mobile-cloud-height',338*cloudScale);
     put('mobile-ornament-overlap',Math.min(tileWidth*.08,tileWidth*.10));
     put('footer-top',footerTop);put('hud-height',hud);
     // A 66px HUD has two non-overlapping lanes: 30px notice + 32px meters.

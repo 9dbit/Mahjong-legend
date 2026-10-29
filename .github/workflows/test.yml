@@ -21,11 +21,16 @@ jobs:
           python-version: '3.12'
       - name: Install test dependencies
         run: python -m pip install 'Pillow==12.3.0' 'playwright==1.57.0'
-      # Browser/game tests use prebuilt audio assets and the WebAudio mixer;
-      # no ffmpeg CLI is invoked here. Avoid the 4-minute Azure apt timeout.
-      # The Studio job below still installs codecs for actual media transforms.
-      - name: Verify bundled media assets
-        run: test -s web/assets/approved-v082/audio/jade_serenity.m4a && test -s web/assets/approved-v082/audio/jade_serenity.ogg
+      - name: Install media verification tools
+        timeout-minutes: 4
+        run: |
+          if command -v ffmpeg >/dev/null 2>&1 && command -v ffprobe >/dev/null 2>&1; then
+            echo "Using FFmpeg and FFprobe preinstalled on runner"
+            ffmpeg -version
+          else
+            sudo apt-get -o Acquire::Retries=2 update
+            sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends ffmpeg
+          fi
       - name: Build locked artwork and aligned light masks
         run: python tools/build_locked_ui.py && python tools/build_presentation_fx.py && python tools/build_approved_ui.py && python tools/build_portrait_ui.py && python tools/build_responsive_runtime.py && python tools/build_fullframe_ui.py
       - name: Run engine, HTTP and asset tests
