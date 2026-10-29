@@ -105,8 +105,10 @@
     lastBoardWidth=boardWidth;
     put('width',w);put('height',h);put('safe',safeTop);
     put('header',header);put('crown-height',305*crownScale);put('crown-top',crownTop);
-    put('crown-left',portrait?(sceneWidth-864*crownScale)/2:0);
-    put('crown-width',portrait?864*crownScale:sceneWidth);put('scene-width',sceneWidth);
+    // Keep the approved raster crown FULL scene width. Compact only its
+    // vertical band; otherwise a 390px phone renders a 251px isolated logo.
+    put('crown-left',0);
+    put('crown-width',sceneWidth);put('scene-width',sceneWidth);
     put('crown-edge-left',12*crownScale);put('crown-edge-right',12*crownScale);
     put('header-inset-left',safeLeft);put('header-inset-right',portrait?safeRight:0);
     put('rail-top',safeTop+crown);put('rail-height',rail);

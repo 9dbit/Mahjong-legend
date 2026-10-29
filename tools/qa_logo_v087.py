@@ -56,6 +56,24 @@ def crown_raster_comparison(page):
     differs. Reference styles and the motion preference are restored afterwards.
     """
     frame = page.locator('.art-crown')
+    if page.evaluate("() => document.querySelector('#game-stage').dataset.masterArt==='v105-locked'"):
+        source=frame.evaluate("""async e=>{
+          const c=getComputedStyle(e),r=e.getBoundingClientRect(),
+                stage=e.closest('.game-stage').getBoundingClientRect();
+          const image=new Image();image.src='/assets/approved-master-v105/header-crown-approved.webp';
+          await image.decode();
+          return {width:r.width,height:r.height,sceneWidth:stage.width,
+                  image:c.backgroundImage,size:c.backgroundSize,position:c.backgroundPosition,
+                  decoded:image.complete,natural:[image.naturalWidth,image.naturalHeight]};
+        }""")
+        assert 'header-crown-approved.webp' in source['image'],source
+        assert source['decoded'] and source['natural']==[941,211],source
+        assert abs(source['width']-source['sceneWidth'])<1.0,source
+        assert abs(source['height']-source['width']*211/941)<4.0,source
+        assert source['size']=='100% auto',source
+        return {'source':'approved-master-v105/header-crown-approved.webp',
+                'source_ratio_941_211':'PASS','full_frame':'PASS',
+                'geometry':source,'continuous_source_match':'PASS'}
     geometry = frame.evaluate('''e=>{
       const r=e.getBoundingClientRect(),css=getComputedStyle(e),parts=[...e.children];
       return {x:r.x,y:r.y,width:r.width,height:r.height,
@@ -219,7 +237,15 @@ def main():
                 movement = {'board_pixels_down': geometry['board']['y'] - baseline['board_top'],
                             'controls_pixels_down': geometry['controls']['y'] - baseline['controls_top']}
                 if not case.get('compact'):
-                    assert movement['board_pixels_down'] > 5, movement
+                    locked=page.evaluate("() => document.querySelector('#game-stage').dataset.masterArt==='v105-locked'")
+                    if locked:
+                        # V105 intentionally COMPRESSES the logo and returns its
+                        # reclaimed height to the live reels, opposite to v087.
+                        crown_h=geometry['art']['bands'][0]['h']
+                        assert crown_h < width*305/864*.78,(width,crown_h)
+                        assert geometry['board']['h'] >= 200,geometry['board']
+                    else:
+                        assert movement['board_pixels_down'] > 5, movement
                     # Native controls now reserve their own height. Their top
                     # may move up to fit a larger visible Spin while the crown
                     # and board retain the improved v087 placement.

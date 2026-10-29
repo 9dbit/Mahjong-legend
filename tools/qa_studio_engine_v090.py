@@ -64,9 +64,12 @@ def assert_approved_masked_corners(page):
     assert master['mode'] in ('v105-fallback','v105-locked'),master
     assert len(master['top'])==2 and all(x['positive'] for x in master['top']),master
     if data['mode'] in ('portrait','desktop'):
-        assert all(x['display']!='none' and 'jade-corner-v105.svg' in x['background']
-                   for x in master['top']),master
+        expected=['top-left-corner-approved.webp','top-right-corner-approved.webp'] if master['mode']=='v105-locked' else ['jade-corner-v105.svg']*2
+        assert all(x['display']!='none' and x['positive'] and filename in x['background']
+                   for x,filename in zip(master['top'],expected)),master
     assert data['rows']==[4,5,5,5,4],data
+    if master['mode']=='v105-locked':
+        assert all(x=='hidden' for x in data['behind']),data
     assert len(data['corners'])==2,data
     # The foreground jade must actually extend into outside column 1 and 5.
     # Width/z-index-only assertions allowed the previous incorrect tiny clouds.
@@ -105,7 +108,8 @@ def assert_visible_corner_pixels(page):
     width,height=image.size
     radius=max(3,round(min(width/5,height/5)*.115))
     results={}
-    for side,fx in [('left',.1),('right',.9)]:
+    locked=page.evaluate("() => document.querySelector('#game-stage').dataset.masterArt==='v105-locked'")
+    for side,fx in ([('left',.16),('right',.84)] if locked else [('left',.1),('right',.9)]):
         for edge,fy in [('top',.05),('bottom',.95)]:
             x=round(width*fx);y=round(height*fy)
             patch=image.crop((max(0,x-radius),max(0,y-radius),

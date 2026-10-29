@@ -437,15 +437,15 @@ html.desktop-layout body{
   pointer-events:none;user-select:none;
   background-repeat:no-repeat;background-size:100% 100%;
   filter:drop-shadow(0 2px 3px #4f0712af);
-  width:calc(var(--ff-board-width)*260/583);
+  width:44.5969125%;
 }
 .game-stage[data-master-art="v105-locked"] .reel-theatre > .approved-master-side{display:block}
 .game-stage[data-master-art="v105-locked"] .reel-theatre > .approved-master-side--left{
-  left:calc(var(--ff-board-width)*-179/583);
+  left:-30.703259%;
   background-image:var(--mw-master-left,none);
 }
 .game-stage[data-master-art="v105-locked"] .reel-theatre > .approved-master-side--right{
-  right:calc(var(--ff-board-width)*-179/583);
+  right:-30.703259%;
   background-image:var(--mw-master-right,none);
 }
 .game-stage[data-master-art="v105-locked"] .fullframe-art .art-crown{
@@ -473,4 +473,52 @@ html.desktop-layout body{
 }
 .game-stage[data-master-art^="v105"] .reel-theatre > .jade-cloud-foreground--right{
   right:calc(var(--ff-tile-width)*.26 - var(--ff-mobile-cloud-right-width));
+}
+
+/* MASTER V105 LOCKED. Source geometry (x179..762, y373..1240)
+   is measured from the approved screenshot after removing browser chrome.
+   Side dragons and jade float over only the outside corners. */
+.game-stage[data-master-art="v105-locked"]:is([data-fullframe="portrait"],[data-fullframe="desktop"])
+ .reel-theatre > .jade-top-corner {
+  top:-9.227221%; width:38.765009%;height:18.454441%;
+  background-size:100% 100%;filter:drop-shadow(0 3px 5px #460714c9);
+}
+.game-stage[data-master-art="v105-locked"]:is([data-fullframe="portrait"],[data-fullframe="desktop"])
+ .reel-theatre > .jade-top-corner--left{left:-30.703259%}
+.game-stage[data-master-art="v105-locked"]:is([data-fullframe="portrait"],[data-fullframe="desktop"])
+ .reel-theatre > .jade-top-corner--right{right:-30.703259%;transform:none}
+.game-stage[data-master-art="v105-locked"] .reel-theatre > .approved-master-side{display:none}
+.game-stage[data-master-art="v105-locked"]:is([data-fullframe="portrait"],[data-fullframe="desktop"])
+ .reel-theatre > .approved-master-side{display:block}
+.game-stage[data-master-art="v105-locked"] .game-header{
+ left:0!important;width:var(--ff-scene-width)!important;
+}
+.game-stage[data-master-art="v105-locked"] .game-header #menu-btn{
+ left:3.7%!important;min-width:44px;min-height:44px;opacity:.01!important;
+}
+.game-stage[data-master-art="v105-locked"] .game-header #sound-btn{
+ right:3.7%!important;min-width:44px;min-height:44px;opacity:.01!important;
+}
+/* A genuinely overlapping jade foreground: 26% of a standard tile width
+   on fallback. The original higher-specificity 8% rule must not win. */
+.game-stage[data-corner-reels="masked-v103"][data-master-art="v105-fallback"]:is([data-fullframe="portrait"],[data-fullframe="desktop"])
+ .reel-theatre > .jade-cloud-foreground--left{
+ left:calc(var(--ff-tile-width)*.26 - var(--ff-mobile-cloud-left-width));
+}
+.game-stage[data-corner-reels="masked-v103"][data-master-art="v105-fallback"]:is([data-fullframe="portrait"],[data-fullframe="desktop"])
+ .reel-theatre > .jade-cloud-foreground--right{
+ right:calc(var(--ff-tile-width)*.26 - var(--ff-mobile-cloud-right-width));
+}
+/* Keep compact landscape controls; no portrait source crop in side-panel UI. */
+.game-stage[data-master-art="v105-locked"][data-fullframe="landscape"]
+ .fullframe-art .art-crown{
+ background-image:url('/assets/portrait-v085/frame.webp')!important;
+ background-size:var(--ff-crown-width) calc(var(--ff-crown-unit)*1859)!important;
+}
+.game-stage[data-master-art="v105-locked"][data-fullframe="landscape"] .logo-fx{
+ opacity:1!important;
+}
+.game-stage[data-master-art="v105-locked"][data-fullframe="landscape"] .game-header #menu-btn,
+.game-stage[data-master-art="v105-locked"][data-fullframe="landscape"] .game-header #sound-btn{
+ opacity:1!important;
 }

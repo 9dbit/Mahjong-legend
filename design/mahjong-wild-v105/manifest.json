@@ -1,0 +1,157 @@
+{
+  "design_id": "MAHJONG-WILD-MASTER-V105-2026-10-30",
+  "approved_source_sha256": "746ccd38a86f2077c2d463a3f4dfcbec4f4b189500e687f2493ebecbd9e9ef6a",
+  "approved_source_size": [
+    941,
+    1672
+  ],
+  "status": "LOCKED_REFERENCE",
+  "source_geometry": {
+    "browser_chrome_top_px": 83,
+    "crown_from_source": [
+      83,
+      294
+    ],
+    "multiplier_from_source": [
+      294,
+      373
+    ],
+    "reel_from_source": [
+      179,
+      373,
+      762,
+      1240
+    ],
+    "hud_from_source": [
+      0,
+      1240,
+      941,
+      1394
+    ],
+    "controls_from_source": [
+      0,
+      1394,
+      941,
+      1632
+    ]
+  },
+  "runtime_requirements": [
+    "No browser status/address bar baked into production UI",
+    "No symbols/text/balance/win/controls baked into game field or interactive UI",
+    "All five columns use original tile assets with visual arrangement 6/5/5/5/6 and scoring 4/5/5/5/4",
+    "Overlay clipped corners and dark red shadow above tile animations without stopping GPU scrolling",
+    "Use original unwarped side dragon and jade cloud pixels, with foreground layering",
+    "Scale crown to preserve its exact source aspect ratio, leaving more vertical room for reels",
+    "Touch buttons, bet, saldo, spin and win remain dynamic and accessible"
+  ],
+  "assets": [
+    {
+      "name": "header-crown-approved.webp",
+      "sha256": "b94f3d1e4cbb4fcb8c66cf7db0230363a075fd03fcb4e724caff0738634170da",
+      "bytes": 90932,
+      "dimensions": [
+        941,
+        211
+      ],
+      "role": "Static approved crown/logo, with no mobile status bar or browser chrome",
+      "crop_box": [
+        0,
+        83,
+        941,
+        294
+      ]
+    },
+    {
+      "name": "side-left-dragon-jade.webp",
+      "sha256": "b0f4b10fb755f1e78ccb5980a4da08a5a2cb994401be1b5674bda1d31b175651",
+      "bytes": 69462,
+      "dimensions": [
+        260,
+        867
+      ],
+      "role": "Approved left dragon, lantern, proportional jade and bottom corner foreground",
+      "crop_box": [
+        0,
+        373,
+        260,
+        1240
+      ],
+      "alpha_scope": "side art and top/bottom outer corners only; tile interior transparent"
+    },
+    {
+      "name": "side-right-dragon-jade.webp",
+      "sha256": "27fa3c9ffd5d9083e5dc33e554a7d038cd4fafd3e0f2a9e099b9c59570201282",
+      "bytes": 69266,
+      "dimensions": [
+        260,
+        867
+      ],
+      "role": "Approved right dragon, lantern, proportional jade and bottom corner foreground",
+      "crop_box": [
+        681,
+        373,
+        941,
+        1240
+      ],
+      "alpha_scope": "side art and top/bottom outer corners only; tile interior transparent"
+    },
+    {
+      "name": "top-left-corner-approved.webp",
+      "sha256": "290c723a49f8f32802ad87b1b32598eaf0701b972caf25e8e3f8cdab43500c0f",
+      "bytes": 15862,
+      "dimensions": [
+        226,
+        160
+      ],
+      "role": "Upper left jade/gold corner mask above tile field",
+      "crop_box": [
+        0,
+        293,
+        226,
+        453
+      ]
+    },
+    {
+      "name": "top-right-corner-approved.webp",
+      "sha256": "54ccc18fbe3607eddada896495172023e85aaef4aa003474a0959967f7f65c98",
+      "bytes": 15472,
+      "dimensions": [
+        226,
+        160
+      ],
+      "role": "Upper right jade/gold corner mask above tile field",
+      "crop_box": [
+        715,
+        293,
+        941,
+        453
+      ]
+    },
+    {
+      "name": "footer-look-reference-only.webp",
+      "sha256": "b5d99625a8869addb0eeeb3bde1ff56f3d66722a307e1e6d4f9a92343748c31c",
+      "bytes": 115610,
+      "dimensions": [
+        941,
+        392
+      ],
+      "role": "DO NOT USE AS LIVE HUD: displayed wins, balance and controls must remain dynamic",
+      "crop_box": [
+        0,
+        1240,
+        941,
+        1632
+      ]
+    },
+    {
+      "name": "approved_master_locked.png",
+      "sha256": "746ccd38a86f2077c2d463a3f4dfcbec4f4b189500e687f2493ebecbd9e9ef6a",
+      "bytes": 2288786,
+      "dimensions": [
+        941,
+        1672
+      ],
+      "role": "Immutable approved visual reference including simulated browser chrome; never render as a single UI background"
+    }
+  ]
+}
