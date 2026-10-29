@@ -54,10 +54,11 @@ def assert_corner_tiles(page):
       const topOrnaments=['::before','::after'].map(p=>{
         const c=getComputedStyle(theatre,p);
         return {display:c.display,background:c.backgroundImage,layer:Number(c.zIndex),
-          pointer:c.pointerEvents};
+          pointer:c.pointerEvents,width:parseFloat(c.width),height:parseFloat(c.height)};
       });
       const frameClip=getComputedStyle(frame).clipPath;
       return {scope:stage.dataset.cornerReels,mode:stage.dataset.fullframe,
+        tileWidth:tile.getBoundingClientRect().width,boardHeight:board.getBoundingClientRect().height,
         scoringCells:scored,tiles:board.querySelectorAll('.tile').length,
         tileRatio:tile.getBoundingClientRect().width/tile.getBoundingClientRect().height,
         ghosts,foreground,cornerMask,topOrnaments,frameClip};
@@ -76,6 +77,7 @@ def assert_corner_tiles(page):
             assert cloud['display']!='none' and cloud['layer']>=9,cloud
             assert cloud['width']>0 and cloud['height']>0 and cloud['pointer']=='none',cloud
             assert 'approved-cloud-cutout-v097.webp' in cloud['image'],cloud
+            assert cloud['height']<=evidence['boardHeight']*.38,cloud
         assert 'polygon(' in evidence['frameClip'],evidence
         for mask in evidence['cornerMask']:
             assert mask['display']=='none',mask
@@ -83,6 +85,8 @@ def assert_corner_tiles(page):
             assert ornament['display']!='none' and ornament['layer']>=12,ornament
             assert 'approved-cloud-cutout-v097.webp' in ornament['background'],ornament
             assert ornament['pointer']=='none',ornament
+            assert ornament['width']<=evidence['tileWidth']*.82,ornament
+            assert ornament['height']<=evidence['boardHeight']*.18,ornament
     return evidence
 
 
