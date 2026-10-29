@@ -97,28 +97,6 @@ def build():
     # not a fake, permanently frozen duplicate of a scoring tile.
     if text.count("function reel(col,index){const e=node('div',`reel${col.length===4?' short':''}`);") != 1:
         raise ValueError("Unexpected reel builder; review first-row animation")
-    # A five-high visual reel can still contain only four scored cells.
-    # Do not give the ornamental fifth tile a _tile payload or a scoring row.
-    old_reel = """function reel(col,index){const e=node('div',`reel${col.length===4?' short':''}`);e.setAttribute('aria-label',`Reel ${index+1}`);col.forEach((t,row)=>e.append(tile(t,row)));return e;}"""
-    new_reel = """  const cornerTile=(index,col)=>{
-    const names='ABCDEFGHIJKLMNO';
-    const signature=(col||[]).reduce((sum,t,n)=>sum+(names.indexOf(t.symbol)+1)*(n+3),index*11+7);
-    return {symbol:names[((signature%names.length)+names.length)%names.length],enhanced:false};
-  };
-  function reel(col,index){
-    const e=node('div',`reel${col.length===4?' short':''}`);
-    e.setAttribute('aria-label',`Reel ${index+1}`);
-    col.forEach((t,row)=>e.append(tile(t,row)));
-    if(col.length===4){
-      const ghost=node('div','corner-visual');ghost.dataset.scoring='false';ghost.setAttribute('aria-hidden','true');
-      const image=node('img','corner-visual-image');image.src=tileUrl(cornerTile(index,col));image.alt='';image.draggable=false;image.decoding='async';
-      ghost.append(image);e.append(ghost);
-    }
-    return e;
-  }"""
-    text=replace(text,old_reel,new_reel)
-    text=replace(text,'root.children[c].children.length===col.length',"root.children[c].querySelectorAll(':scope > .tile').length===col.length")
-    text=replace(text,"filler:(i,j)=>demo[(i+j)%5][j%demo[(i+j)%5].length],","filler:(i,j)=>demo[(i+j)%5][j%demo[(i+j)%5].length],visualFiller:cornerTile,")
     text=replace(text,'  function refresh(next){\n    state=next;options=next.bet_options?.map(Number)||options;', '''  async function refresh(next){
     await applyManifest(next);
     if(!state)stake=String(next.spin_price);
@@ -167,40 +145,6 @@ def build():
       "  window.addEventListener('focus',()=>{if(!document.hidden)void syncLiveAudio();});",
     ]
     (OUT/'game.js').write_text('\n'.join(lines)+'\n')
-
-    # Patch the COMPILED reel runtime after immutable v085 hash-checked edits
-    # have applied. The original v083 script is intentionally untouched.
-    # The fifth visible corner tile is decorative and excluded from scoring.
-    compiled=ROOT/'web/assets/portrait-v085/reels.js'
-    reel_text=compiled.read_text()
-    reel_text=replace(reel_text,
-      '  async function run({root, board, buildReel, urlFor, filler, shouldSkip, onStop, turbo}) {',
-      '  async function run({root, board, buildReel, urlFor, filler, visualFiller, shouldSkip, onStop, turbo}) {')
-    reel_text=replace(reel_text,
-      '      const tiles = [...original.children].filter(t => t._tile);',
-      "      const tiles = [...original.children].filter(t => t._tile || t.classList.contains('corner-visual'));")
-    reel_text=replace(reel_text,
-      "        const im = tile.querySelector('.tile-image');",
-      "        const im = tile.querySelector('.tile-image, .corner-visual-image');")
-    reel_text=replace(reel_text,
-      '''      const earlier = prior[i]?.length === col.length ? prior[i] : col;
-      const interim = Array.from({length: turbo ? 3 : 4}, (_, j) => filler(i, j));
-      return {col, all: [...col, ...interim, ...earlier], steps: col.length + interim.length};''',
-      '''      const earlier = prior[i]?.length === col.length ? prior[i] : col;
-      const visual = visualFiller && col.length === 4 ? [...col, visualFiller(i, col)] : col;
-      const priorVisual = visualFiller && col.length === 4
-        ? [...earlier, visualFiller(i, earlier)] : earlier;
-      const interim = Array.from({length: turbo ? 3 : 4}, (_, j) => filler(i, j));
-      return {col, visibleCount:visual.length, all:[...visual,...interim,...priorVisual],
-        steps:visual.length+interim.length};''')
-    reel_text=replace(reel_text,
-      '((h + gap) / item.col.length) * item.all.length',
-      '((h + gap) / item.visibleCount) * item.all.length')
-    reel_text=replace(reel_text,
-      'const pitch = (box.height + gap) / seq.col.length;',
-      'const pitch = (box.height + gap) / seq.visibleCount;')
-    compiled.write_text(reel_text)
-
     html=(ROOT/'web/index.html').read_text().replace('/assets/portrait-v085/game.js','/assets/studio-v090/game.js').replace('/assets/locked-v08/audio.js','/assets/studio-v090/audio.js').replace('?v=087','?v=098').replace('0.8.7','0.9.2')
     # Explicitly rev both audio and splash script URLs for installed iPhone
     # PWAs. The underlying source remains immutable until this final compiler.
@@ -208,18 +152,6 @@ def build():
         '/assets/studio-v090/audio.js?v=099')
     html=html.replace('/assets/reel-v083/splash.js?v=084',
         '/assets/reel-v083/splash.js?v=099')
-    html=replace(html,
-      '<div id="effects-layer" class="effects-layer" aria-hidden="true"></div>',
-      '<span class="jade-cloud-foreground jade-cloud-foreground--left" aria-hidden="true"></span>'
-      '<span class="jade-cloud-foreground jade-cloud-foreground--right" aria-hidden="true"></span>'
-      '<div id="effects-layer" class="effects-layer" aria-hidden="true"></div>')
-    # Only the final Studio game renders the visual-only fifth tiles.
-    # Legacy locked UI QA deliberately continues to test its original 4-row outer reels.
-    html=replace(html,'<main class="game-stage" id="game-stage"',
-                 '<main class="game-stage" id="game-stage" data-corner-reels="animated"')
-    # Cache keys must change for an installed iOS PWA as well as Safari.
-    html=replace(html,'/assets/portrait-v085/reels.js?v=098','/assets/portrait-v085/reels.js?v=101')
-    html=replace(html,'/assets/fullframe-v086/layout.css?v=100','/assets/fullframe-v086/layout.css?v=101')
     # Only mutate the FINAL compiled game HTML; responsive builder verifies
     # that the locked upstream source remains byte-identical until this stage.
     source_touch='<link rel="apple-touch-icon" href="/assets/approved-v082/icon-180.png">'
@@ -258,7 +190,7 @@ def build():
     sw=ROOT/'web/sw.js'
     worker=sw.read_text()
     worker,changed=re.subn(r"const CACHE='mahjong-wild-presentation-[0-9]+'",
-        "const CACHE='mahjong-wild-presentation-101'",worker)
+        "const CACHE='mahjong-wild-presentation-099'",worker)
     if changed!=1: raise ValueError("PWA cache version anchor missing")
     if "url.pathname.startsWith('/studio')" not in worker:
         worker=worker.replace("url.pathname.startsWith('/api/')","(url.pathname.startsWith('/api/')||url.pathname.startsWith('/studio')||url.pathname.startsWith('/media/'))")

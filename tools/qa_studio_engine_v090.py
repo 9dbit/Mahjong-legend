@@ -23,56 +23,6 @@ sys.path[:0]=[str(ROOT),str(ROOT/'tools')]
 class Quiet(WSGIRequestHandler):
     def log_message(self,*args): pass
 
-def assert_corner_tiles(page):
-    """Check 23 scored cells, two full-size visual tiles and actual foreground masks."""
-    page.wait_for_function("""() => {
-      const images=[...document.querySelectorAll('.corner-visual-image')];
-      return images.length===2 && images.every(i=>i.complete && i.naturalWidth>0);
-    }""", timeout=12000)
-    evidence=page.evaluate("""() => {
-      const stage=document.getElementById('game-stage');
-      const board=document.getElementById('board');
-      const tile=board.querySelector('.tile');
-      const scored=[...board.children].map(e=>e.querySelectorAll(':scope > .tile').length);
-      const ghosts=[...board.querySelectorAll('.reel.short .corner-visual')].map(e=>{
-        const b=e.getBoundingClientRect(),img=e.querySelector('img');
-        return {ratio:b.width/b.height,decorative:e.dataset.scoring,
-          decoded:img.complete&&img.naturalWidth>0,src:img.currentSrc,
-          pointer:getComputedStyle(e).pointerEvents};
-      });
-      const foreground=[...document.querySelectorAll('.jade-cloud-foreground')].map(e=>{
-        const c=getComputedStyle(e),b=e.getBoundingClientRect();
-        return {display:c.display,layer:Number(c.zIndex),width:b.width,height:b.height,
-          image:c.backgroundImage,clip:c.clipPath,pointer:c.pointerEvents};
-      });
-      const frame=document.querySelector('.reel-theatre .board-frame');
-      const cornerMask=['::before','::after'].map(p=>{
-        const c=getComputedStyle(frame,p);
-        return {display:c.display,shape:c.clipPath,image:c.backgroundImage,layer:Number(c.zIndex)};
-      });
-      return {scope:stage.dataset.cornerReels,mode:stage.dataset.fullframe,
-        scoringCells:scored,tiles:board.querySelectorAll('.tile').length,
-        tileRatio:tile.getBoundingClientRect().width/tile.getBoundingClientRect().height,
-        ghosts,foreground,cornerMask};
-    }""")
-    assert evidence['scope']=='animated',evidence
-    assert evidence['scoringCells']==[4,5,5,5,4] and evidence['tiles']==23,evidence
-    assert abs(evidence['tileRatio']-2/3)<.015,evidence
-    assert len(evidence['ghosts'])==2,evidence
-    for ghost in evidence['ghosts']:
-        assert ghost['decorative']=='false' and ghost['decoded'],ghost
-        assert abs(ghost['ratio']-2/3)<.015 and ghost['pointer']=='none',ghost
-    assert len(evidence['foreground'])==2,evidence
-    if evidence['mode']=='portrait':
-        for cloud in evidence['foreground']:
-            assert cloud['display']!='none' and cloud['layer']>=9,cloud
-            assert cloud['width']>0 and cloud['height']>0 and cloud['pointer']=='none',cloud
-            assert 'approved-cloud-cutout-v097.webp' in cloud['image'],cloud
-        for mask in evidence['cornerMask']:
-            assert mask['display']!='none' and 'polygon(' in mask['shape'],mask
-    return evidence
-
-
 def main():
     parser=argparse.ArgumentParser();parser.add_argument('--engine',choices=['chromium','webkit'],default='chromium')
     parser.add_argument('--output',type=Path,default=ROOT/'qa/studio-engine-v090');args=parser.parse_args()
@@ -138,7 +88,6 @@ def main():
                 original=context.request.get(base+'/api/state').json()
                 assert original['manifest']['release_id']==str(baseline.id)
                 assert_layout(page,390,690)
-                report['corner_tiles_initial']=assert_corner_tiles(page)
                 page.screenshot(path=str(args.output/f'{args.engine}-game.png'))
                 assert context.request.get(base+'/api/studio/assets').status==401
                 config=deepcopy(baseline.config)
@@ -194,7 +143,6 @@ def main():
                 # Native-safe-area simulation keeps the new interactive footer clear.
                 page.set_viewport_size({'width':390,'height':844});set_safe_area(page,59,34)
                 assert_layout(page,390,844,59,34)
-                report['corner_tiles_pwa']=assert_corner_tiles(page)
                 assert not report['errors'],report['errors']
                 report.update(result='PASS',ticket_pinning=True,offered_decimal_strings=True,idempotent_retry=True,
                     rollback=True,replay=True,persistent_cookie_balance=True,accepted_rounds=3,
