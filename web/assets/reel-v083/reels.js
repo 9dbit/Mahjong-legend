@@ -94,7 +94,7 @@
     finishLog(log);
   }
 
-  async function run({root, board, buildReel, urlFor, filler, shouldSkip, onStop, turbo}) {
+  async function run({root, board, buildReel, urlFor, filler, visualFiller, shouldSkip, onStop, turbo}) {
     if (active) active.finish();
     const oldNodes = [...root.children];
     if (oldNodes.length !== 5) throw Error('Expected 5 visible reels');
@@ -103,8 +103,13 @@
     const startedPreparing = now();
     const sequences = board.map((col, i) => {
       const earlier = prior[i]?.length === col.length ? prior[i] : col;
+      // The extra outside-reel tile is visual-only. It still scrolls exactly
+      // one standard atlas pitch and never enters the scored board or ledger.
+      const visual = visualFiller && col.length === 4 ? [...col, visualFiller(i, col)] : col;
+      const priorVisual = visualFiller && col.length === 4 ? [...earlier, visualFiller(i, earlier)] : earlier;
       const interim = Array.from({length: turbo ? 6 : 8}, (_, j) => filler(i, j));
-      return {col, all: [...col, ...interim, ...earlier], steps: col.length + interim.length};
+      return {col, visibleCount: visual.length, all: [...visual, ...interim, ...priorVisual],
+        steps: visual.length + interim.length};
     });
     const urls = [...new Set(sequences.flatMap(c => c.all.map(urlFor)))];
     // Never touch the visible DOM while fetching and decoding tile artwork.
@@ -120,7 +125,7 @@
       const node = oldNodes[i];
       const h = node.getBoundingClientRect().height;
       const gap = parseFloat(getComputedStyle(node).rowGap) || 0;
-      return ((h + gap) / item.col.length) * item.all.length;
+      return ((h + gap) / item.visibleCount) * item.all.length;
     });
     const maxHeight = Math.max(...totalHeight);
     const dpr = Math.max(.8, Math.min(1.5, window.devicePixelRatio || 1, 3900 / maxHeight));
@@ -129,7 +134,7 @@
       const box = original.getBoundingClientRect();
       if (box.width < 1 || box.height < 1) throw Error('Reel surface has zero dimensions');
       const gap = parseFloat(getComputedStyle(original).rowGap) || 0;
-      const pitch = (box.height + gap) / seq.col.length;
+      const pitch = (box.height + gap) / seq.visibleCount;
       const fullHeight = seq.all.length * pitch;
       const canvas = document.createElement('canvas');
       canvas.className = 'reel-strip reel-canvas';

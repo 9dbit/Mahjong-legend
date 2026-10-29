@@ -350,3 +350,70 @@ html.desktop-layout body{
   border-radius:10%;
   box-shadow:0 0 7px #f4b74b72,inset 0 0 0 1px #ffe6a455;
 }
+
+/* v0.9.8: Standard-size corner tiles are behind the JADE masking artwork.
+   Four scored tiles per outside reel still determine the 2,000-ways math.
+   A fifth VISUAL tile on each side is explicitly non-scoring, but uses the
+   same 2:3 atlas step and moves with the reel compositor while spinning. */
+.game-stage .board .reel.short{
+  height:100%!important;margin:0!important;align-self:stretch!important;
+  grid-template-rows:repeat(5,minmax(0,1fr))!important;
+  overflow:visible;
+}
+.game-stage .board .reel.short::after{
+  display:none!important;content:none!important;background-image:none!important;
+}
+.game-stage .board .reel.short > .corner-visual{
+  position:relative;width:100%;height:100%;min-height:0;
+  display:block;overflow:visible;pointer-events:none;
+  border-radius:10%;
+  background:radial-gradient(ellipse at 50% 50%,#60121acc,#3d0713 75%);
+}
+.game-stage .board .reel.short .corner-visual-image{
+  width:100%;height:100%;display:block;object-fit:fill;
+  border-radius:10%;pointer-events:none;user-select:none;
+  filter:drop-shadow(0 3px 4px #49020bd9) drop-shadow(0 0 3px #77151a94);
+}
+.game-stage[data-fullframe="portrait"] .reel-theatre .board-frame::before,
+.game-stage[data-fullframe="portrait"] .reel-theatre .board-frame::after{
+  content:'';display:block!important;position:absolute;top:0;
+  width:calc(var(--ff-tile-width)*.74);
+  height:calc(var(--ff-board-height)*.74/5);
+  z-index:12;opacity:1;pointer-events:none;border:0;
+  background:
+    linear-gradient(140deg,transparent 73%,#ffdc80b5 75%,#5b2b0e 78%,transparent 82%),
+    radial-gradient(ellipse at 24% 22%,#69cfb380,transparent 64%),
+    linear-gradient(135deg,#075747 0%,#18937c 46%,#07503c 83%,#062b29 100%);
+  clip-path:polygon(0 0,100% 0,0 100%);
+  box-shadow:none;filter:drop-shadow(0 3px 5px #4b0716bb);
+}
+.game-stage[data-fullframe="portrait"] .reel-theatre .board-frame::before{left:0}
+.game-stage[data-fullframe="portrait"] .reel-theatre .board-frame::after{
+  left:auto;right:0;transform:scaleX(-1);
+}
+/* The same verified source cloud is painted ABOVE the board-frame, scoring
+   cells and GPU atlas. The old cloud remains available as an asset, but is
+   hidden in its former behind-the-board slot to prevent double painting. */
+.game-stage[data-fullframe="portrait"] .fullframe-art .art-board > .mobile-ornament--cloud{
+  visibility:hidden!important;
+}
+.reel-theatre .jade-cloud-foreground{
+  display:none;position:absolute;z-index:16;bottom:0;
+  background:transparent url('/assets/ornaments/approved-cloud-cutout-v097.webp') center bottom/contain no-repeat;
+  pointer-events:none;opacity:1;
+  filter:drop-shadow(0 4px 5px #490711d9) drop-shadow(0 0 3px #530510b5);
+}
+.game-stage[data-fullframe="portrait"] .reel-theatre .jade-cloud-foreground{
+  display:block;
+}
+.game-stage[data-fullframe="portrait"] .reel-theatre .jade-cloud-foreground--left{
+  left:calc(var(--ff-mobile-ornament-overlap) - var(--ff-mobile-cloud-left-width));
+  width:var(--ff-mobile-cloud-left-width);
+  height:var(--ff-mobile-cloud-height);
+}
+.game-stage[data-fullframe="portrait"] .reel-theatre .jade-cloud-foreground--right{
+  right:calc(var(--ff-mobile-ornament-overlap) - var(--ff-mobile-cloud-right-width));
+  width:var(--ff-mobile-cloud-right-width);
+  height:var(--ff-mobile-cloud-height);
+  transform:scaleX(-1);
+}

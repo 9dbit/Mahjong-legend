@@ -29,23 +29,30 @@ class JadeCloudPresentation(unittest.TestCase):
             self.assertEqual(cutout.size,(128,274))
             self.assertEqual(cutout.mode,'RGBA')
             self.assertEqual(cutout.getchannel('A').getextrema(),(0,255))
-        self.assertIn("reel-endcap-v097.svg",css)
+        self.assertTrue((ART/'reel-endcap-v097.svg').exists())  # retained for history
         self.assertIn("background-size:contain",css)
         self.assertIn("transform:scaleX(-1)",css)
         self.assertIn("410*cloudScale",geometry)
         self.assertIn("192*cloudScale",geometry)
         self.assertIn("(shorterGutter+bleed)/192",geometry)
 
-    def test_all_scored_reels_spin_starting_at_top_and_bottom_closes(self):
+    def test_standard_visual_corner_tiles_scroll_below_jade_without_scoring(self):
         css=CSS.read_text()
         compiler=(ROOT/'tools/build_studio_runtime.py').read_text()
-        self.assertIn(".game-stage .board .reel.short::before",css)
-        self.assertIn("content:none!important",css)
+        reels=(ROOT/'web/assets/reel-v083/reels.js').read_text()
         self.assertIn(".game-stage .board .reel.short::after",css)
-        self.assertIn("top:calc(100% + 2px)",css)
+        self.assertIn("grid-template-rows:repeat(5,minmax(0,1fr))!important",css)
+        self.assertIn(".corner-visual-image",css)
+        self.assertIn("jade-cloud-foreground--right",css)
+        self.assertIn("clip-path:polygon(0 0,100% 0,0 100%)",css)
+        self.assertIn("visualFiller:cornerTile",compiler)
+        self.assertIn("ghost.dataset.scoring='false'",compiler)
+        self.assertIn("querySelectorAll(':scope > .tile')",compiler)
+        self.assertIn('jade-cloud-foreground--left',compiler)
+        self.assertIn("visibleCount: visual.length",reels)
+        self.assertIn("seq.visibleCount",reels)
         self.assertNotIn("e.style.setProperty('--corner-cap-image'",compiler)
-        self.assertIn('Unexpected reel builder; review first-row animation',compiler)
-        self.assertEqual((ROOT/'web/assets/reel-v083/reels.js').read_text().count("signal('start', c.i + 1)"),1)
+        self.assertEqual(reels.count("signal('start', c.i + 1)"),1)
 
 
 if __name__=='__main__':

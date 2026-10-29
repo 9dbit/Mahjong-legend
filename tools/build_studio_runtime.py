@@ -97,6 +97,28 @@ def build():
     # not a fake, permanently frozen duplicate of a scoring tile.
     if text.count("function reel(col,index){const e=node('div',`reel${col.length===4?' short':''}`);") != 1:
         raise ValueError("Unexpected reel builder; review first-row animation")
+    # A five-high visual reel can still contain only four scored cells.
+    # Do not give the ornamental fifth tile a _tile payload or a scoring row.
+    old_reel = """function reel(col,index){const e=node('div',`reel${col.length===4?' short':''}`);e.setAttribute('aria-label',`Reel ${index+1}`);col.forEach((t,row)=>e.append(tile(t,row)));return e;}"""
+    new_reel = """  const cornerTile=(index,col)=>{
+    const names='ABCDEFGHIJKLMNO';
+    const signature=(col||[]).reduce((sum,t,n)=>sum+(names.indexOf(t.symbol)+1)*(n+3),index*11+7);
+    return {symbol:names[((signature%names.length)+names.length)%names.length],enhanced:false};
+  };
+  function reel(col,index){
+    const e=node('div',`reel${col.length===4?' short':''}`);
+    e.setAttribute('aria-label',`Reel ${index+1}`);
+    col.forEach((t,row)=>e.append(tile(t,row)));
+    if(col.length===4){
+      const ghost=node('div','corner-visual');ghost.dataset.scoring='false';ghost.setAttribute('aria-hidden','true');
+      const image=node('img','corner-visual-image');image.src=tileUrl(cornerTile(index,col));image.alt='';image.draggable=false;image.decoding='async';
+      ghost.append(image);e.append(ghost);
+    }
+    return e;
+  }"""
+    text=replace(text,old_reel,new_reel)
+    text=replace(text,'root.children[c].children.length===col.length',"root.children[c].querySelectorAll(':scope > .tile').length===col.length")
+    text=replace(text,"filler:(i,j)=>demo[(i+j)%5][j%demo[(i+j)%5].length],","filler:(i,j)=>demo[(i+j)%5][j%demo[(i+j)%5].length],visualFiller:cornerTile,")
     text=replace(text,'  function refresh(next){\n    state=next;options=next.bet_options?.map(Number)||options;', '''  async function refresh(next){
     await applyManifest(next);
     if(!state)stake=String(next.spin_price);
@@ -152,6 +174,11 @@ def build():
         '/assets/studio-v090/audio.js?v=099')
     html=html.replace('/assets/reel-v083/splash.js?v=084',
         '/assets/reel-v083/splash.js?v=099')
+    html=replace(html,
+      '<div id="effects-layer" class="effects-layer" aria-hidden="true"></div>',
+      '<span class="jade-cloud-foreground jade-cloud-foreground--left" aria-hidden="true"></span>'
+      '<span class="jade-cloud-foreground jade-cloud-foreground--right" aria-hidden="true"></span>'
+      '<div id="effects-layer" class="effects-layer" aria-hidden="true"></div>')
     # Only mutate the FINAL compiled game HTML; responsive builder verifies
     # that the locked upstream source remains byte-identical until this stage.
     source_touch='<link rel="apple-touch-icon" href="/assets/approved-v082/icon-180.png">'
