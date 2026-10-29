@@ -148,7 +148,7 @@
     // 118x338 source-strip mask. One factor always scales BOTH axes; the
     // gutter bounds its width while the artwork keeps its rounded silhouette.
     const cloudScale = Math.min(
-      boardHeight/938*(stage.dataset.cornerReels==='animated'?1.05:1.70),
+      boardHeight/938*(stage.dataset.cornerReels==='animated'?.73:1.70),
       (shorterGutter+bleed)/192
     );
     put('board-right-gutter',rightGutter);
