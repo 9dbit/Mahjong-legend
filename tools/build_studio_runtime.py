@@ -18,7 +18,7 @@ def build():
     OUT.mkdir(parents=True,exist_ok=True)
     # Build the extended GPU atlas AFTER the protected upstream source passes
     # its frozen SHA attestation. The immutable reel-v083 JS stays untouched.
-    reel_text=(ROOT/'web/assets/reel-v083/reels.js').read_text()
+    reel_text=(ROOT/'web/assets/portrait-v085/reels.js').read_text()
     reel_text=replace(reel_text,
        'async function run({root, board, buildReel, urlFor, filler, shouldSkip, onStop, turbo})',
        'async function run({root, board, buildReel, urlFor, filler, visualFiller, shouldSkip, onStop, turbo})')
@@ -44,6 +44,23 @@ def build():
                            '((h + gap) / item.visibleCount) * item.all.length')
     reel_text=replace(reel_text,'const pitch = (box.height + gap) / seq.col.length;',
                            'const pitch = (box.height + gap) / seq.visibleCount;')
+    # The mobile pre-request loop must also animate all six VISUAL positions,
+    # otherwise corners freeze while the server processes the spin.
+    reel_text=replace(reel_text, 'const pitch = (box.height + gap) / tiles.length;',
+       """const masked = original.classList.contains('short')
+        && root.closest('.game-stage')?.dataset.cornerReels === 'masked-v103'
+        && root.closest('.game-stage')?.dataset.fullframe === 'portrait';
+      const images = masked
+        ? [original._cornerImages?.top,
+           ...tiles.map(t=>t.querySelector('.tile-image')),
+           original._cornerImages?.bottom]
+        : tiles.map(t=>t.querySelector('.tile-image'));
+      const pitch = (box.height + gap) / images.length;""")
+    reel_text=replace(reel_text,'const period = pitch * tiles.length;',
+                                  'const period = pitch * images.length;')
+    reel_text=replace(reel_text,'''for (let copy=0;copy<2;copy++) tiles.forEach((tile, row) => {
+        const im = tile.querySelector('.tile-image');''',
+       '''for (let copy=0;copy<2;copy++) images.forEach((im, row) => {''')
     (OUT/'reels.js').write_text(reel_text)
     text=(ROOT/'web/assets/portrait-v085/game.js').read_text()
     text=replace(text,'UI 0.8.7','UI 0.9.2')
@@ -136,6 +153,7 @@ def build():
       for(const edge of ['top','bottom']){
         const art=tileUrl(cornerVisual(index,col,edge));
         e.style.setProperty(`--corner-${edge}-image`,`url(\"${art}\")`);
+        e._cornerImages??={};const image=new Image();image.src=art;e._cornerImages[edge]=image;
       }
     }
     col.forEach((t,row)=>e.append(tile(t,row)));
@@ -210,7 +228,7 @@ def build():
        '<div id="effects-layer" class="effects-layer" aria-hidden="true"></div>')
     html=replace(html,'/assets/fullframe-v086/layout.css?v=098','/assets/fullframe-v086/layout.css?v=103')
     html=replace(html,'/assets/fullframe-v086/layout.js?v=098','/assets/fullframe-v086/layout.js?v=103')
-    html=replace(html,'/assets/reel-v083/reels.js?v=084','/assets/studio-v090/reels.js?v=103')
+    html=replace(html,'/assets/portrait-v085/reels.js?v=085','/assets/studio-v090/reels.js?v=103')
     # Only mutate the FINAL compiled game HTML; responsive builder verifies
     # that the locked upstream source remains byte-identical until this stage.
     source_touch='<link rel="apple-touch-icon" href="/assets/approved-v082/icon-180.png">'
