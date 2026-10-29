@@ -64,7 +64,13 @@
     const key = [viewportWidth,w,h,safeTop,safeBottom,safeLeft,safeRight,standalone,desktop].join(':');
     if (key === previous) return;
     previous = key;
-    const fraction = Math.max(.62,Math.min(.728,.728-(1859/864-usable/innerWidth)*.17));
+    // Work JPG uses a larger board and compact standalone controls on
+    // portrait phones. Legacy/desktop geometry remains unchanged.
+    const visualParity = stage.dataset.cornerReels==='animated' &&
+      portrait && sceneWidth<=480 && innerWidth>=350 && usable>=630;
+    const fraction = visualParity
+      ? Math.max(.67,Math.min(.78,.78-(1859/864-usable/innerWidth)*.11))
+      : Math.max(.62,Math.min(.728,.728-(1859/864-usable/innerWidth)*.17));
     // A square/split-screen viewport still needs room for the header and Spin.
     // Bound the board height before allocating those panels, preserving 2:3
     // tile geometry instead of allowing zero-height controls or cropping them.
@@ -80,13 +86,13 @@
     // User-requested visual face is 20% smaller, still a 64px+ touch target.
     const spin = .8*Math.max(80,Math.min(96,80+(controlsWidth-320)*16/70));
     const secondary = Math.max(52,Math.min(60,52+(controlsWidth-320)*8/110));
-    const controlHeight = Math.max(108,spin+24);
+    const controlHeight = visualParity ? Math.max(88,spin+12) : Math.max(108,spin+24);
     // The approved banner gets its full row on phones. Very short/square
     // windows retain the previous compact budget so extra decoration cannot
     // consume the board or reduce the full-size control targets.
     const compactHud = portrait && usable-minimumHeader-controlHeight < 142;
     // Reclaim decorative HUD height for actual 2:3 scoring tiles.
-    const hud = compactHud ? 58 : 66;
+    const hud = visualParity ? 54 : (compactHud ? 58 : 66);
     const footer = hud+controlHeight;
     const boardHeight = Math.max(1,Math.min(preferredBoard,usable-minimumHeader-(portrait?footer:0)));
     const boardWidth = (boardHeight+.0064*w)/1.5;
@@ -160,8 +166,9 @@
     put('footer-top',footerTop);put('hud-height',hud);
     // A 66px HUD has two non-overlapping lanes: 30px notice + 32px meters.
     // Preserve the tighter 58px fallback in short/safe-area viewports.
-    put('notice-height',compactHud?22:30);put('meter-offset',compactHud?24:32);
-    put('meter-height',32);put('meter-padding',2);
+    put('notice-height',visualParity?24:(compactHud?22:30));
+    put('meter-offset',visualParity?24:(compactHud?24:32));
+    put('meter-height',visualParity?28:32);put('meter-padding',2);
     put('panel-left',panelLeft);put('panel-width',panelWidth);
     put('footer-art-top',portrait?footerTop:0);put('footer-art-height',portrait?h-footerTop:h);
     put('controls-top',footerTop+hud);put('controls-height',controlHeight);
@@ -169,6 +176,7 @@
     put('spin-size',spin);put('secondary-size',secondary);
     put('crown-unit',crownScale);
     stage.dataset.fullframe=desktop?'desktop':portrait?'portrait':'landscape';
+    stage.dataset.visualParity=visualParity?'compact':'classic';
     // Chrome may emit many size events. Warm once after it settles, not once
     // per animation frame; the input handler can still prepare on demand.
     clearTimeout(warmTimer);
