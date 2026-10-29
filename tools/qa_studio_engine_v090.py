@@ -23,6 +23,57 @@ sys.path[:0]=[str(ROOT),str(ROOT/'tools')]
 class Quiet(WSGIRequestHandler):
     def log_message(self,*args): pass
 
+
+def assert_approved_masked_corners(page):
+    """Screenshot acceptance: native-size outer tile sprites and jade in front."""
+    data=page.evaluate("""() => {
+      const stage=document.getElementById('game-stage');
+      const board=document.getElementById('board');
+      const outer=[...board.children].filter(e=>e.classList.contains('short'));
+      const rect=board.getBoundingClientRect();
+      const standard=board.children[1].querySelector('.tile').getBoundingClientRect();
+      const corners=outer.map(e=>{
+        const r=e.getBoundingClientRect();
+        return {tiles:e.children.length,top:r.top,height:r.height,width:r.width,
+          pseudo:['::before','::after'].map(p=>{
+            const c=getComputedStyle(e,p);
+            return {display:c.display,position:c.position,width:parseFloat(c.width),
+               height:parseFloat(c.height),image:c.backgroundImage};
+          })};
+      });
+      const jade=[...document.querySelectorAll('.reel-theatre > .jade-cloud-foreground')].map(e=>{
+        const c=getComputedStyle(e),r=e.getBoundingClientRect();
+        return {display:c.display,background:c.backgroundImage,z:parseInt(c.zIndex,10),
+          width:r.width,height:r.height,pointer:c.pointerEvents};
+      });
+      const behind=[...document.querySelectorAll('.art-board > .mobile-ornament--cloud')]
+        .map(e=>getComputedStyle(e).visibility);
+      return {mode:stage.dataset.fullframe,enabled:stage.dataset.cornerReels,
+        rows:[...board.children].map(e=>e.querySelectorAll(':scope > .tile').length),
+        rect:{top:rect.top,height:rect.height},standard:{width:standard.width,height:standard.height},
+        clip:getComputedStyle(board).clipPath,corners,jade,behind};
+    }""")
+    assert data['enabled']=='masked-v103',data
+    assert data['rows']==[4,5,5,5,4],data
+    assert len(data['corners'])==2,data
+    if data['mode']=='portrait':
+        assert 'polygon(' in data['clip'],data
+        assert len(data['jade'])==2 and data['behind']==['hidden','hidden'],data
+        for cloud in data['jade']:
+            assert cloud['display']!='none' and cloud['z']>8 and cloud['pointer']=='none',cloud
+            assert 'mobile-cloud-' in cloud['background'],cloud
+            assert cloud['width']>0 and cloud['height']>0,cloud
+        for corner in data['corners']:
+            assert corner['tiles']==4,corner
+            assert abs(corner['height']/data['rect']['height']-1.2)<.013,corner
+            assert abs(corner['top']-(data['rect']['top']-.1*data['rect']['height']))<2.5,corner
+            for piece in corner['pseudo']:
+                assert piece['display']!='none' and piece['position']=='relative',piece
+                assert '/tiles/' in piece['image'] and '.webp' in piece['image'],piece
+                assert abs(piece['width']-data['standard']['width'])<2, (piece,data)
+                assert abs(piece['height']-data['standard']['height'])<2, (piece,data)
+    return data
+
 def main():
     parser=argparse.ArgumentParser();parser.add_argument('--engine',choices=['chromium','webkit'],default='chromium')
     parser.add_argument('--output',type=Path,default=ROOT/'qa/studio-engine-v090');args=parser.parse_args()
@@ -88,6 +139,7 @@ def main():
                 original=context.request.get(base+'/api/state').json()
                 assert original['manifest']['release_id']==str(baseline.id)
                 assert_layout(page,390,690)
+                report['masked_corner_initial']=assert_approved_masked_corners(page)
                 page.screenshot(path=str(args.output/f'{args.engine}-game.png'))
                 assert context.request.get(base+'/api/studio/assets').status==401
                 config=deepcopy(baseline.config)
@@ -143,6 +195,8 @@ def main():
                 # Native-safe-area simulation keeps the new interactive footer clear.
                 page.set_viewport_size({'width':390,'height':844});set_safe_area(page,59,34)
                 assert_layout(page,390,844,59,34)
+                report['masked_corner_pwa']=assert_approved_masked_corners(page)
+                page.screenshot(path=str(args.output/f'{args.engine}-pwa-390x844.png'))
                 assert not report['errors'],report['errors']
                 report.update(result='PASS',ticket_pinning=True,offered_decimal_strings=True,idempotent_retry=True,
                     rollback=True,replay=True,persistent_cookie_balance=True,accepted_rounds=3,

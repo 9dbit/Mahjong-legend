@@ -92,10 +92,30 @@ def build():
     # The previous replacement also sees the fallback in our inserted helper.
     text=text.replace('||tileUrl(t);','||`${tileAssets}tiles/${t.symbol}-${t.enhanced?\'gold\':\'normal\'}.webp`;')
     text=replace(text,"if(!['W','S'].includes(data.symbol)){const glow", "if(!['W','S'].includes(data.symbol)&&tileUrl(data).startsWith(tileAssets)){const glow")
-    # The corner cap is a non-interactive pseudo-element, never a winning tile node.
-    old_reel="function reel(col,index){const e=node('div',`reel${col.length===4?' short':''}`);"
-    new_reel=old_reel+"if(col.length===4){const cap=col[col.length-1];e.style.setProperty('--corner-cap-image',`url(\"${tileUrl(cap)}\")`);}"
+    # Four scored tile DOM children per outer reel are preserved verbatim.
+    # Two full-size CSS visual positions are painted by the SAME GPU atlas.
+    old_reel="""function reel(col,index){const e=node('div',`reel${col.length===4?' short':''}`);e.setAttribute('aria-label',`Reel ${index+1}`);col.forEach((t,row)=>e.append(tile(t,row)));return e;}"""
+    new_reel="""  const cornerVisual=(index,col,edge)=>{
+    const offset=edge==='top'?2:3;
+    const actual=col[(index+offset)%col.length]||col[0];
+    return {symbol:actual.symbol,enhanced:false};
+  };
+  function reel(col,index){
+    const e=node('div',`reel${col.length===4?' short':''}`);
+    e.setAttribute('aria-label',`Reel ${index+1}`);
+    if(col.length===4){
+      for(const edge of ['top','bottom']){
+        const art=tileUrl(cornerVisual(index,col,edge));
+        e.style.setProperty(`--corner-${edge}-image`,`url(\"${art}\")`);
+      }
+    }
+    col.forEach((t,row)=>e.append(tile(t,row)));
+    return e;
+  }"""
     text=replace(text,old_reel,new_reel)
+    text=replace(text,
+       "filler:(i,j)=>demo[(i+j)%5][j%demo[(i+j)%5].length],",
+       "filler:(i,j)=>demo[(i+j)%5][j%demo[(i+j)%5].length],visualFiller:cornerVisual,")
     text=replace(text,'  function refresh(next){\n    state=next;options=next.bet_options?.map(Number)||options;', '''  async function refresh(next){
     await applyManifest(next);
     if(!state)stake=String(next.spin_price);
@@ -151,6 +171,17 @@ def build():
         '/assets/studio-v090/audio.js?v=099')
     html=html.replace('/assets/reel-v083/splash.js?v=084',
         '/assets/reel-v083/splash.js?v=099')
+    # The jade is intentionally outside .board-frame, so tile-field masking
+    # can never cut the sculpture. These nodes carry no gameplay state.
+    html=replace(html,'<main class="game-stage" id="game-stage"',
+                 '<main class="game-stage" id="game-stage" data-corner-reels="masked-v103"')
+    html=replace(html,'<div id="effects-layer" class="effects-layer" aria-hidden="true"></div>',
+       '<span class="jade-cloud-foreground jade-cloud-foreground--left" aria-hidden="true"></span>'
+       '<span class="jade-cloud-foreground jade-cloud-foreground--right" aria-hidden="true"></span>'
+       '<div id="effects-layer" class="effects-layer" aria-hidden="true"></div>')
+    html=replace(html,'/assets/fullframe-v086/layout.css?v=098','/assets/fullframe-v086/layout.css?v=103')
+    html=replace(html,'/assets/fullframe-v086/layout.js?v=098','/assets/fullframe-v086/layout.js?v=103')
+    html=replace(html,'/assets/reel-v083/reels.js?v=084','/assets/reel-v083/reels.js?v=103')
     # Only mutate the FINAL compiled game HTML; responsive builder verifies
     # that the locked upstream source remains byte-identical until this stage.
     source_touch='<link rel="apple-touch-icon" href="/assets/approved-v082/icon-180.png">'
@@ -172,7 +203,7 @@ def build():
     sw=ROOT/'web/sw.js'
     worker=sw.read_text()
     worker,changed=re.subn(r"const CACHE='mahjong-wild-presentation-[0-9]+'",
-        "const CACHE='mahjong-wild-presentation-099'",worker)
+        "const CACHE='mahjong-wild-presentation-103'",worker)
     if changed!=1: raise ValueError("PWA cache version anchor missing")
     if "url.pathname.startsWith('/studio')" not in worker:
         worker=worker.replace("url.pathname.startsWith('/api/')","(url.pathname.startsWith('/api/')||url.pathname.startsWith('/studio')||url.pathname.startsWith('/media/'))")
