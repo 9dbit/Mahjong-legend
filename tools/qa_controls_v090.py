@@ -92,7 +92,7 @@ def assert_mobile_ornaments(page):
           decoded:img.complete&&img.naturalWidth>0};
       }));
       return {
-        mode:stage.dataset.fullframe,tileWidth:tile.width,
+        mode:stage.dataset.fullframe,animatedCorners:stage.dataset.cornerReels==='animated',tileWidth:tile.width,
         overlap:val('--ff-mobile-ornament-overlap'),
         board:{left:board.left,right:board.right},
         oldWings:val('--ff-wing-left')+val('--ff-wing-right'),
@@ -132,7 +132,12 @@ def assert_mobile_ornaments(page):
     assert 'notice-center.webp' in data['banner'], data
     if data['mode'] == 'portrait':
         assert max(data['oldSideOpacities']) < .01, data
-        assert data['oldTailDisplays'] == ['none','none'], data
+        if data['animatedCorners']:
+            # Approved jade top corners now occupy the old portrait theatre
+            # pseudo-elements. They should be painted, not flat triangles.
+            assert data['oldTailDisplays'] == ['block','block'], data
+        else:
+            assert data['oldTailDisplays'] == ['none','none'], data
     else:
         assert all(item['display']=='none' for item in data['sprites']), data
     seen=set()
