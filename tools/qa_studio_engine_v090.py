@@ -197,6 +197,11 @@ def main():
                 expect(page.locator('#spin-btn')).to_have_attribute('aria-label','Spin',timeout=60000)
                 before=third['state']['balance'];page.reload(wait_until='networkidle')
                 assert context.request.get(base+'/api/state').json()['balance']==before
+                # Reload opens the splash again: a gameplay QA screenshot must
+                # deliberately dismiss it using the normal trusted gesture.
+                expect(page.locator('#soft-tech-continue')).to_be_enabled(timeout=30000)
+                page.locator('#soft-tech-continue').click()
+                expect(page.locator('#soft-tech-splash')).to_be_hidden(timeout=10000)
                 # Native-safe-area simulation keeps the new interactive footer clear.
                 page.set_viewport_size({'width':390,'height':844});set_safe_area(page,59,34)
                 assert_layout(page,390,844,59,34)
