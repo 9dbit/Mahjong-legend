@@ -218,7 +218,7 @@ def build():
     html=replace(html,'<main class="game-stage" id="game-stage"',
                  '<main class="game-stage" id="game-stage" data-corner-reels="animated"')
     # Cache keys must change for an installed iOS PWA as well as Safari.
-    html=replace(html,'/assets/portrait-v085/reels.js?v=087','/assets/portrait-v085/reels.js?v=101')
+    html=replace(html,'/assets/portrait-v085/reels.js?v=098','/assets/portrait-v085/reels.js?v=101')
     html=replace(html,'/assets/fullframe-v086/layout.css?v=100','/assets/fullframe-v086/layout.css?v=101')
     # Only mutate the FINAL compiled game HTML; responsive builder verifies
     # that the locked upstream source remains byte-identical until this stage.
