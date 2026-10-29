@@ -39,7 +39,7 @@ def build():
     });''', '''    // Extra full-size corner tile visuals scroll in the GPU atlas only.
     const stage = root.closest('.game-stage');
     const withCorners = stage?.dataset.cornerReels === 'masked-v103'
-      && stage?.dataset.fullframe === 'portrait' && typeof visualFiller === 'function';
+      && ['portrait','desktop'].includes(stage?.dataset.fullframe) && typeof visualFiller === 'function';
     const onScreen = (col, i) => withCorners && col.length === 4
       ? [visualFiller(i, col, 'top'), ...col, visualFiller(i, col, 'bottom')]
       : col;
@@ -54,12 +54,12 @@ def build():
                            '((h + gap) / item.visibleCount) * item.all.length')
     reel_text=replace(reel_text,'const pitch = (box.height + gap) / seq.col.length;',
                            'const pitch = (box.height + gap) / seq.visibleCount;')
-    # The mobile pre-request loop must also animate all six VISUAL positions,
+    # Desktop and portrait pre-request loops animate all six VISUAL positions,
     # otherwise corners freeze while the server processes the spin.
     reel_text=replace(reel_text, 'const pitch = (box.height + gap) / tiles.length;',
        """const masked = original.classList.contains('short')
         && root.closest('.game-stage')?.dataset.cornerReels === 'masked-v103'
-        && root.closest('.game-stage')?.dataset.fullframe === 'portrait';
+        && ['portrait','desktop'].includes(root.closest('.game-stage')?.dataset.fullframe);
       const images = masked
         ? [original._cornerImages?.top,
            ...tiles.map(t=>t.querySelector('.tile-image')),
@@ -227,7 +227,7 @@ def build():
     html=html.replace('/assets/studio-v090/audio.js?v=082',
         '/assets/studio-v090/audio.js?v=099')
     html=replace(html,'/assets/reel-v083/splash.js?v=098',
-                 '/assets/studio-v090/splash.js?v=103')
+                 '/assets/studio-v090/splash.js?v=104')
     # The jade is intentionally outside .board-frame, so tile-field masking
     # can never cut the sculpture. These nodes carry no gameplay state.
     html=replace(html,'<main class="game-stage" id="game-stage"',
@@ -236,9 +236,11 @@ def build():
        '<span class="jade-cloud-foreground jade-cloud-foreground--left" aria-hidden="true"></span>'
        '<span class="jade-cloud-foreground jade-cloud-foreground--right" aria-hidden="true"></span>'
        '<div id="effects-layer" class="effects-layer" aria-hidden="true"></div>')
-    html=replace(html,'/assets/fullframe-v086/layout.css?v=098','/assets/fullframe-v086/layout.css?v=103')
-    html=replace(html,'/assets/fullframe-v086/layout.js?v=098','/assets/fullframe-v086/layout.js?v=103')
-    html=replace(html,'/assets/portrait-v085/reels.js?v=098','/assets/studio-v090/reels.js?v=103')
+    html=replace(html,'/assets/fullframe-v086/layout.css?v=098','/assets/fullframe-v086/layout.css?v=104')
+    html=replace(html,'/assets/fullframe-v086/layout.js?v=098','/assets/fullframe-v086/layout.js?v=104')
+    html=replace(html,'/assets/portrait-v085/reels.js?v=098','/assets/studio-v090/reels.js?v=104')
+    html=replace(html,'/assets/studio-v090/game.js?v=098',
+                 '/assets/studio-v090/game.js?v=104')
     # Only mutate the FINAL compiled game HTML; responsive builder verifies
     # that the locked upstream source remains byte-identical until this stage.
     source_touch='<link rel="apple-touch-icon" href="/assets/approved-v082/icon-180.png">'
@@ -260,7 +262,7 @@ def build():
     sw=ROOT/'web/sw.js'
     worker=sw.read_text()
     worker,changed=re.subn(r"const CACHE='mahjong-wild-presentation-[0-9]+'",
-        "const CACHE='mahjong-wild-presentation-103'",worker)
+        "const CACHE='mahjong-wild-presentation-104'",worker)
     if changed!=1: raise ValueError("PWA cache version anchor missing")
     if "url.pathname.startsWith('/studio')" not in worker:
         worker=worker.replace("url.pathname.startsWith('/api/')","(url.pathname.startsWith('/api/')||url.pathname.startsWith('/studio')||url.pathname.startsWith('/media/'))")

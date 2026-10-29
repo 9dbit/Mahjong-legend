@@ -56,7 +56,7 @@ def assert_approved_masked_corners(page):
     assert data['enabled']=='masked-v103',data
     assert data['rows']==[4,5,5,5,4],data
     assert len(data['corners'])==2,data
-    if data['mode']=='portrait':
+    if data['mode'] in ('portrait','desktop'):
         assert 'polygon(' in data['clip'],data
         assert len(data['jade'])==2 and data['behind']==['hidden','hidden'],data
         for cloud in data['jade']:
@@ -73,6 +73,27 @@ def assert_approved_masked_corners(page):
                 assert abs(piece['width']-data['standard']['width'])<2, (piece,data)
                 assert abs(piece['height']-data['standard']['height'])<2, (piece,data)
     return data
+
+def assert_visible_corner_pixels(page):
+    """Screen pixels, not just CSS background declarations, must show tiles."""
+    from PIL import Image
+    image=Image.open(io.BytesIO(page.locator('#board').screenshot())).convert('RGB')
+    width,height=image.size
+    radius=max(3,round(min(width/5,height/5)*.115))
+    results={}
+    for side,fx in [('left',.1),('right',.9)]:
+        for edge,fy in [('top',.05),('bottom',.95)]:
+            x=round(width*fx);y=round(height*fy)
+            patch=image.crop((max(0,x-radius),max(0,y-radius),
+                              min(width,x+radius),min(height,y+radius)))
+            pixels=[patch.getpixel((i,j)) for j in range(patch.height)
+                    for i in range(patch.width)]
+            bright=sum(r>115 and g>110 and (r+g+b)/3>140
+                       for r,g,b in pixels)/len(pixels)
+            results[f'{side}_{edge}']=round(bright,3)
+            assert bright>.30,(page.url,side,edge,round(bright,3),
+                                'corner tile invisible in screenshot',image.size)
+    return results
 
 def main():
     parser=argparse.ArgumentParser();parser.add_argument('--engine',choices=['chromium','webkit'],default='chromium')
@@ -145,7 +166,19 @@ def main():
                 assert original['manifest']['release_id']==str(baseline.id)
                 assert_layout(page,390,690)
                 report['masked_corner_initial']=assert_approved_masked_corners(page)
+                report['corner_pixels_portrait']=assert_visible_corner_pixels(page)
                 page.screenshot(path=str(args.output/f'{args.engine}-game.png'))
+                # Desktop portrait-shaped cabinet reports mode "desktop".
+                # Regression must capture its pixels before any game round.
+                page.set_viewport_size({'width':1536,'height':960})
+                page.wait_for_function("() => document.getElementById('game-stage').dataset.fullframe === 'desktop'")
+                assert_layout(page,1536,960)
+                report['masked_corner_desktop']=assert_approved_masked_corners(page)
+                report['corner_pixels_desktop']=assert_visible_corner_pixels(page)
+                page.screenshot(path=str(args.output/f'{args.engine}-desktop-1536x960.png'))
+                page.set_viewport_size({'width':390,'height':690})
+                page.wait_for_function("() => document.getElementById('game-stage').dataset.fullframe === 'portrait'")
+                assert_layout(page,390,690)
                 assert context.request.get(base+'/api/studio/assets').status==401
                 config=deepcopy(baseline.config)
                 config['bet'].update(options=['1.0','2.50'],default='1.0',initial_balance='1500')
@@ -206,6 +239,7 @@ def main():
                 page.set_viewport_size({'width':390,'height':844});set_safe_area(page,59,34)
                 assert_layout(page,390,844,59,34)
                 report['masked_corner_pwa']=assert_approved_masked_corners(page)
+                report['corner_pixels_pwa']=assert_visible_corner_pixels(page)
                 page.screenshot(path=str(args.output/f'{args.engine}-pwa-390x844.png'))
                 assert not report['errors'],report['errors']
                 report.update(result='PASS',ticket_pinning=True,offered_decimal_strings=True,idempotent_retry=True,
