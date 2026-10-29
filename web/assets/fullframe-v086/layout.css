@@ -403,15 +403,15 @@ html.desktop-layout body{
   pointer-events:none;opacity:1;
   filter:drop-shadow(0 4px 5px #490711d9) drop-shadow(0 0 3px #530510b5);
 }
-.game-stage[data-corner-reels="animated"][data-fullframe="portrait"] .game-stage[data-corner-reels="animated"] .reel-theatre .jade-cloud-foreground{
+.game-stage[data-corner-reels="animated"][data-fullframe="portrait"] .reel-theatre .jade-cloud-foreground{
   display:block;
 }
-.game-stage[data-corner-reels="animated"][data-fullframe="portrait"] .game-stage[data-corner-reels="animated"] .reel-theatre .jade-cloud-foreground--left{
+.game-stage[data-corner-reels="animated"][data-fullframe="portrait"] .reel-theatre .jade-cloud-foreground--left{
   left:calc(var(--ff-mobile-ornament-overlap) - var(--ff-mobile-cloud-left-width));
   width:var(--ff-mobile-cloud-left-width);
   height:var(--ff-mobile-cloud-height);
 }
-.game-stage[data-corner-reels="animated"][data-fullframe="portrait"] .game-stage[data-corner-reels="animated"] .reel-theatre .jade-cloud-foreground--right{
+.game-stage[data-corner-reels="animated"][data-fullframe="portrait"] .reel-theatre .jade-cloud-foreground--right{
   right:calc(var(--ff-mobile-ornament-overlap) - var(--ff-mobile-cloud-right-width));
   width:var(--ff-mobile-cloud-right-width);
   height:var(--ff-mobile-cloud-height);
