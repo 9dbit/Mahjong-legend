@@ -395,3 +395,140 @@ html.desktop-layout body{
   height:var(--ff-mobile-cloud-height);
   background-image:url('/assets/fullframe-v086/mobile-cloud-right.webp');
 }
+
+
+/* Mahjong Wild MASTER V105: source-faithful responsive composition.
+   Original logo/dragons/controls remain in the existing approved source.
+   Do not bake scored symbols, wallet values, buttons or page chrome in raster. */
+.game-stage[data-master-art^="v105"] .fullframe-art .art-crown{
+  background-position:center top!important;
+  background-repeat:no-repeat;
+  background-size:var(--ff-crown-width) calc(var(--ff-crown-unit)*1859)!important;
+}
+.game-stage[data-master-art^="v105"] .reel-theatre > .jade-cloud-foreground{
+  z-index:19;
+  filter:drop-shadow(0 5px 7px #4a0318d9)
+         drop-shadow(0 1px 4px #200006bb)!important;
+}
+.game-stage[data-master-art^="v105"] .reel-theatre > .jade-top-corner{
+  display:none;position:absolute;top:-1.5%;
+  z-index:20;pointer-events:none;user-select:none;
+  width:calc(var(--ff-tile-width)*1.25);
+  height:calc(var(--ff-tile-width)*.88);
+  background-repeat:no-repeat;background-position:top center;
+  background-size:contain;
+  filter:drop-shadow(0 2px 4px #460714c9);
+}
+.game-stage[data-master-art^="v105"]:is([data-fullframe="portrait"],[data-fullframe="desktop"]) .reel-theatre > .jade-top-corner{display:block}
+.game-stage[data-master-art^="v105"] .reel-theatre > .jade-top-corner--left{
+  left:calc(var(--ff-tile-width)*-.28);
+  background-image:var(--mw-master-top-left,url('/assets/ornaments/jade-corner-v105.svg'));
+}
+.game-stage[data-master-art^="v105"] .reel-theatre > .jade-top-corner--right{
+  right:calc(var(--ff-tile-width)*-.28);
+  background-image:var(--mw-master-top-right,url('/assets/ornaments/jade-corner-v105.svg'));
+  transform:scaleX(-1);
+}
+/* User-supplied approved raster derivatives are the highest-fidelity layer
+   whenever the locked master asset pack is installed. In fallback mode the
+   existing verified source artwork remains visible with new v105 geometry. */
+.game-stage .reel-theatre > .approved-master-side{
+  display:none;position:absolute;top:0;height:100%;z-index:21;
+  pointer-events:none;user-select:none;
+  background-repeat:no-repeat;background-size:100% 100%;
+  filter:drop-shadow(0 2px 3px #4f0712af);
+  width:44.5969125%;
+}
+.game-stage[data-master-art="v105-locked"] .reel-theatre > .approved-master-side{display:block}
+.game-stage[data-master-art="v105-locked"] .reel-theatre > .approved-master-side--left{
+  left:-30.703259%;
+  background-image:var(--mw-master-left,none);
+}
+.game-stage[data-master-art="v105-locked"] .reel-theatre > .approved-master-side--right{
+  right:-30.703259%;
+  background-image:var(--mw-master-right,none);
+}
+.game-stage[data-master-art="v105-locked"] .fullframe-art .art-crown{
+  background-image:var(--mw-master-crown,none)!important;
+  background-size:100% auto!important;
+  background-position:center top!important;
+}
+.game-stage[data-master-art="v105-locked"] .logo-fx{
+  opacity:0!important; /* Title already exists inside the locked raster */
+}
+.game-stage[data-master-art="v105-locked"] .game-header #menu-btn,
+.game-stage[data-master-art="v105-locked"] .game-header #sound-btn{
+  opacity:.01!important; /* Retain hit areas / events without duplicate icons */
+}
+.game-stage[data-master-art="v105-locked"] .fullframe-art .art-board > .mobile-ornament,
+.game-stage[data-master-art="v105-locked"] .reel-theatre > .jade-cloud-foreground{
+  visibility:hidden!important; /* Layered source art replaces older sprites */
+}
+
+/* The v105 jade clouds cover 26% of each outside bottom tile as approved,
+   rather than the retired 8% decorative side-gutter overlap. They paint above
+   the scrolling GPU atlas and must never become scoring tiles. */
+.game-stage[data-master-art^="v105"] .reel-theatre > .jade-cloud-foreground--left{
+  left:calc(var(--ff-tile-width)*.26 - var(--ff-mobile-cloud-left-width));
+}
+.game-stage[data-master-art^="v105"] .reel-theatre > .jade-cloud-foreground--right{
+  right:calc(var(--ff-tile-width)*.26 - var(--ff-mobile-cloud-right-width));
+}
+
+/* MASTER V105 LOCKED. Source geometry (x179..762, y373..1240)
+   is measured from the approved screenshot after removing browser chrome.
+   Side dragons and jade float over only the outside corners. */
+.game-stage[data-master-art="v105-locked"]:is([data-fullframe="portrait"],[data-fullframe="desktop"])
+ .reel-theatre > .jade-top-corner {
+  top:-9.227221%; width:38.765009%;height:18.454441%;
+  background-size:100% 100%;filter:drop-shadow(0 3px 5px #460714c9);
+}
+.game-stage[data-master-art="v105-locked"]:is([data-fullframe="portrait"],[data-fullframe="desktop"])
+ .reel-theatre > .jade-top-corner--left{left:-30.703259%}
+.game-stage[data-master-art="v105-locked"]:is([data-fullframe="portrait"],[data-fullframe="desktop"])
+ .reel-theatre > .jade-top-corner--right{right:-30.703259%;transform:none}
+.game-stage[data-master-art="v105-locked"] .reel-theatre > .approved-master-side{display:none}
+.game-stage[data-master-art="v105-locked"]:is([data-fullframe="portrait"],[data-fullframe="desktop"])
+ .reel-theatre > .approved-master-side{display:block}
+.game-stage[data-master-art="v105-locked"] .game-header{
+ left:0!important;width:var(--ff-scene-width)!important;
+}
+.game-stage[data-master-art="v105-locked"] .game-header #menu-btn{
+ left:3.7%!important;min-width:44px;min-height:44px;opacity:.01!important;
+}
+.game-stage[data-master-art="v105-locked"] .game-header #sound-btn{
+ right:3.7%!important;min-width:44px;min-height:44px;opacity:.01!important;
+}
+/* A genuinely overlapping jade foreground: 26% of a standard tile width
+   on fallback. The original higher-specificity 8% rule must not win. */
+.game-stage[data-corner-reels="masked-v103"][data-master-art="v105-fallback"]:is([data-fullframe="portrait"],[data-fullframe="desktop"])
+ .reel-theatre > .jade-cloud-foreground--left{
+ left:calc(var(--ff-tile-width)*.26 - var(--ff-mobile-cloud-left-width));
+}
+.game-stage[data-corner-reels="masked-v103"][data-master-art="v105-fallback"]:is([data-fullframe="portrait"],[data-fullframe="desktop"])
+ .reel-theatre > .jade-cloud-foreground--right{
+ right:calc(var(--ff-tile-width)*.26 - var(--ff-mobile-cloud-right-width));
+}
+/* Keep compact landscape controls; no portrait source crop in side-panel UI. */
+.game-stage[data-master-art="v105-locked"][data-fullframe="landscape"]
+ .fullframe-art .art-crown{
+ background-image:url('/assets/portrait-v085/frame.webp')!important;
+ background-size:var(--ff-crown-width) calc(var(--ff-crown-unit)*1859)!important;
+}
+.game-stage[data-master-art="v105-locked"][data-fullframe="landscape"] .logo-fx{
+ opacity:1!important;
+}
+.game-stage[data-master-art="v105-locked"][data-fullframe="landscape"] .game-header #menu-btn,
+.game-stage[data-master-art="v105-locked"][data-fullframe="landscape"] .game-header #sound-btn{
+ opacity:1!important;
+}
+
+/* In locked artwork mode the logo is painted inside the crown image, but the
+   hidden legacy logo still needs a correctly proportioned (358:135) layout box
+   for source-compatible accessible geometry and downstream layout checks. */
+.game-stage[data-master-art="v105-locked"] .logo-fx{
+ width:calc(var(--ff-crown-unit) * 358)!important;
+ height:calc(var(--ff-crown-unit) * 135)!important;
+ left:calc(var(--ff-crown-left) + var(--ff-crown-width)*.5 - var(--ff-crown-unit)*179)!important;
+ opacity:0!important;
+}

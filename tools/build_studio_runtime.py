@@ -4,6 +4,7 @@ Run after build_fullframe_ui.py. Frozen game and math sources remain unchanged.
 The new derivative is distinct from all legacy game.js assets.
 """
 from pathlib import Path
+from hashlib import sha256
 import json
 import re
 
@@ -227,20 +228,72 @@ def build():
     html=html.replace('/assets/studio-v090/audio.js?v=082',
         '/assets/studio-v090/audio.js?v=099')
     html=replace(html,'/assets/reel-v083/splash.js?v=098',
-                 '/assets/studio-v090/splash.js?v=104')
+                 '/assets/studio-v090/splash.js?v=105')
+    # Enable the exact approved photo-source layer only after every required
+    # derivative is present; incomplete packs never produce broken images.
+    master_dir=ROOT/'web/assets/approved-master-v105'
+    required=('header-crown-approved.webp','side-left-dragon-jade.webp',
+              'side-right-dragon-jade.webp','top-left-corner-approved.webp',
+              'top-right-corner-approved.webp')
+    # Exact derivative bytes are part of the user's design approval. Reject
+    # unreviewed replacements rather than merely checking file presence.
+    expected_sha={
+      'header-crown-approved.webp':'b94f3d1e4cbb4fcb8c66cf7db0230363a075fd03fcb4e724caff0738634170da',
+      'side-left-dragon-jade.webp':'b0f4b10fb755f1e78ccb5980a4da08a5a2cb994401be1b5674bda1d31b175651',
+      'side-right-dragon-jade.webp':'27fa3c9ffd5d9083e5dc33e554a7d038cd4fafd3e0f2a9e099b9c59570201282',
+      'top-left-corner-approved.webp':'290c723a49f8f32802ad87b1b32598eaf0701b972caf25e8e3f8cdab43500c0f',
+      'top-right-corner-approved.webp':'54ccc18fbe3607eddada896495172023e85aaef4aa003474a0959967f7f65c98'
+    }
+    present=[(master_dir/name).is_file() for name in required]
+    if any(present) and not all(present):
+        raise ValueError('Incomplete locked design asset pack: import all five approved WebPs')
+    locked=all(present)
+    if locked:
+        for name in required:
+            actual=sha256((master_dir/name).read_bytes()).hexdigest()
+            if actual!=expected_sha[name]:
+                raise ValueError('Unapproved master art bytes: '+name)
+    master_mode='v105-locked' if locked else 'v105-fallback'
+    # Optional WebP assets are never mentioned as url(...) in the public
+    # stylesheet until installed. The live byte-hash scanner must NEVER claim
+    # missing-source assets are part of fallback mode.
+    master_files={
+      'crown':'header-crown-approved.webp',
+      'left':'side-left-dragon-jade.webp',
+      'right':'side-right-dragon-jade.webp',
+      'top-left':'top-left-corner-approved.webp',
+      'top-right':'top-right-corner-approved.webp'
+    }
     # The jade is intentionally outside .board-frame, so tile-field masking
     # can never cut the sculpture. These nodes carry no gameplay state.
     html=replace(html,'<main class="game-stage" id="game-stage"',
-                 '<main class="game-stage" id="game-stage" data-corner-reels="masked-v103"')
+                 '<main class="game-stage" id="game-stage" data-corner-reels="masked-v103" data-master-art="'+master_mode+'"')
+    if locked:
+        urls={key:'/assets/approved-master-v105/'+filename
+              for key,filename in master_files.items()}
+        css_names={'crown':'--mw-master-crown','left':'--mw-master-left',
+                   'right':'--mw-master-right','top-left':'--mw-master-top-left',
+                   'top-right':'--mw-master-top-right'}
+        inline=';'.join(css_names[key]+':url(&quot;'+url+'&quot;)'
+                        for key,url in urls.items())
+        html=replace(html,'data-master-art="'+master_mode+'"',
+                          'data-master-art="'+master_mode+'" style="'+inline+'"')
+        html=replace(html,'</head>',
+                     ''.join('<link rel="preload" as="image" href="'+url+'">'
+                             for url in urls.values())+'</head>')
     html=replace(html,'<div id="effects-layer" class="effects-layer" aria-hidden="true"></div>',
+       '<span class="jade-top-corner jade-top-corner--left" aria-hidden="true"></span>'
+       '<span class="jade-top-corner jade-top-corner--right" aria-hidden="true"></span>'
+       '<span class="approved-master-side approved-master-side--left" aria-hidden="true"></span>'
+       '<span class="approved-master-side approved-master-side--right" aria-hidden="true"></span>'
        '<span class="jade-cloud-foreground jade-cloud-foreground--left" aria-hidden="true"></span>'
        '<span class="jade-cloud-foreground jade-cloud-foreground--right" aria-hidden="true"></span>'
        '<div id="effects-layer" class="effects-layer" aria-hidden="true"></div>')
-    html=replace(html,'/assets/fullframe-v086/layout.css?v=098','/assets/fullframe-v086/layout.css?v=104')
-    html=replace(html,'/assets/fullframe-v086/layout.js?v=098','/assets/fullframe-v086/layout.js?v=104')
-    html=replace(html,'/assets/portrait-v085/reels.js?v=098','/assets/studio-v090/reels.js?v=104')
+    html=replace(html,'/assets/fullframe-v086/layout.css?v=098','/assets/fullframe-v086/layout.css?v=105')
+    html=replace(html,'/assets/fullframe-v086/layout.js?v=098','/assets/fullframe-v086/layout.js?v=105')
+    html=replace(html,'/assets/portrait-v085/reels.js?v=098','/assets/studio-v090/reels.js?v=105')
     html=replace(html,'/assets/studio-v090/game.js?v=098',
-                 '/assets/studio-v090/game.js?v=104')
+                 '/assets/studio-v090/game.js?v=105')
     # Only mutate the FINAL compiled game HTML; responsive builder verifies
     # that the locked upstream source remains byte-identical until this stage.
     source_touch='<link rel="apple-touch-icon" href="/assets/approved-v082/icon-180.png">'
@@ -262,7 +315,7 @@ def build():
     sw=ROOT/'web/sw.js'
     worker=sw.read_text()
     worker,changed=re.subn(r"const CACHE='mahjong-wild-presentation-[0-9]+'",
-        "const CACHE='mahjong-wild-presentation-104'",worker)
+        "const CACHE='mahjong-wild-presentation-105'",worker)
     if changed!=1: raise ValueError("PWA cache version anchor missing")
     if "url.pathname.startsWith('/studio')" not in worker:
         worker=worker.replace("url.pathname.startsWith('/api/')","(url.pathname.startsWith('/api/')||url.pathname.startsWith('/studio')||url.pathname.startsWith('/media/'))")

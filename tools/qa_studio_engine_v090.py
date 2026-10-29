@@ -54,8 +54,35 @@ def assert_approved_masked_corners(page):
         clip:getComputedStyle(board).clipPath,corners,jade,behind};
     }""")
     assert data['enabled']=='masked-v103',data
+    master=page.evaluate("""() => ({
+      mode:document.querySelector('#game-stage').dataset.masterArt,
+      top:[...document.querySelectorAll('.reel-theatre > .jade-top-corner')].map(e=>({
+        background:getComputedStyle(e).backgroundImage,
+        display:getComputedStyle(e).display,positive:parseFloat(getComputedStyle(e).zIndex)>8
+      }))
+    })""")
+    assert master['mode'] in ('v105-fallback','v105-locked'),master
+    assert len(master['top'])==2 and all(x['positive'] for x in master['top']),master
+    if data['mode'] in ('portrait','desktop'):
+        expected=['top-left-corner-approved.webp','top-right-corner-approved.webp'] if master['mode']=='v105-locked' else ['jade-corner-v105.svg']*2
+        assert all(x['display']!='none' and x['positive'] and filename in x['background']
+                   for x,filename in zip(master['top'],expected)),master
     assert data['rows']==[4,5,5,5,4],data
+    if master['mode']=='v105-locked':
+        assert all(x=='hidden' for x in data['behind']),data
     assert len(data['corners'])==2,data
+    # The foreground jade must actually extend into outside column 1 and 5.
+    # Width/z-index-only assertions allowed the previous incorrect tiny clouds.
+    if master['mode']=='v105-fallback' and data['mode'] in ('portrait','desktop'):
+        jade_overlap=page.evaluate("""() => {
+          const board=document.querySelector('#board').getBoundingClientRect(),
+                tile=document.querySelector('#board .reel.short .tile').getBoundingClientRect(),
+                left=document.querySelector('.jade-cloud-foreground--left').getBoundingClientRect(),
+                right=document.querySelector('.jade-cloud-foreground--right').getBoundingClientRect();
+          return {left:left.right-board.left,right:board.right-right.left,tile:tile.width};
+        }""")
+        assert .18<jade_overlap['left']/jade_overlap['tile']<.35,jade_overlap
+        assert .18<jade_overlap['right']/jade_overlap['tile']<.35,jade_overlap
     if data['mode'] in ('portrait','desktop'):
         assert 'polygon(' in data['clip'],data
         assert len(data['jade'])==2 and data['behind']==['hidden','hidden'],data
@@ -81,7 +108,8 @@ def assert_visible_corner_pixels(page):
     width,height=image.size
     radius=max(3,round(min(width/5,height/5)*.115))
     results={}
-    for side,fx in [('left',.1),('right',.9)]:
+    locked=page.evaluate("() => document.querySelector('#game-stage').dataset.masterArt==='v105-locked'")
+    for side,fx in ([('left',.16),('right',.84)] if locked else [('left',.1),('right',.9)]):
         for edge,fy in [('top',.05),('bottom',.95)]:
             x=round(width*fx);y=round(height*fy)
             patch=image.crop((max(0,x-radius),max(0,y-radius),
@@ -167,6 +195,13 @@ def main():
                 assert_layout(page,390,690)
                 report['masked_corner_initial']=assert_approved_masked_corners(page)
                 report['corner_pixels_portrait']=assert_visible_corner_pixels(page)
+                report['master_v105_portrait']=page.evaluate("""() => ({
+                  mode:document.querySelector('#game-stage').dataset.masterArt,
+                  header:parseFloat(getComputedStyle(document.querySelector('#game-stage'))
+                    .getPropertyValue('--ff-crown-height')),
+                  board:document.querySelector('#board').getBoundingClientRect().height
+                })""")
+                assert report['master_v105_portrait']['header']>0
                 page.screenshot(path=str(args.output/f'{args.engine}-game.png'))
                 # Desktop portrait-shaped cabinet reports mode "desktop".
                 # Regression must capture its pixels before any game round.

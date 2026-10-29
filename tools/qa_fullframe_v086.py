@@ -23,7 +23,7 @@ MEASURE='''()=>{
  };
  const art=document.querySelector('.fullframe-art'),root=document.documentElement,body=document.body,view=visualViewport;
  return {
-   stage:{...r('#game-stage'),...paint(node('#game-stage')),mode:node('#game-stage').dataset.fullframe,maskedCorners:node('#game-stage').dataset.cornerReels==='masked-v103'},board:r('#board'),notice:r('.announcement'),meters:r('.credits-strip'),controls:r('.play-controls'),logo:r('.logo-fx'),disk:r('.spin-disk'),
+   stage:{...r('#game-stage'),...paint(node('#game-stage')),mode:node('#game-stage').dataset.fullframe,maskedCorners:node('#game-stage').dataset.cornerReels==='masked-v103',masterLocked:node('#game-stage').dataset.masterArt==='v105-locked'},board:r('#board'),notice:r('.announcement'),meters:r('.credits-strip'),controls:r('.play-controls'),logo:r('.logo-fx'),disk:r('.spin-disk'),
    tiles:[...document.querySelectorAll('#board .tile')].map(e=>{const b=e.getBoundingClientRect();return b.width/b.height;}),
    buttons:['menu-btn','sound-btn','turbo-btn','minus-btn','spin-btn','plus-btn','auto-btn'].map(id=>r('#'+id)),
    overflow:[root.scrollWidth-innerWidth,root.scrollHeight-innerHeight],
@@ -32,7 +32,7 @@ MEASURE='''()=>{
    art:{container:{...r(art),...paint(art)},before:pseudo(art,'::before'),after:pseudo(art,'::after'),
      bands:[...art.querySelectorAll(':scope > i')].map(e=>({name:e.className,...r(e),...paint(e),parts:[...e.children].filter(p=>p.tagName==='B'&&getComputedStyle(p).display!=='none').map(p=>({...r(p),...paint(p)}))})),
      ornaments:[...art.querySelectorAll('.mobile-ornament')].map(e=>({...r(e),...paint(e)})),
-     foreground:[...document.querySelectorAll('.jade-cloud-foreground')].map(e=>({...r(e),...paint(e)}))}
+     foreground:[...document.querySelectorAll('.jade-cloud-foreground')].map(e=>({...r(e),...paint(e)})),approvedSides:[...document.querySelectorAll('.approved-master-side')].map(e=>({...r(e),...paint(e)}))}
  };
 }'''
 
@@ -74,9 +74,18 @@ def assert_artwork_coverage(g):
         ornament=art.get('ornaments',[])
         assert len(ornament)==6 and all(o['image'] and o['w']>0 and o['h']>0 for o in ornament),ornament
         if stage.get('maskedCorners'):
-            assert sum(o['visible'] for o in ornament)==4,ornament
             clouds=art.get('foreground',[])
-            assert len(clouds)==2 and all(o['visible'] and o['image'] and o['w']>0 and o['h']>0 for o in clouds),clouds
+            assert len(clouds)==2,clouds
+            if stage.get('masterLocked') and stage.get('mode')!='landscape':
+                assert all(not o['visible'] for o in ornament),ornament
+                assert all(not o['visible'] for o in clouds),clouds
+                sides=art.get('approvedSides',[])
+                assert len(sides)==2 and all(
+                    o['visible'] and o['image'] and o['w']>0 and o['h']>0
+                    for o in sides),sides
+            else:
+                assert sum(o['visible'] for o in ornament)==4,ornament
+                assert all(o['visible'] and o['image'] and o['w']>0 and o['h']>0 for o in clouds),clouds
         else:
             assert all(o['visible'] for o in ornament),ornament
     cursor=stage['y']
