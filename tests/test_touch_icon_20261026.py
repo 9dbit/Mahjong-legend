@@ -47,11 +47,11 @@ class ApprovedTouchIcon(unittest.TestCase):
             self.assertIn("source_touch=",compiler)
             self.assertIn('mahjong-gold-20261026',compiler)
             self.assertIn('html=html.replace(source_touch',compiler)
-            self.assertIn('mahjong-wild-presentation-099',compiler)
+            self.assertIn('mahjong-wild-presentation-103',compiler)
         else:
             self.assertIn('mahjong-gold-20261026',html)
             self.assertIn('rel="icon" type="image/png"',html)
-            self.assertIn("const CACHE='mahjong-wild-presentation-099'",
+            self.assertIn("const CACHE='mahjong-wild-presentation-103'",
                           (ROOT/'web/sw.js').read_text())
         manifest=json.loads((ROOT/'web/manifest.webmanifest').read_text())
         self.assertEqual([entry['sizes'] for entry in manifest['icons']],['192x192','512x512'])
