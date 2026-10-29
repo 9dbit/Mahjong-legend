@@ -64,7 +64,13 @@
     const key = [viewportWidth,w,h,safeTop,safeBottom,safeLeft,safeRight,standalone,desktop].join(':');
     if (key === previous) return;
     previous = key;
-    const fraction = Math.max(.64,Math.min(.760,.760-(1859/864-usable/innerWidth)*.17));
+    // Legacy standalone runtime (outside Studio) is frozen v104 geometry.
+    // Approved V105 compact crown/expanded live reel applies ONLY when the
+    // final Studio compiler verifies and enables its source art mode.
+    const masterV105=stage.dataset.masterArt?.startsWith('v105')===true;
+    const fractionLimit=masterV105?.760:.728;
+    const fraction = Math.max(masterV105?.64:.62,Math.min(fractionLimit,
+      fractionLimit-(1859/864-usable/innerWidth)*.17));
     // A square/split-screen viewport still needs room for the header and Spin.
     // Bound the board height before allocating those panels, preserving 2:3
     // tile geometry instead of allowing zero-height controls or cropping them.
@@ -75,8 +81,8 @@
     // Approved V105: shorter source-proportional crown, not a vertically
     // squeezed logo. The multiplier uses its independent full-width scale.
     // Saved headroom is reassigned to live 2:3 tile cells, not empty margin.
-    const crownScale = sceneWidth/864 * (portrait ? .645 : 1);
-    const rail = 89*(sceneWidth/864)*(portrait ? .78 : 1);
+    const crownScale = sceneWidth/864 * (masterV105 && portrait ? .645 : 1);
+    const rail = 89*(sceneWidth/864)*(masterV105 && portrait ? .78 : 1);
     const minimumHeader = 305*crownScale+rail;
     // Visible buttons determine the console budget, not a scaled staircase
     // illustration. Phone hit targets never shrink below 44 CSS pixels.
@@ -143,12 +149,12 @@
     const fitScale = desiredZoom => Math.min(
       boardHeight/938*desiredZoom,(shorterGutter+bleed)/118);
     const lanternScale = fitScale(1.80);
-    const dragonScale = fitScale(1.70);
+    const dragonScale = fitScale(masterV105 ? 1.70 : 1.55);
     // Jade retains the source 118:338 aspect and can overlap the bottom
     // visual-only corner by at most one third of a full-size tile.
     const cloudBleed = Math.min(tileWidth*.33,28);
-    const cloudScale = Math.min(boardHeight/938*2.04,
-      (shorterGutter+cloudBleed)/118);
+    const cloudScale = masterV105 ? Math.min(boardHeight/938*2.04,
+      (shorterGutter+cloudBleed)/118) : fitScale(1.85);
     put('board-right-gutter',rightGutter);
     put('mobile-lantern-left-width',118*lanternScale);
     put('mobile-lantern-right-width',117*lanternScale);
