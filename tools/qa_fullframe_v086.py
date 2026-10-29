@@ -70,7 +70,7 @@ def assert_artwork_coverage(g):
         for band in [hud,controls]:
             assert band['visible'] and band['image'] and covers(panel,band),band
         return
-    if stage.get('mode')=='portrait':
+    if stage.get('mode')=='portrait' or (stage.get('mode')=='desktop' and stage.get('maskedCorners')):
         ornament=art.get('ornaments',[])
         assert len(ornament)==6 and all(o['image'] and o['w']>0 and o['h']>0 for o in ornament),ornament
         if stage.get('maskedCorners'):
@@ -90,7 +90,7 @@ def assert_artwork_coverage(g):
                 assert len(parts)==3,band
                 edge=band['x']
                 for part_index,part in enumerate(parts):
-                    replaced=(stage.get('mode')=='portrait' and band['name']=='art-board' and part_index in (0,2))
+                    replaced=((stage.get('mode')=='portrait' or (stage.get('mode')=='desktop' and stage.get('maskedCorners'))) and band['name']=='art-board' and part_index in (0,2))
                     assert (part['visible'] or replaced) and part['image'] and part['w']>.01,part
                     assert abs(part['x']-edge)<=epsilon and abs(part['y']-band['y'])<=epsilon and abs(part['bottom']-band['bottom'])<=epsilon,(band,part)
                     edge=part['right']
