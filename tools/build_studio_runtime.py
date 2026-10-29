@@ -97,27 +97,33 @@ def build():
     # not a fake, permanently frozen duplicate of a scoring tile.
     if text.count("function reel(col,index){const e=node('div',`reel${col.length===4?' short':''}`);") != 1:
         raise ValueError("Unexpected reel builder; review first-row animation")
-    # A five-high visual reel can still contain only four scored cells.
-    # Do not give the ornamental fifth tile a _tile payload or a scoring row.
+    # Six visual positions can still contain exactly four scored cells.
+    # Neither decorative corner receives a _tile payload or a scoring row.
     old_reel = """function reel(col,index){const e=node('div',`reel${col.length===4?' short':''}`);e.setAttribute('aria-label',`Reel ${index+1}`);col.forEach((t,row)=>e.append(tile(t,row)));return e;}"""
-    new_reel = """  const cornerTile=(index,col)=>{
+    new_reel = """  const cornerTile=(index,col,edge='bottom')=>{
     const names='ABCDEFGHIJKLMNO';
-    const signature=(col||[]).reduce((sum,t,n)=>sum+(names.indexOf(t.symbol)+1)*(n+3),index*11+7);
+    const signature=(col||[]).reduce((sum,t,n)=>sum+(names.indexOf(t.symbol)+1)*(n+3),index*11+(edge==='top'?19:37));
     return {symbol:names[((signature%names.length)+names.length)%names.length],enhanced:false};
   };
   function reel(col,index){
     const e=node('div',`reel${col.length===4?' short':''}`);
     e.setAttribute('aria-label',`Reel ${index+1}`);
+    const visual=(edge)=>{
+      const ghost=node('div','corner-visual');ghost.dataset.scoring='false';ghost.dataset.corner=edge;
+      ghost.setAttribute('aria-hidden','true');
+      const image=node('img','corner-visual-image');image.src=tileUrl(cornerTile(index,col,edge));
+      image.alt='';image.draggable=false;image.decoding='async';ghost.append(image);
+      return ghost;
+    };
+    if(col.length===4)e.append(visual('top'));
     col.forEach((t,row)=>e.append(tile(t,row)));
-    if(col.length===4){
-      const ghost=node('div','corner-visual');ghost.dataset.scoring='false';ghost.setAttribute('aria-hidden','true');
-      const image=node('img','corner-visual-image');image.src=tileUrl(cornerTile(index,col));image.alt='';image.draggable=false;image.decoding='async';
-      ghost.append(image);e.append(ghost);
-    }
+    if(col.length===4)e.append(visual('bottom'));
     return e;
   }"""
     text=replace(text,old_reel,new_reel)
     text=replace(text,'root.children[c].children.length===col.length',"root.children[c].querySelectorAll(':scope > .tile').length===col.length")
+    # Scoring rows are independent of the top/bottom visual-only tile nodes.
+    text=replace(text,'root.children[c].children[r]._tile',"root.children[c].querySelectorAll(':scope > .tile')[r]?._tile")
     text=replace(text,"filler:(i,j)=>demo[(i+j)%5][j%demo[(i+j)%5].length],","filler:(i,j)=>demo[(i+j)%5][j%demo[(i+j)%5].length],visualFiller:cornerTile,")
     text=replace(text,'  function refresh(next){\n    state=next;options=next.bet_options?.map(Number)||options;', '''  async function refresh(next){
     await applyManifest(next);
@@ -187,9 +193,9 @@ def build():
       const interim = Array.from({length: turbo ? 3 : 4}, (_, j) => filler(i, j));
       return {col, all: [...col, ...interim, ...earlier], steps: col.length + interim.length};''',
       '''      const earlier = prior[i]?.length === col.length ? prior[i] : col;
-      const visual = visualFiller && col.length === 4 ? [...col, visualFiller(i, col)] : col;
+      const visual = visualFiller && col.length === 4 ? [visualFiller(i, col, 'top'), ...col, visualFiller(i, col, 'bottom')] : col;
       const priorVisual = visualFiller && col.length === 4
-        ? [...earlier, visualFiller(i, earlier)] : earlier;
+        ? [visualFiller(i, earlier, 'top'), ...earlier, visualFiller(i, earlier, 'bottom')] : earlier;
       const interim = Array.from({length: turbo ? 3 : 4}, (_, j) => filler(i, j));
       return {col, visibleCount:visual.length, all:[...visual,...interim,...priorVisual],
         steps:visual.length+interim.length};''')
@@ -218,8 +224,8 @@ def build():
     html=replace(html,'<main class="game-stage" id="game-stage"',
                  '<main class="game-stage" id="game-stage" data-corner-reels="animated"')
     # Cache keys must change for an installed iOS PWA as well as Safari.
-    html=replace(html,'/assets/portrait-v085/reels.js?v=098','/assets/portrait-v085/reels.js?v=101')
-    html=replace(html,'/assets/fullframe-v086/layout.css?v=100','/assets/fullframe-v086/layout.css?v=101')
+    html=replace(html,'/assets/portrait-v085/reels.js?v=098','/assets/portrait-v085/reels.js?v=102')
+    html=replace(html,'/assets/fullframe-v086/layout.css?v=100','/assets/fullframe-v086/layout.css?v=102')
     # Only mutate the FINAL compiled game HTML; responsive builder verifies
     # that the locked upstream source remains byte-identical until this stage.
     source_touch='<link rel="apple-touch-icon" href="/assets/approved-v082/icon-180.png">'
@@ -258,7 +264,7 @@ def build():
     sw=ROOT/'web/sw.js'
     worker=sw.read_text()
     worker,changed=re.subn(r"const CACHE='mahjong-wild-presentation-[0-9]+'",
-        "const CACHE='mahjong-wild-presentation-101'",worker)
+        "const CACHE='mahjong-wild-presentation-102'",worker)
     if changed!=1: raise ValueError("PWA cache version anchor missing")
     if "url.pathname.startsWith('/studio')" not in worker:
         worker=worker.replace("url.pathname.startsWith('/api/')","(url.pathname.startsWith('/api/')||url.pathname.startsWith('/studio')||url.pathname.startsWith('/media/'))")
