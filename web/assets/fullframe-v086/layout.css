@@ -506,8 +506,8 @@ html.desktop-layout body{
   content:''!important;display:block!important;position:absolute!important;
   top:calc(0px - var(--ff-board-height)*.015)!important;
   bottom:auto!important;
-  width:calc(var(--ff-tile-width)*1.02)!important;
-  height:calc(var(--ff-board-height)*.205)!important;
+  width:calc(var(--ff-tile-width)*.78)!important;
+  height:calc(var(--ff-board-height)*.165)!important;
   z-index:20!important;opacity:1!important;
   border:0!important;box-shadow:none!important;
   pointer-events:none!important;
@@ -517,17 +517,17 @@ html.desktop-layout body{
   background-size:100% auto!important;
   background-position:center top!important;
   filter:drop-shadow(0 3px 3px #360210dd) drop-shadow(0 0 3px #6f081b99)!important;
-  -webkit-mask-image:linear-gradient(to bottom,#000 0%,#000 73%,transparent 100%)!important;
-  mask-image:linear-gradient(to bottom,#000 0%,#000 73%,transparent 100%)!important;
+  -webkit-mask-image:linear-gradient(to bottom,#000 0%,#000 65%,transparent 100%)!important;
+  mask-image:linear-gradient(to bottom,#000 0%,#000 65%,transparent 100%)!important;
   clip-path:none!important;
 }
 .game-stage[data-corner-reels="animated"][data-fullframe="portrait"] .reel-theatre::before{
-  left:calc(0px - var(--ff-tile-width)*.28)!important;
+  left:calc(0px - var(--ff-tile-width)*.46)!important;
   right:auto!important;
   transform:none!important;
 }
 .game-stage[data-corner-reels="animated"][data-fullframe="portrait"] .reel-theatre::after{
-  right:calc(0px - var(--ff-tile-width)*.28)!important;
+  right:calc(0px - var(--ff-tile-width)*.46)!important;
   left:auto!important;
   transform:scaleX(-1)!important;
 }
