@@ -94,27 +94,17 @@
     finishLog(log);
   }
 
-  async function run({root, board, buildReel, urlFor, filler, visualFiller, shouldSkip, onStop, turbo}) {
+  async function run({root, board, buildReel, urlFor, filler, shouldSkip, onStop, turbo}) {
     if (active) active.finish();
     const oldNodes = [...root.children];
     if (oldNodes.length !== 5) throw Error('Expected 5 visible reels');
     const prior = oldNodes.map(reel => [...reel.children].map(tile => tile._tile).filter(Boolean));
     const finals = board.map((col, index) => buildReel(col, index));
     const startedPreparing = now();
-    // Two full-size OUTSIDE-REEL visuals participate in the GPU atlas,
-    // but never enter the scored board or settlement payload.
-    const stage = root.closest('.game-stage');
-    const withCorners = stage?.dataset.cornerReels === 'masked-v103'
-      && stage?.dataset.fullframe === 'portrait' && typeof visualFiller === 'function';
-    const onScreen = (col, i) => withCorners && col.length === 4
-      ? [visualFiller(i, col, 'top'), ...col, visualFiller(i, col, 'bottom')]
-      : col;
     const sequences = board.map((col, i) => {
       const earlier = prior[i]?.length === col.length ? prior[i] : col;
-      const visual = onScreen(col, i), oldVisual = onScreen(earlier, i);
       const interim = Array.from({length: turbo ? 6 : 8}, (_, j) => filler(i, j));
-      return {col, visibleCount:visual.length, all: [...visual, ...interim, ...oldVisual],
-        steps: visual.length + interim.length};
+      return {col, all: [...col, ...interim, ...earlier], steps: col.length + interim.length};
     });
     const urls = [...new Set(sequences.flatMap(c => c.all.map(urlFor)))];
     // Never touch the visible DOM while fetching and decoding tile artwork.
@@ -130,7 +120,7 @@
       const node = oldNodes[i];
       const h = node.getBoundingClientRect().height;
       const gap = parseFloat(getComputedStyle(node).rowGap) || 0;
-      return ((h + gap) / item.visibleCount) * item.all.length;
+      return ((h + gap) / item.col.length) * item.all.length;
     });
     const maxHeight = Math.max(...totalHeight);
     const dpr = Math.max(.8, Math.min(1.5, window.devicePixelRatio || 1, 3900 / maxHeight));
@@ -139,7 +129,7 @@
       const box = original.getBoundingClientRect();
       if (box.width < 1 || box.height < 1) throw Error('Reel surface has zero dimensions');
       const gap = parseFloat(getComputedStyle(original).rowGap) || 0;
-      const pitch = (box.height + gap) / seq.visibleCount;
+      const pitch = (box.height + gap) / seq.col.length;
       const fullHeight = seq.all.length * pitch;
       const canvas = document.createElement('canvas');
       canvas.className = 'reel-strip reel-canvas';

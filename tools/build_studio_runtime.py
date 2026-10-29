@@ -16,6 +16,35 @@ def replace(source,old,new,count=1):
 
 def build():
     OUT.mkdir(parents=True,exist_ok=True)
+    # Build the extended GPU atlas AFTER the protected upstream source passes
+    # its frozen SHA attestation. The immutable reel-v083 JS stays untouched.
+    reel_text=(ROOT/'web/assets/reel-v083/reels.js').read_text()
+    reel_text=replace(reel_text,
+       'async function run({root, board, buildReel, urlFor, filler, shouldSkip, onStop, turbo})',
+       'async function run({root, board, buildReel, urlFor, filler, visualFiller, shouldSkip, onStop, turbo})')
+    reel_text=replace(reel_text, '''    const sequences = board.map((col, i) => {
+      const earlier = prior[i]?.length === col.length ? prior[i] : col;
+      const interim = Array.from({length: turbo ? 6 : 8}, (_, j) => filler(i, j));
+      return {col, all: [...col, ...interim, ...earlier], steps: col.length + interim.length};
+    });''', '''    // Extra full-size corner tile visuals scroll in the GPU atlas only.
+    const stage = root.closest('.game-stage');
+    const withCorners = stage?.dataset.cornerReels === 'masked-v103'
+      && stage?.dataset.fullframe === 'portrait' && typeof visualFiller === 'function';
+    const onScreen = (col, i) => withCorners && col.length === 4
+      ? [visualFiller(i, col, 'top'), ...col, visualFiller(i, col, 'bottom')]
+      : col;
+    const sequences = board.map((col, i) => {
+      const earlier = prior[i]?.length === col.length ? prior[i] : col;
+      const visual = onScreen(col, i), oldVisual = onScreen(earlier, i);
+      const interim = Array.from({length: turbo ? 6 : 8}, (_, j) => filler(i, j));
+      return {col, visibleCount:visual.length, all: [...visual, ...interim, ...oldVisual],
+        steps: visual.length + interim.length};
+    });''')
+    reel_text=replace(reel_text,'((h + gap) / item.col.length) * item.all.length',
+                           '((h + gap) / item.visibleCount) * item.all.length')
+    reel_text=replace(reel_text,'const pitch = (box.height + gap) / seq.col.length;',
+                           'const pitch = (box.height + gap) / seq.visibleCount;')
+    (OUT/'reels.js').write_text(reel_text)
     text=(ROOT/'web/assets/portrait-v085/game.js').read_text()
     text=replace(text,'UI 0.8.7','UI 0.9.2')
     text=replace(text,"  const tileAssets='/assets/portrait-v085/';", """  const tileAssets='/assets/portrait-v085/';
@@ -181,7 +210,7 @@ def build():
        '<div id="effects-layer" class="effects-layer" aria-hidden="true"></div>')
     html=replace(html,'/assets/fullframe-v086/layout.css?v=098','/assets/fullframe-v086/layout.css?v=103')
     html=replace(html,'/assets/fullframe-v086/layout.js?v=098','/assets/fullframe-v086/layout.js?v=103')
-    html=replace(html,'/assets/reel-v083/reels.js?v=084','/assets/reel-v083/reels.js?v=103')
+    html=replace(html,'/assets/reel-v083/reels.js?v=084','/assets/studio-v090/reels.js?v=103')
     # Only mutate the FINAL compiled game HTML; responsive builder verifies
     # that the locked upstream source remains byte-identical until this stage.
     source_touch='<link rel="apple-touch-icon" href="/assets/approved-v082/icon-180.png">'
