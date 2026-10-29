@@ -473,3 +473,61 @@ html.desktop-layout body{
 .game-stage[data-visual-parity="compact"] .play-controls{
   padding:5px 10px 5px;
 }
+
+
+/* Curved jade corners, never green triangle.
+   Previous flat-green board-frame pseudo-elements were a MOCK-UP shape,
+   not approved sculpted corner artwork. No opaque geometric shapes remain. */
+.game-stage[data-corner-reels="animated"][data-fullframe="portrait"] .reel-theatre .board-frame::before,
+.game-stage[data-corner-reels="animated"][data-fullframe="portrait"] .reel-theatre .board-frame::after{
+  display:none!important;content:none!important;
+  background:none!important;clip-path:none!important;
+}
+/* Clip the tile FIELD, not the jade. This creates the chamfered corners with
+   the existing crimson stage visible through the cutouts while the real
+   cloud sculpture paints in front. Lower corners remain jade-covered. */
+.game-stage[data-corner-reels="animated"][data-fullframe="portrait"] .reel-theatre .board-frame{
+  clip-path:polygon(
+    0 calc(var(--ff-tile-width)*.51),
+    calc(var(--ff-tile-width)*.48) 0,
+    calc(100% - var(--ff-tile-width)*.48) 0,
+    100% calc(var(--ff-tile-width)*.51),
+    100% calc(100% - var(--ff-tile-width)*.30),
+    calc(100% - var(--ff-tile-width)*.30) 100%,
+    calc(var(--ff-tile-width)*.30) 100%,
+    0 calc(100% - var(--ff-tile-width)*.30)
+  );
+}
+/* Use the approved HDR JADE RASTER rather than flat gradients or an
+   illustrative icon. The new upper sculpture belongs to the reel THEATRE,
+   not inside its clipped frame; tile faces and GPU atlas remain beneath. */
+.game-stage[data-corner-reels="animated"][data-fullframe="portrait"] .reel-theatre::before,
+.game-stage[data-corner-reels="animated"][data-fullframe="portrait"] .reel-theatre::after{
+  content:''!important;display:block!important;position:absolute!important;
+  top:calc(0px - var(--ff-board-height)*.015)!important;
+  bottom:auto!important;
+  width:calc(var(--ff-tile-width)*1.02)!important;
+  height:calc(var(--ff-board-height)*.205)!important;
+  z-index:20!important;opacity:1!important;
+  border:0!important;box-shadow:none!important;
+  pointer-events:none!important;
+  background-color:transparent!important;
+  background-image:url('/assets/ornaments/approved-cloud-cutout-v097.webp')!important;
+  background-repeat:no-repeat!important;
+  background-size:100% auto!important;
+  background-position:center top!important;
+  filter:drop-shadow(0 3px 3px #360210dd) drop-shadow(0 0 3px #6f081b99)!important;
+  -webkit-mask-image:linear-gradient(to bottom,#000 0%,#000 73%,transparent 100%)!important;
+  mask-image:linear-gradient(to bottom,#000 0%,#000 73%,transparent 100%)!important;
+  clip-path:none!important;
+}
+.game-stage[data-corner-reels="animated"][data-fullframe="portrait"] .reel-theatre::before{
+  left:calc(0px - var(--ff-tile-width)*.28)!important;
+  right:auto!important;
+  transform:none!important;
+}
+.game-stage[data-corner-reels="animated"][data-fullframe="portrait"] .reel-theatre::after{
+  right:calc(0px - var(--ff-tile-width)*.28)!important;
+  left:auto!important;
+  transform:scaleX(-1)!important;
+}
