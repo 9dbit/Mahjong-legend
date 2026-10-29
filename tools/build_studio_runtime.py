@@ -228,7 +228,7 @@ def build():
        '<div id="effects-layer" class="effects-layer" aria-hidden="true"></div>')
     html=replace(html,'/assets/fullframe-v086/layout.css?v=098','/assets/fullframe-v086/layout.css?v=103')
     html=replace(html,'/assets/fullframe-v086/layout.js?v=098','/assets/fullframe-v086/layout.js?v=103')
-    html=replace(html,'/assets/portrait-v085/reels.js?v=085','/assets/studio-v090/reels.js?v=103')
+    html=replace(html,'/assets/portrait-v085/reels.js?v=098','/assets/studio-v090/reels.js?v=103')
     # Only mutate the FINAL compiled game HTML; responsive builder verifies
     # that the locked upstream source remains byte-identical until this stage.
     source_touch='<link rel="apple-touch-icon" href="/assets/approved-v082/icon-180.png">'
