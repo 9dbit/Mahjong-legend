@@ -213,6 +213,10 @@ def build():
       '<span class="jade-cloud-foreground jade-cloud-foreground--left" aria-hidden="true"></span>'
       '<span class="jade-cloud-foreground jade-cloud-foreground--right" aria-hidden="true"></span>'
       '<div id="effects-layer" class="effects-layer" aria-hidden="true"></div>')
+    # Only the final Studio game renders the visual-only fifth tiles.
+    # Legacy locked UI QA deliberately continues to test its original 4-row outer reels.
+    html=replace(html,'<main class="game-stage" id="game-stage"',
+                 '<main class="game-stage" id="game-stage" data-corner-reels="animated"')
     # Cache keys must change for an installed iOS PWA as well as Safari.
     html=replace(html,'/assets/portrait-v085/reels.js?v=087','/assets/portrait-v085/reels.js?v=101')
     html=replace(html,'/assets/fullframe-v086/layout.css?v=100','/assets/fullframe-v086/layout.css?v=101')

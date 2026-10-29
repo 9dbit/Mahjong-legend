@@ -54,6 +54,8 @@ class JadeCloudPresentation(unittest.TestCase):
         self.assertIn(".corner-visual-image');",compiler)
         self.assertIn('layout.css?v=101',compiler)
         self.assertIn('presentation-101',compiler)
+        self.assertIn('data-corner-reels="animated"',compiler)
+        self.assertIn('.game-stage[data-corner-reels="animated"] .board .reel.short',css)
         self.assertIn("visibleCount:visual.length",compiler)
         self.assertIn("seq.visibleCount",compiler)
         self.assertNotIn("e.style.setProperty('--corner-cap-image'",compiler)

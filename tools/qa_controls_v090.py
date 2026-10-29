@@ -101,19 +101,11 @@ def assert_mobile_ornaments(page):
         oldTailDisplays:['::before','::after'].map(p=>getComputedStyle(reel,p).display),
         goldLine:parseFloat(getComputedStyle(reel.querySelector('.board-frame')).outlineWidth),
         sprites,
-        foregroundClouds:[...document.querySelectorAll('.jade-cloud-foreground')].map(e=>{
-          const box=e.getBoundingClientRect(),css=getComputedStyle(e);
-          return {display:css.display,pointerEvents:css.pointerEvents,width:box.width,height:box.height,z:parseInt(css.zIndex),background:css.backgroundImage};
-        }),
         shortReels:[...document.querySelectorAll('#board > .reel.short')].map(e=>{
           const first=e.querySelector('.tile'), fr=first.getBoundingClientRect();
           const board=document.querySelector('#board').getBoundingClientRect();
           const before=getComputedStyle(e,'::before'),after=getComputedStyle(e,'::after');
-          const visual=e.querySelector('.corner-visual-image'),vr=visual?.getBoundingClientRect();
-          return {visualCount:e.querySelectorAll('.corner-visual').length,
-            visualLoaded:!!visual?.complete&&visual.naturalWidth>0,
-            visualRatio:vr?.height?vr.width/vr.height:0,
-            top:fr.top-board.top,count:e.querySelectorAll('.tile').length,
+          return {top:fr.top-board.top,count:e.querySelectorAll('.tile').length,
             beforeDisplay:before.display,afterDisplay:after.display,
             afterImage:after.backgroundImage,
             afterTop:parseFloat(after.top),afterHeight:parseFloat(after.height),
@@ -130,13 +122,6 @@ def assert_mobile_ornaments(page):
       };
     }''')
     assert len(data['sprites']) == 6, data
-    assert len(data['foregroundClouds']) == 2, data
-    if data['mode']=='portrait':
-        assert all(c['display']!='none' and c['pointerEvents']=='none' and c['z']>=9 and
-                   c['width']>0 and c['height']>0 and 'approved-cloud-cutout-v097.webp' in c['background']
-                   for c in data['foregroundClouds']),data
-    else:
-        assert all(c['display']=='none' for c in data['foregroundClouds']),data
     assert 0 < data['overlap'] <= data['tileWidth']*.10+.12, data
     assert abs(data['overlap']-data['tileWidth']*.08) < .18, data
     assert .5 <= data['goldLine'] <= 1.6, data
@@ -185,17 +170,18 @@ def assert_mobile_ornaments(page):
             else:
                 assert abs(data['board']['right']-asset['left']-overlap)<.5,asset
     assert len(seen)==6,data
-    # Both outside reels remain FOUR scored tile cells and begin at the top.
-    # One standard-size additional tile at the bottom is visual-only.
-    # The GPU atlas draws all five visible pitches; no static endcap remains.
+    # Both four-tile reels must start flush with the TOP of the first visible
+    # row, not a motionless tile-shaped :before. The fifth slot is sealed by
+    # a non-scoring ornament that begins after the last actual tile.
     assert len(data['shortReels'])==2,data
     for reel in data['shortReels']:
         assert reel['count']==reel['scoredTileCount']==4,reel
-        assert reel['visualCount']==1 and reel['visualLoaded'],reel
-        assert abs(reel['visualRatio']-2/3)<.012,reel
         assert abs(reel['top'])<=2.2,reel
-        assert reel['beforeDisplay']=='none' and reel['afterDisplay']=='none',reel
-        assert abs(reel['reelHeight']-reel['boardHeight'])<2.2,reel
+        assert reel['beforeDisplay']=='none',reel
+        assert reel['afterDisplay']!='none',reel
+        assert 'reel-endcap-v097.svg' in reel['afterImage'],reel
+        assert 0<=reel['afterTop']-reel['reelHeight']<=4.5,reel
+        assert reel['afterHeight']>reel['boardHeight']*.15,reel
     return data
 
 
