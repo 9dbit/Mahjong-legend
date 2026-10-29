@@ -4,6 +4,7 @@ Run after build_fullframe_ui.py. Frozen game and math sources remain unchanged.
 The new derivative is distinct from all legacy game.js assets.
 """
 from pathlib import Path
+from hashlib import sha256
 import json
 import re
 
@@ -234,7 +235,24 @@ def build():
     required=('header-crown-approved.webp','side-left-dragon-jade.webp',
               'side-right-dragon-jade.webp','top-left-corner-approved.webp',
               'top-right-corner-approved.webp')
-    locked=all((master_dir/name).is_file() for name in required)
+    # Exact derivative bytes are part of the user's design approval. Reject
+    # unreviewed replacements rather than merely checking file presence.
+    expected_sha={
+      'header-crown-approved.webp':'b94f3d1e4cbb4fcb8c66cf7db0230363a075fd03fcb4e724caff0738634170da',
+      'side-left-dragon-jade.webp':'b0f4b10fb755f1e78ccb5980a4da08a5a2cb994401be1b5674bda1d31b175651',
+      'side-right-dragon-jade.webp':'27fa3c9ffd5d9083e5dc33e554a7d038cd4fafd3e0f2a9e099b9c59570201282',
+      'top-left-corner-approved.webp':'290c723a49f8f32802ad87b1b32598eaf0701b972caf25e8e3f8cdab43500c0f',
+      'top-right-corner-approved.webp':'54ccc18fbe3607eddada896495172023e85aaef4aa003474a0959967f7f65c98'
+    }
+    present=[(master_dir/name).is_file() for name in required]
+    if any(present) and not all(present):
+        raise ValueError('Incomplete locked design asset pack: import all five approved WebPs')
+    locked=all(present)
+    if locked:
+        for name in required:
+            actual=sha256((master_dir/name).read_bytes()).hexdigest()
+            if actual!=expected_sha[name]:
+                raise ValueError('Unapproved master art bytes: '+name)
     master_mode='v105-locked' if locked else 'v105-fallback'
     # Optional WebP assets are never mentioned as url(...) in the public
     # stylesheet until installed. The live byte-hash scanner must NEVER claim
