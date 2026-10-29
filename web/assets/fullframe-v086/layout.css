@@ -522,3 +522,13 @@ html.desktop-layout body{
 .game-stage[data-master-art="v105-locked"][data-fullframe="landscape"] .game-header #sound-btn{
  opacity:1!important;
 }
+
+/* In locked artwork mode the logo is painted inside the crown image, but the
+   hidden legacy logo still needs a correctly proportioned (358:135) layout box
+   for source-compatible accessible geometry and downstream layout checks. */
+.game-stage[data-master-art="v105-locked"] .logo-fx{
+ width:calc(var(--ff-crown-unit) * 358)!important;
+ height:calc(var(--ff-crown-unit) * 135)!important;
+ left:calc(var(--ff-crown-left) + var(--ff-crown-width)*.5 - var(--ff-crown-unit)*179)!important;
+ opacity:0!important;
+}
