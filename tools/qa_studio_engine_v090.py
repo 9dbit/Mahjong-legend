@@ -68,6 +68,18 @@ def assert_approved_masked_corners(page):
                    for x in master['top']),master
     assert data['rows']==[4,5,5,5,4],data
     assert len(data['corners'])==2,data
+    # The foreground jade must actually extend into outside column 1 and 5.
+    # Width/z-index-only assertions allowed the previous incorrect tiny clouds.
+    if master['mode']=='v105-fallback' and data['mode'] in ('portrait','desktop'):
+        jade_overlap=page.evaluate("""() => {
+          const board=document.querySelector('#board').getBoundingClientRect(),
+                tile=document.querySelector('#board .reel.short .tile').getBoundingClientRect(),
+                left=document.querySelector('.jade-cloud-foreground--left').getBoundingClientRect(),
+                right=document.querySelector('.jade-cloud-foreground--right').getBoundingClientRect();
+          return {left:left.right-board.left,right:board.right-right.left,tile:tile.width};
+        }""")
+        assert .18<jade_overlap['left']/jade_overlap['tile']<.35,jade_overlap
+        assert .18<jade_overlap['right']/jade_overlap['tile']<.35,jade_overlap
     if data['mode'] in ('portrait','desktop'):
         assert 'polygon(' in data['clip'],data
         assert len(data['jade'])==2 and data['behind']==['hidden','hidden'],data

@@ -464,3 +464,13 @@ html.desktop-layout body{
 .game-stage[data-master-art="v105-locked"] .reel-theatre > .jade-cloud-foreground{
   visibility:hidden!important; /* Layered source art replaces older sprites */
 }
+
+/* The v105 jade clouds cover 26% of each outside bottom tile as approved,
+   rather than the retired 8% decorative side-gutter overlap. They paint above
+   the scrolling GPU atlas and must never become scoring tiles. */
+.game-stage[data-master-art^="v105"] .reel-theatre > .jade-cloud-foreground--left{
+  left:calc(var(--ff-tile-width)*.26 - var(--ff-mobile-cloud-left-width));
+}
+.game-stage[data-master-art^="v105"] .reel-theatre > .jade-cloud-foreground--right{
+  right:calc(var(--ff-tile-width)*.26 - var(--ff-mobile-cloud-right-width));
+}
