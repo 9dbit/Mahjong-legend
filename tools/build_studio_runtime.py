@@ -16,6 +16,16 @@ def replace(source,old,new,count=1):
 
 def build():
     OUT.mkdir(parents=True,exist_ok=True)
+    # Studio-only splash derivative: a transient early audio fetch failure
+    # must not leave "MUSIK BELUM TERSEDIA" stuck once the published audio
+    # release is actually decoded. The protected shared splash stays intact.
+    splash=(ROOT/'web/assets/reel-v083/splash.js').read_text()
+    splash=replace(splash,'  let musicWaitStarted = null;',
+                          '  let musicWaitStarted = null;\n  let fallbackChecks = 0;')
+    splash=replace(splash,
+       "      button.disabled = false;\n    } else {",
+       "      button.disabled = false;\n      if(!musicReady && !released && fallbackChecks++ < 60) setTimeout(check,250);\n    } else {")
+    (OUT/'splash.js').write_text(splash)
     # Build the extended GPU atlas AFTER the protected upstream source passes
     # its frozen SHA attestation. The immutable reel-v083 JS stays untouched.
     reel_text=(ROOT/'web/assets/portrait-v085/reels.js').read_text()
@@ -216,8 +226,8 @@ def build():
     # PWAs. The underlying source remains immutable until this final compiler.
     html=html.replace('/assets/studio-v090/audio.js?v=082',
         '/assets/studio-v090/audio.js?v=099')
-    html=html.replace('/assets/reel-v083/splash.js?v=084',
-        '/assets/reel-v083/splash.js?v=099')
+    html=replace(html,'/assets/reel-v083/splash.js?v=098',
+                 '/assets/studio-v090/splash.js?v=103')
     # The jade is intentionally outside .board-frame, so tile-field masking
     # can never cut the sculpture. These nodes carry no gameplay state.
     html=replace(html,'<main class="game-stage" id="game-stage"',
