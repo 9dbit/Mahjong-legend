@@ -24,7 +24,7 @@ class Quiet(WSGIRequestHandler):
     def log_message(self,*args): pass
 
 def assert_corner_tiles(page):
-    """Check 23 scored cells, two full-size visual tiles and actual foreground masks."""
+    """Check 23 scored cells, four moving visual tiles and transparent jade caps."""
     page.wait_for_function("""() => {
       const images=[...document.querySelectorAll('.corner-visual-image')];
       return images.length===4 && images.every(i=>i.complete && i.naturalWidth>0);
@@ -50,10 +50,17 @@ def assert_corner_tiles(page):
         const c=getComputedStyle(frame,p);
         return {display:c.display,shape:c.clipPath,image:c.backgroundImage,layer:Number(c.zIndex)};
       });
+      const theatre=document.querySelector('.reel-theatre');
+      const topOrnaments=['::before','::after'].map(p=>{
+        const c=getComputedStyle(theatre,p);
+        return {display:c.display,background:c.backgroundImage,layer:Number(c.zIndex),
+          pointer:c.pointerEvents};
+      });
+      const frameClip=getComputedStyle(frame).clipPath;
       return {scope:stage.dataset.cornerReels,mode:stage.dataset.fullframe,
         scoringCells:scored,tiles:board.querySelectorAll('.tile').length,
         tileRatio:tile.getBoundingClientRect().width/tile.getBoundingClientRect().height,
-        ghosts,foreground,cornerMask};
+        ghosts,foreground,cornerMask,topOrnaments,frameClip};
     }""")
     assert evidence['scope']=='animated',evidence
     assert evidence['scoringCells']==[4,5,5,5,4] and evidence['tiles']==23,evidence
@@ -69,8 +76,13 @@ def assert_corner_tiles(page):
             assert cloud['display']!='none' and cloud['layer']>=9,cloud
             assert cloud['width']>0 and cloud['height']>0 and cloud['pointer']=='none',cloud
             assert 'approved-cloud-cutout-v097.webp' in cloud['image'],cloud
+        assert 'polygon(' in evidence['frameClip'],evidence
         for mask in evidence['cornerMask']:
-            assert mask['display']!='none' and 'polygon(' in mask['shape'],mask
+            assert mask['display']=='none',mask
+        for ornament in evidence['topOrnaments']:
+            assert ornament['display']!='none' and ornament['layer']>=12,ornament
+            assert 'approved-cloud-cutout-v097.webp' in ornament['background'],ornament
+            assert ornament['pointer']=='none',ornament
     return evidence
 
 
