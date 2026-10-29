@@ -27,7 +27,7 @@ def assert_corner_tiles(page):
     """Check 23 scored cells, two full-size visual tiles and actual foreground masks."""
     page.wait_for_function("""() => {
       const images=[...document.querySelectorAll('.corner-visual-image')];
-      return images.length===2 && images.every(i=>i.complete && i.naturalWidth>0);
+      return images.length===4 && images.every(i=>i.complete && i.naturalWidth>0);
     }""", timeout=12000)
     evidence=page.evaluate("""() => {
       const stage=document.getElementById('game-stage');
@@ -36,7 +36,7 @@ def assert_corner_tiles(page):
       const scored=[...board.children].map(e=>e.querySelectorAll(':scope > .tile').length);
       const ghosts=[...board.querySelectorAll('.reel.short .corner-visual')].map(e=>{
         const b=e.getBoundingClientRect(),img=e.querySelector('img');
-        return {ratio:b.width/b.height,decorative:e.dataset.scoring,
+        return {ratio:b.width/b.height,decorative:e.dataset.scoring,edge:e.dataset.corner,
           decoded:img.complete&&img.naturalWidth>0,src:img.currentSrc,
           pointer:getComputedStyle(e).pointerEvents};
       });
@@ -58,7 +58,8 @@ def assert_corner_tiles(page):
     assert evidence['scope']=='animated',evidence
     assert evidence['scoringCells']==[4,5,5,5,4] and evidence['tiles']==23,evidence
     assert abs(evidence['tileRatio']-2/3)<.015,evidence
-    assert len(evidence['ghosts'])==2,evidence
+    assert len(evidence['ghosts'])==4,evidence
+    assert [g['edge'] for g in evidence['ghosts']]==['top','bottom','top','bottom'],evidence
     for ghost in evidence['ghosts']:
         assert ghost['decorative']=='false' and ghost['decoded'],ghost
         assert abs(ghost['ratio']-2/3)<.015 and ghost['pointer']=='none',ghost
