@@ -393,6 +393,61 @@ def summary(manifest):
             "objects": len(manifest["objects"]), "engine_sha256": manifest["engine_sha256"]}
 
 
+def verification_receipt(path):
+    """Hash and verify the same open archive, without reading the live database."""
+    with open_archive(path) as archive:
+        source = archive.fp
+        before = os.fstat(source.fileno())
+        manifest = verify_open_archive(archive)
+        source.seek(0)
+        digest, size = sha256(), 0
+        while chunk := source.read(CHUNK):
+            size += len(chunk)
+            if size > MAX_ARCHIVE_BYTES:
+                raise BackupError("Archive exceeds the bounded archive limit")
+            digest.update(chunk)
+        after = os.fstat(source.fileno())
+        identity = lambda info: (info.st_dev, info.st_ino, info.st_size,
+                                  info.st_mtime_ns, info.st_ctime_ns)
+        if identity(before) != identity(after) or size != before.st_size:
+            raise BackupError("Archive changed during verification; no receipt was written")
+        return {**summary(manifest), "format": "mahjong-studio-backup-receipt/1",
+                "verified_at": timezone.now().isoformat(),
+                "backup_created_at": manifest["created_at"],
+                "archive_sha256": digest.hexdigest(), "archive_bytes": size,
+                "schema_sha256": manifest["schema_sha256"],
+                "fixture_sha256": manifest["fixture"]["sha256"]}
+
+
+def write_verification_receipt(path, receipt):
+    """Publish a private JSON receipt atomically, never replacing another file."""
+    target = Path(path).absolute()
+    if target.exists() or target.is_symlink():
+        raise BackupError("Receipt destination already exists; choose a new filename")
+    if not target.parent.is_dir():
+        raise BackupError("Receipt destination directory must already exist")
+    descriptor, filename = tempfile.mkstemp(prefix=".studio-receipt-", dir=target.parent)
+    temporary = Path(filename)
+    try:
+        with os.fdopen(descriptor, "w", encoding="utf-8") as output:
+            json.dump(receipt, output, sort_keys=True)
+            output.write("\n")
+            output.flush()
+            os.fsync(output.fileno())
+        try:
+            os.link(temporary, target)
+        except FileExistsError as exc:
+            raise BackupError("Receipt destination already exists; nothing was overwritten") from exc
+        if hasattr(os, "O_DIRECTORY"):
+            directory_fd = os.open(target.parent, os.O_RDONLY | os.O_DIRECTORY)
+            try:
+                os.fsync(directory_fd)
+            finally:
+                os.close(directory_fd)
+    finally:
+        temporary.unlink(missing_ok=True)
+
+
 class Command(BaseCommand):
     help = "Create a private database-and-object ZIP, or verify one without restoring it."
     requires_system_checks = []
@@ -400,12 +455,21 @@ class Command(BaseCommand):
     def add_arguments(self, parser):
         parser.add_argument("output", nargs="?")
         parser.add_argument("--verify", metavar="FILE")
+        parser.add_argument("--receipt", metavar="FILE",
+                            help="With --verify, save private JSON evidence including the archive SHA-256.")
         parser.add_argument("--database", default="default")
 
     def handle(self, *args, **options):
         if bool(options["output"]) == bool(options["verify"]):
             raise CommandError("Supply a new output filename or --verify FILE, exclusively")
+        if options["receipt"] and not options["verify"]:
+            raise CommandError("--receipt requires --verify FILE; create the archive first")
         try:
+            if options["receipt"]:
+                receipt = verification_receipt(options["verify"])
+                write_verification_receipt(options["receipt"], receipt)
+                self.stdout.write(json.dumps(receipt, sort_keys=True))
+                return
             manifest = (verify_backup(options["verify"]) if options["verify"]
                         else create_backup(options["output"], options["database"]))
         except (BackupError, StorageError) as exc:
