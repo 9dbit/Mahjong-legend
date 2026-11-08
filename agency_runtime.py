@@ -14,6 +14,7 @@ from fastapi.responses import JSONResponse, FileResponse, HTMLResponse
 from starlette.concurrency import run_in_threadpool
 from agency_wallet import AgencyWallet, AgencyWalletError
 from game_studio.domain import baseline_config, digest, ENGINE_HASH
+import agency_studio as studio
 from mahjong_legend.engine import GameConfig, play_round, verify_round, sha256, display_decimal
 
 ROOT=Path(__file__).resolve().parent
@@ -101,7 +102,7 @@ def get_ticket(db,actor):
         db.execute("UPDATE tickets SET state='expired' WHERE id=?",(t['id'],));t=None
     if not t:
         rid=str(uuid.uuid4())
-        db.execute('INSERT INTO tickets(id,actor,seed,config_json,engine_hash,created_at) VALUES(?,?,?,?,?,?)',(rid,actor,secrets.token_hex(32),json.dumps(baseline_config()),ENGINE_HASH,time.time()))
+        db.execute('INSERT INTO tickets(id,actor,seed,config_json,engine_hash,created_at) VALUES(?,?,?,?,?,?)',(rid,actor,secrets.token_hex(32),json.dumps(studio.active_config()),ENGINE_HASH,time.time()))
         t=db.execute('SELECT * FROM tickets WHERE id=?',(rid,)).fetchone()
     return t
 
@@ -201,6 +202,8 @@ def worker(stop):
 @asynccontextmanager
 async def lifespan(app):
     init();stop=threading.Event();threading.Thread(target=worker,args=(stop,),daemon=True).start()
+    app.state.studio=studio.StudioSync(wallet()) if studio.enabled() else None
+    if app.state.studio:threading.Thread(target=app.state.studio.run,args=(stop,),daemon=True).start()
     yield
     stop.set()
 
@@ -242,7 +245,8 @@ def health():
     db=connect()
     try: db.execute('SELECT 1')
     finally: db.close()
-    return {'ok':True,'game':'Mahjong Wild','mode':'sandbox','wallet':'playground','database':'connected','source_commit':os.getenv('RAILWAY_GIT_COMMIT_SHA',''),'engine_sha256':ENGINE_HASH}
+    sync=getattr(app.state,'studio',None)
+    return {'ok':True,'game':'Mahjong Wild','mode':'sandbox','wallet':'playground','database':'connected','source_commit':os.getenv('RAILWAY_GIT_COMMIT_SHA',''),'engine_sha256':ENGINE_HASH,'studio':{'enabled':bool(sync),'last_sync':sync.last_sync if sync else None,'error':sync.error if sync else ''}}
 
 @app.get('/api/agency/context')
 def context(request:Request):
@@ -253,7 +257,7 @@ def context(request:Request):
 
 @app.get('/api/audio-live')
 def audio():
-    c=baseline_config();return {'release_id':digest(c),'release_sha256':digest(c),'audio':c['audio']}
+    c=studio.active_config();return {'release_id':digest(c),'release_sha256':digest(c),'audio':c['audio']}
 
 @app.api_route('/api/{operation}',methods=['GET','POST'])
 async def api(request:Request,operation:str):
@@ -284,6 +288,14 @@ def dispatch(request,operation,data):
 
 @app.get('/agency-navigation.js')
 def navigation_script(): return FileResponse(ROOT/'agency-navigation.js',media_type='application/javascript')
+
+@app.get('/agency-media/{name}')
+def studio_media(name:str):
+    if not studio.enabled():raise HTTPException(404,'Media tidak ditemukan')
+    try:target=studio.file_path(name)
+    except ValueError:raise HTTPException(404,'Media tidak ditemukan') from None
+    if not target.is_file():raise HTTPException(404,'Media tidak ditemukan')
+    return FileResponse(target)
 
 @app.get('/agency-client.js')
 def client(): return FileResponse(ROOT/'agency-client.js',media_type='application/javascript')

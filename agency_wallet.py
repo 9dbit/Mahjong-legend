@@ -37,7 +37,7 @@ class AgencyWallet:
         self.opener = urllib.request.build_opener(_NoRedirect())
 
     def request(self, action: str, payload: dict) -> dict:
-        if action not in ('redeem', 'status', 'reserve', 'settle', 'void'):
+        if action not in ('redeem', 'status', 'reserve', 'settle', 'void', 'studio-sync'):
             raise ValueError('Unsupported agency action')
         if action == 'redeem' and not payload.get('request_id'):
             raise ValueError('Persisted redemption request ID required')

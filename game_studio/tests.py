@@ -209,6 +209,15 @@ class StudioApiTests(TestCase):
         d=self.post('/api/studio/drafts',{'name':'Editor draft'}).json()
         self.assertEqual(self.post(f"/api/studio/drafts/{d['id']}/publish",{'revision':1,'reason':'No'}).status_code,403)
         self.assertEqual(self.post(f'/api/studio/releases/{active_release().id}/activate',{'reason':'No'}).status_code,403)
+        self.assertEqual(self.client.get(f'/api/studio/releases/{active_release().id}/playground').status_code,403)
+    def test_playground_export_requires_publisher_and_preserves_engine(self):
+        release=active_release();path=f'/api/studio/releases/{release.id}/playground'
+        self.assertEqual(Client().get(path).status_code,401)
+        response=self.client.get(path);self.assertEqual(response.status_code,200)
+        package=response.json();self.assertEqual(package['game'],'mahjong-wild')
+        self.assertEqual(package['payload']['engine_sha256'],ENGINE_HASH)
+        self.assertEqual(package['payload']['config']['math'],release.config['math'])
+        self.assertIn('attachment',response['Content-Disposition'])
     def test_revision_conflict_prevents_lost_update(self):
         d=self.post('/api/studio/drafts',{'name':'Draft'}).json();path='/api/studio/drafts/'+d['id']
         self.assertEqual(self.client.patch(path,json.dumps({'revision':1,'name':'New name'}),content_type='application/json').status_code,200)

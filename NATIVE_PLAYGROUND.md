@@ -37,3 +37,18 @@ Backend pusat tetap berwenang terhadap saldo, batas player, pilihan game agen, e
 Runtime native menampilkan tombol kembali putih/ungu dan tautan menu ke storefront agen. Tujuan berasal dari metadata Playground yang ditandatangani server, tidak dari referrer atau parameter player. `/api/agency/context` membutuhkan cookie native dan hanya mengembalikan metadata navigasi/expiry tersimpan; state wallet menyegarkannya dari pusat. Sesi kedaluwarsa memberi petunjuk membuka ulang melalui agen. Klik kembali menghentikan autoplay/animasi tetapi tidak membatalkan ronde yang sudah diterima. Retry membaca/memulihkan hasil yang sama.
 
 UAT browser memeriksa kembali saat respons spin ditahan, saldo di akun 64COR, tepat satu settlement, dan pesan expired. Modul `agency-navigation.js` diselaraskan byte-for-byte dengan sumber `Playground/adapters/agency-navigation.js` (pada Skygate di direktori `play/`).
+# Central Studio publication
+
+With `AGENCY_STUDIO_SYNC=1`, the native sandbox registers its bundled configuration
+and accepts signed, master-approved Studio generations from Playground. Use the
+master **Manage Games → Rilis Studio** page. Staging does not activate a package;
+the runtime validates it, then the owner explicitly publishes or rolls it back.
+Configuration/media, receipts and active generation persist alongside the wallet
+database on the existing volume. Keep one replica. Existing tickets and outcomes
+remain pinned, and publication never changes wallet balances.
+
+Studio publishers can export a non-preview release using **Export Playground** in
+release history. The package includes published derivative media and engine hash;
+disabled, unpublished sound references are omitted. Agent accounts cannot publish
+game settings. The original Studio needs its own deployment to expose this export
+button; central master animation/audio editing works without it.
