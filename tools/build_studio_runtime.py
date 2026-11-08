@@ -219,10 +219,14 @@ def build():
       note.textContent=next.settlement_policy.note;
       const label=document.querySelector('.balance-label');if(label)label.textContent='PLAYGROUND SANDBOX';
     }""")
+    text=replace(text,"if(!response.ok)throw Error(data.error||`HTTP ${response.status}`);return data;","if(!response.ok){const e=Error(data.error||`HTTP ${response.status}`);e.status=response.status;window.PlaygroundNavigation?.error(e);throw e;}return data;")
+    text=replace(text,"    if(next.wallet==='playground'){","    if(next.wallet==='playground'){\n      window.PlaygroundNavigation?.update(next);")
+    text=replace(text,"    if(busy){skipAnimation();return;}","    if(busy){skipAnimation();return;}\n    if(window.PlaygroundNavigation&&!window.PlaygroundNavigation.canStart()){cancelAuto();return;}")
+    text=replace(text,"  function cancelAuto(){","  window.addEventListener('playground:leave',()=>{cancelAuto();skipAnimation();});\n  function cancelAuto(){")
     # The startup now preloads exactly the ticket's manifest, then renders it.
     lines=text.splitlines()
     startup=next(i for i,line in enumerate(lines) if "Promise.all([req('/api/state')" in line)
-    lines[startup]="  req('/api/state').then(async next=>{await refresh(next);mult(false);window.MahjongReels.prewarm($('board'));notice(next.migration_notice?'SESI BARU · CEK INFO':'SIAP BERMAIN');}).catch(e=>{notice('KONEKSI GAGAL. MUAT ULANG.');$('spin-btn').disabled=true;console.error(e.message);});"
+    lines[startup]="  req('/api/state').then(async next=>{await refresh(next);mult(false);window.MahjongReels.prewarm($('board'));notice(next.migration_notice?'SESI BARU · CEK INFO':'SIAP BERMAIN');}).catch(e=>{notice('KONEKSI GAGAL. MUAT ULANG.');$('spin-btn').disabled=true;window.PlaygroundNavigation?.error(e);});"
     # Insert INSIDE the existing game IIFE, before its closing brace.
     closing=next(i for i in range(len(lines)-1,-1,-1) if lines[i].strip()=='})();')
     lines[closing:closing]=[

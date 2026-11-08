@@ -7,6 +7,7 @@ from __future__ import annotations
 import hashlib, hmac, json, os, re, secrets, sqlite3, threading, time, uuid
 from contextlib import asynccontextmanager
 from decimal import Decimal, ROUND_HALF_UP, ROUND_CEILING, localcontext
+from datetime import datetime
 from pathlib import Path
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.responses import JSONResponse, FileResponse, HTMLResponse
@@ -66,6 +67,12 @@ def credits(value,scale):
     with localcontext() as ctx:
         ctx.prec=80
         return format(Decimal(value)/(Decimal(10)**scale),'f')
+
+def session_context(s):
+    expires=s.get('expires_at')
+    try: expired=bool(expires and datetime.fromisoformat(expires.replace('Z','+00:00')).timestamp()<=time.time())
+    except (ValueError,TypeError): expired=False
+    return {'navigation':s.get('navigation'),'session_expires_at':expires,'session_expired':expired}
 
 def actor_session(db,request):
     raw=request.cookies.get(COOKIE,'')
@@ -137,7 +144,7 @@ def state(db,s,actor):
     m=manifest(t,s['coin_scale']);cfg=GameConfig(json.loads(t['config_json'])['math']);b=balance(s)
     last=db.execute("SELECT * FROM tickets WHERE actor=? AND state='settled' ORDER BY finished_at DESC LIMIT 1",(actor,)).fetchone()
     count=db.execute("SELECT count(*) FROM tickets WHERE actor=? AND state='settled'",(actor,)).fetchone()[0]
-    return {'game':'Mahjong Wild','version':cfg.raw['version'],'ui_version':'agency-v1','balance':credits(b['balance'],s['coin_scale']),
+    return {**session_context({**s,**b}),'game':'Mahjong Wild','version':cfg.raw['version'],'ui_version':'agency-v1','balance':credits(b['balance'],s['coin_scale']),
       'reserved':credits(b['reserved'],s['coin_scale']),'spin_price':m['bet']['default'],'bet_options':m['bet']['options'],'max_payout_x':str(cfg.cap),'spin_count':count,
       'next_seed_commitment_sha256':sha256(bytes.fromhex(t['seed'])),'config_sha256':cfg.digest,
       'ticket':{'id':t['id'],'sequence':count+1,'status':'ready','release_id':m['release_id'],'expires_at':t['created_at']+86400,'commitment':sha256(bytes.fromhex(t['seed'])),'stake':None},
@@ -226,7 +233,7 @@ def redeem(request,token):
             if s.get('game')!='mahjong-wild' or type(s.get('coin_scale')) is not int or not 0<=s['coin_scale']<=12: raise HTTPException(409,'Game/presisi wallet tidak sesuai')
             db.execute('INSERT INTO launches VALUES(?,?,?,?,?) ON CONFLICT(token_hash) DO UPDATE SET session_json=excluded.session_json',(hashtext(token),rid,hashtext(cookie),json.dumps(s),time.time()))
         finally: db.close()
-    response=JSONResponse({'ok':True,'mode':'sandbox','coin_scale':s['coin_scale']})
+    response=JSONResponse({'ok':True,'mode':'sandbox','coin_scale':s['coin_scale'],**session_context(s)})
     response.set_cookie(COOKIE,cookie,httponly=True,secure=request.url.scheme=='https' or request.headers.get('x-forwarded-proto')=='https',samesite='strict',max_age=86400)
     return response
 
@@ -236,6 +243,13 @@ def health():
     try: db.execute('SELECT 1')
     finally: db.close()
     return {'ok':True,'game':'Mahjong Wild','mode':'sandbox','wallet':'playground','database':'connected','source_commit':os.getenv('RAILWAY_GIT_COMMIT_SHA',''),'engine_sha256':ENGINE_HASH}
+
+@app.get('/api/agency/context')
+def context(request:Request):
+    with LOCK:
+        db=connect()
+        try: s,_=actor_session(db,request);return session_context(s)
+        finally: db.close()
 
 @app.get('/api/audio-live')
 def audio():
@@ -268,13 +282,16 @@ def dispatch(request,operation,data):
             return verify_round(transcript,GameConfig(json.loads(found['config_json'])['math']))
         finally: db.close()
 
+@app.get('/agency-navigation.js')
+def navigation_script(): return FileResponse(ROOT/'agency-navigation.js',media_type='application/javascript')
+
 @app.get('/agency-client.js')
 def client(): return FileResponse(ROOT/'agency-client.js',media_type='application/javascript')
 
 @app.get('/{path:path}')
 def static(path:str):
     if path in ('','index.html'):
-        html=(WEB/'index.html').read_text().replace('<head>','<head><script src="/agency-client.js"></script>')
+        html=(WEB/'index.html').read_text().replace('<head>','<head><script src="/agency-navigation.js?v=2"></script><script src="/agency-client.js?v=2"></script>')
         return HTMLResponse(html)
     target=(WEB/path).resolve()
     if not target.is_relative_to(WEB.resolve()) or not target.is_file() or not(path.startswith('assets/') or path in ('style.css','sw.js','manifest.webmanifest','favicon.ico','apple-touch-icon.png')): raise HTTPException(404,'Not found')

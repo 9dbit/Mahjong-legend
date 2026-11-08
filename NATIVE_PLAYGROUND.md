@@ -12,7 +12,6 @@ Gunakan image Dockerfile repo dan satu instance. Sediakan persistent volume `/da
 - `AGENCY_WALLET_ORIGIN` ke origin HTTPS backend Playground sandbox
 - `AGENCY_WALLET_KEY_ID` dan `AGENCY_WALLET_SECRET` khusus game/environment, server-side
 - `MAHJONG_AGENCY_DB_PATH=/data/agency.sqlite3`
-- Khusus Skygate: `SKYGATE_RELEASE_DIR=/data/releases`
 
 Start: `python tools/start_studio.py`. `/health` memeriksa database serta melaporkan mode dan source commit. Entry point menyiapkan mount Railway lalu menurunkan UID/GID ke 1000. Single replica, tanpa overlap deployment; SQLite tidak boleh dibagikan ke beberapa instance. Simpan volume dan signing key lintas deployment. Cadangkan volume sebelum migrasi atau penghapusan service.
 
@@ -32,3 +31,9 @@ Intent, payload idempotency, hasil, payout dan sesi disimpan SQLite FULL/WAL seb
 - Database UAT terisolasi PGlite dan saldo sintetis; bukan transfer bank. Bukti deployment tersimpan dalam dokumen Playground.
 
 Backend pusat tetap berwenang terhadap saldo, batas player, pilihan game agen, environment, settlement dan risk pool. Runtime native tidak memiliki akses master atau konfigurasi payment gateway.
+
+## Navigasi dan pemulihan sesi
+
+Runtime native menampilkan tombol kembali putih/ungu dan tautan menu ke storefront agen. Tujuan berasal dari metadata Playground yang ditandatangani server, tidak dari referrer atau parameter player. `/api/agency/context` membutuhkan cookie native dan hanya mengembalikan metadata navigasi/expiry tersimpan; state wallet menyegarkannya dari pusat. Sesi kedaluwarsa memberi petunjuk membuka ulang melalui agen. Klik kembali menghentikan autoplay/animasi tetapi tidak membatalkan ronde yang sudah diterima. Retry membaca/memulihkan hasil yang sama.
+
+UAT browser memeriksa kembali saat respons spin ditahan, saldo di akun 64COR, tepat satu settlement, dan pesan expired. Modul `agency-navigation.js` diselaraskan byte-for-byte dengan sumber `Playground/adapters/agency-navigation.js` (pada Skygate di direktori `play/`).
