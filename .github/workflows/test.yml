@@ -20,7 +20,7 @@ jobs:
         with:
           python-version: '3.12'
       - name: Install test dependencies
-        run: python -m pip install 'Pillow==12.3.0' 'playwright==1.57.0'
+        run: python -m pip install -r requirements.txt 'pytest==9.0.2' 'playwright==1.57.0'
       - name: Install media verification tools
         timeout-minutes: 4
         run: |
@@ -34,7 +34,7 @@ jobs:
       - name: Build locked artwork and aligned light masks
         run: python tools/build_locked_ui.py && python tools/build_presentation_fx.py && python tools/build_approved_ui.py && python tools/build_portrait_ui.py && python tools/build_responsive_runtime.py && python tools/build_fullframe_ui.py
       - name: Run engine, HTTP and asset tests
-        run: python -m unittest discover -s tests -q
+        run: python -m pytest tests -q
       - name: Install Chromium and WebKit
         run: python -m playwright install --with-deps chromium webkit
       - name: Verify game in browser over HTTP
