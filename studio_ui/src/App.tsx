@@ -984,6 +984,7 @@ export default function App() {
                           <code>{shorten(r.hash || r.sha256 || r.id, 20)}</code>
                         </small>
                       </div>
+                      {canPublish && <a className="button small" href={"/api/studio/releases/"+r.id+"/playground"} download>Export Playground</a>}
                       <button
                         className="button small"
                         disabled={!canPublish || r.id === active?.id || !!busy}

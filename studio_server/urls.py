@@ -14,6 +14,7 @@ urlpatterns=[
     path('api/studio/assets/<uuid:asset_id>/content',v.asset_content),
     path('api/studio/jobs',v.jobs),path('api/studio/jobs/<uuid:job_id>/cancel',v.job_cancel),
     path('api/studio/releases',v.releases),path('api/studio/releases/<uuid:release_id>/activate',v.release_activate),
+    path('api/studio/releases/<uuid:release_id>/playground',v.release_export),
     path('media/<uuid:asset_id>/<str:sha>',v.published_media),
     path('api/audio-live',v.live_audio),
     path('api/preview/<str:preview_token>/audio-live',v.live_audio),
