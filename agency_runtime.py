@@ -12,7 +12,7 @@ from pathlib import Path
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.responses import JSONResponse, FileResponse, HTMLResponse
 from starlette.concurrency import run_in_threadpool
-from agency_wallet import AgencyWallet, AgencyWalletError
+from agency_wallet import AgencyWallet, AgencyWalletError, transport_metrics
 from native_locks import operation_lock, active_lock_count
 from deployment_identity import open_bound_database, public_identity, canonical_path, requested_identity, require_play, validate_redeemed, cookie_value, runtime_health
 from game_studio.domain import baseline_config, digest, ENGINE_HASH
@@ -285,7 +285,7 @@ def health():
     try: db.execute('SELECT 1')
     finally: db.close()
     sync=getattr(app.state,'studio',None)
-    return {**runtime_health(),'pending_operation_locks':active_lock_count(),'ok':True,'provider':'soft-tech','version':'provider-v1','game':'Mahjong Wild','mode':os.getenv('AGENCY_ENVIRONMENT','sandbox'),'wallet':'soft-tech','environment':os.getenv('AGENCY_ENVIRONMENT','sandbox'),'deployment_identity':public_identity('mahjong-wild',os.environ['MAHJONG_AGENCY_DB_PATH']),'database':'connected','source_commit':os.getenv('RAILWAY_GIT_COMMIT_SHA',''),'engine_sha256':ENGINE_HASH,'studio':{'enabled':bool(sync),'last_sync':sync.last_sync if sync else None,'error':sync.error if sync else ''}}
+    return {**runtime_health(),'callback_transport':transport_metrics(),'pending_operation_locks':active_lock_count(),'ok':True,'provider':'soft-tech','version':'provider-v1','game':'Mahjong Wild','mode':os.getenv('AGENCY_ENVIRONMENT','sandbox'),'wallet':'soft-tech','environment':os.getenv('AGENCY_ENVIRONMENT','sandbox'),'deployment_identity':public_identity('mahjong-wild',os.environ['MAHJONG_AGENCY_DB_PATH']),'database':'connected','source_commit':os.getenv('RAILWAY_GIT_COMMIT_SHA',''),'engine_sha256':ENGINE_HASH,'studio':{'enabled':bool(sync),'last_sync':sync.last_sync if sync else None,'error':sync.error if sync else ''}}
 
 @app.get('/api/agency/context')
 def context(request:Request):

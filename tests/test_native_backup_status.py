@@ -123,7 +123,7 @@ class BackupWorkerTests(unittest.TestCase):
         self.config = {'RAILWAY_GIT_COMMIT_SHA': COMMIT,
                        'ENGINE_BACKUP_S3_BUCKET': 'test-backups'}
         self.receipt = {'verified': True, 'object': 'native/mahjong/test.aesgcm',
-                        'manifest': {'sha256': 'b' * 64}}
+                        'manifest': {'sha256': 'b' * 64, 'size': 4096}, 'encrypted_size_bytes': 4608}
 
     def run_once(self, result=None, error=None, config=None):
         values = dict(self.config, **(config or {}))
@@ -143,6 +143,11 @@ class BackupWorkerTests(unittest.TestCase):
         self.assertEqual(marker['source_commit'], COMMIT)
         self.assertTrue(backup_health(self.status, COMMIT)['ok'])
         self.assertIn('engine.backup.remote_verified', output)
+        event = next(json.loads(line) for line in output.splitlines() if 'engine.backup.remote_verified' in line)
+        self.assertEqual(event['size_bytes'], 4096)
+        self.assertEqual(event['encrypted_size_bytes'], 4608)
+        self.assertEqual(marker['size_bytes'], 4096)
+        self.assertNotIn(str(self.db), json.dumps(event))
 
     def test_failed_or_unverified_backup_invalidates_previous_marker_and_retries(self):
         for error, result in ((RuntimeError('readback failed'), None), (None, {}),

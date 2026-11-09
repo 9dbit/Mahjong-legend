@@ -53,6 +53,7 @@ class BackupTests(unittest.TestCase):
             payload = next(iter(s3.objects.values()))
             self.assertNotIn(b'CREATE TABLE rounds', payload)
             self.assertTrue(result['verified'])
+            self.assertEqual(result['encrypted_size_bytes'], len(payload))
             self.assertEqual(restore_verify(payload, config['ENGINE_BACKUP_KEY_HEX'])['sha256'],
                              result['manifest']['sha256'])
             corrupted = bytearray(payload)

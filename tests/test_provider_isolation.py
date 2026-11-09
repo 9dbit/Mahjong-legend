@@ -52,16 +52,13 @@ def test_redeemed_scope_and_production_quarantine(isolated,monkeypatch):
 
 def test_v2_transport_binds_exact_body_environment_audience(isolated):
     wallet=AgencyWallet('https://core.example','engine-key','q'*40)
-    class Response:
-        def __enter__(self):return self
-        def __exit__(self,*args):pass
-        def read(self):return b'{"ok":true}'
-    with patch.object(wallet.opener,'open',return_value=Response()) as opened:
+    with patch.object(wallet.transport,'post',return_value={'ok':True}) as posted:
         assert wallet.request('redeem',{'request_id':'r','token':'x'*48})=={'ok':True}
-    request=opened.call_args.args[0];headers={k.lower():v for k,v in request.header_items()}
+    url,body,sent_headers=posted.call_args.args;headers={k.lower():v for k,v in sent_headers.items()}
+    assert url=='https://core.example/api/v4/agency-game/redeem'
     assert headers['x-agency-version']=='2' and headers['x-agency-environment']=='preproduction'
     assert headers['x-agency-audience']=='core-test-deployment'
-    message='\n'.join(('agency.v2','preproduction','core-test-deployment','POST','/api/v4/agency-game/redeem',headers['x-agency-timestamp'],headers['x-agency-nonce'],hashlib.sha256(request.data).hexdigest()))
+    message='\n'.join(('agency.v2','preproduction','core-test-deployment','POST','/api/v4/agency-game/redeem',headers['x-agency-timestamp'],headers['x-agency-nonce'],hashlib.sha256(body).hexdigest()))
     assert headers['x-agency-signature']==hmac.new(('q'*40).encode(),message.encode(),'sha256').hexdigest()
     assert headers['x-agency-signature']!=hmac.new(('q'*40).encode(),message.replace('preproduction','sandbox').encode(),'sha256').hexdigest()
 

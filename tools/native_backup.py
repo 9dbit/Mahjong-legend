@@ -170,7 +170,7 @@ def backup_once(db_path, game, bucket, prefix):
             raise RuntimeError('Remote backup readback mismatch')
         restore_verify(downloaded, key.hex())
         downloaded.unlink()
-        result = {'object': key_name, 'manifest': manifest, 'ciphertext_sha256': ciphertext_sha256, 'key_id': key_id, 'verified': True}
+        result = {'object': key_name, 'manifest': manifest, 'ciphertext_sha256': ciphertext_sha256, 'encrypted_size_bytes': readback['size'], 'key_id': key_id, 'verified': True}
         if os.getenv('ENGINE_BACKUP_RETENTION_ENABLED') == 'true':
             result['retention'] = run_retention(storage, bucket, game, result)
         return result

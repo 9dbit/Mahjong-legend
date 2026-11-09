@@ -1,0 +1,58 @@
+{
+  "schema": "softtech.native.callback-pool-review.v1",
+  "scope": "Static implementation review and disposable local TLS fixtures; no live runtime data.",
+  "transport": {
+    "library": "urllib3==2.8.0 (already included in the audited runtime closure, now explicitly pinned)",
+    "lifecycle": "One verified SSLContext and pool manager per process; PID guard recreates after fork; four origin pools maximum",
+    "maximum_in_flight": 40,
+    "maximum_connections_per_origin": 40,
+    "maximum_origin_pools": 4,
+    "timeout_seconds": 12,
+    "deadline_handling": "Pool waiting consumes the existing 12-second budget; remaining connect/read time and per-chunk response checks do not increase the timeout",
+    "automatic_retries": false,
+    "redirects": false,
+    "tls_certificate_verification": "CERT_REQUIRED with system trust and hostname verification",
+    "signed_requests": "Fresh timestamp, nonce and exact-body v1/v2 HMAC on each caller attempt; no auth, cookies or player state stored in the pool",
+    "request_bytes": 65536,
+    "request_limit_reason": "Matches the existing Core JSON request limit",
+    "response_bytes": 1048576,
+    "response_handling": "Drained valid-size responses are reused; oversized, partial and failing streams are closed/discarded and pool permits are released",
+    "metrics": "Only aggregate requests, failures, in-flight count, peak count, queue wait and HTTP duration sums/maxima; no origins, keys, IDs or payloads"
+  },
+  "verification": {
+    "real_local_tls_tests": 12,
+    "verified_ca_and_hostname": true,
+    "persistent_connection_across_fresh_clients": true,
+    "fresh_v1_v2_hmac_and_nonces": true,
+    "no_redirect_or_429_500_retry": true,
+    "committed_disconnect_requires_explicit_caller_retry": true,
+    "identical_payload_retry_exactly_one_debit": true,
+    "unrelated_player_progress": true,
+    "concurrent_clients": 60,
+    "active_transport_bound": 40,
+    "permit_recovery": true,
+    "body_boundaries_and_invalid_json": true,
+    "production_quarantine_before_http": true,
+    "math_and_art_source_lock_unchanged": true,
+    "full_qualification_tests": 103,
+    "subtests": 38
+  },
+  "backup_instrumentation": {
+    "event": "engine.backup.remote_verified",
+    "added_fields": [
+      "size_bytes",
+      "encrypted_size_bytes"
+    ],
+    "sensitive_fields_added": false
+  },
+  "ci_correction": "Legacy backup-only workflow now installs runtime requirements and pytest and executes the streaming tests; contents permission is read-only and checkout does not persist credentials.",
+  "limitations": [
+    "Local TLS fixtures demonstrate transport behavior, not live 500/1000-session latency or soak completion.",
+    "AnyIO worker count remains unchanged. The existing project latency threshold and network timeout were not relaxed.",
+    "No sandbox/production staged source pins or Railway settings were changed."
+  ],
+  "references": [
+    "https://urllib3.readthedocs.io/en/stable/advanced-usage.html",
+    "https://urllib3.readthedocs.io/en/stable/reference/urllib3.connectionpool.html"
+  ]
+}
