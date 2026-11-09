@@ -12,11 +12,11 @@ from pathlib import Path
 sys.path.insert(0,str(Path(__file__).resolve().parent))
 from native_backup import backup_once,restore_verify
 
-def run():
+def run(argv=None):
     parser=argparse.ArgumentParser()
     parser.add_argument('--database',required=True)
     parser.add_argument('--game',required=True)
-    args=parser.parse_args()
+    args=parser.parse_args(argv)
     interval=max(3600,int(os.getenv('ENGINE_BACKUP_INTERVAL_SECONDS','86400')))
     print(json.dumps({'event':'engine.backup.worker_started','game':args.game,'interval_seconds':interval}),flush=True)
     while True:
