@@ -169,6 +169,10 @@ def restore_verify(payload, key_hex=None, *, keys=None):
 
 def restore_from_remote(destination, game, expected_identity):
     """Explicit startup recovery on a fresh replacement volume only."""
+    if any(os.getenv(name) for name in ('RAILWAY_PROJECT_ID','RAILWAY_SERVICE_ID','RAILWAY_DEPLOYMENT_ID')):
+        mount = os.getenv('RAILWAY_VOLUME_MOUNT_PATH','')
+        if not mount or not Path(mount).is_absolute() or not Path(mount).is_dir():
+            raise RuntimeError('PERSISTENT_NATIVE_VOLUME_REQUIRED')
     object_name = os.getenv('ENGINE_RESTORE_OBJECT_KEY') or os.getenv('ENGINE_RESTORE_OBJECT')
     if not object_name: return None
     expected_hash = os.getenv('ENGINE_RESTORE_CIPHERTEXT_SHA256', '')

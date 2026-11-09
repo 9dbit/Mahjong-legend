@@ -29,7 +29,14 @@ def requested_identity(game, path):
             'core_deployment_id': core, 'game_id': game, 'identity_version': 1}
 
 
+def require_persistent_mount():
+    if any(os.getenv(name) for name in ('RAILWAY_PROJECT_ID','RAILWAY_SERVICE_ID','RAILWAY_DEPLOYMENT_ID')):
+        mount = os.getenv('RAILWAY_VOLUME_MOUNT_PATH','')
+        if not mount or not Path(mount).is_absolute() or not Path(mount).is_dir():
+            raise RuntimeError('PERSISTENT_NATIVE_VOLUME_REQUIRED')
+
 def canonical_path(path):
+    require_persistent_mount()
     p = Path(path)
     if not p.is_absolute(): raise RuntimeError('Absolute persistent database path required')
     resolved = p.resolve()

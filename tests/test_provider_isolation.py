@@ -64,3 +64,15 @@ def test_v2_transport_binds_exact_body_environment_audience(isolated):
     message='\n'.join(('agency.v2','preproduction','core-test-deployment','POST','/api/v4/agency-game/redeem',headers['x-agency-timestamp'],headers['x-agency-nonce'],hashlib.sha256(request.data).hexdigest()))
     assert headers['x-agency-signature']==hmac.new(('q'*40).encode(),message.encode(),'sha256').hexdigest()
     assert headers['x-agency-signature']!=hmac.new(('q'*40).encode(),message.replace('preproduction','sandbox').encode(),'sha256').hexdigest()
+
+@pytest.mark.parametrize('environment',['sandbox','preproduction','production'])
+def test_cloud_native_requires_volume_before_creating_database(tmp_path,monkeypatch,environment):
+    monkeypatch.setenv('RAILWAY_SERVICE_ID','cloud-native-service')
+    monkeypatch.setenv('AGENCY_ENVIRONMENT',environment)
+    monkeypatch.setenv('AGENCY_DEPLOYMENT_ID','native-cloud-test')
+    monkeypatch.setenv('AGENCY_CORE_DEPLOYMENT_ID','core-cloud-test')
+    monkeypatch.delenv('RAILWAY_VOLUME_MOUNT_PATH',raising=False)
+    path=tmp_path/'missing-volume'/'native.sqlite'
+    with pytest.raises(RuntimeError,match='PERSISTENT_NATIVE_VOLUME_REQUIRED'):
+        identity.open_bound_database(path,'mahjong-wild')
+    assert not path.parent.exists()

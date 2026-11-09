@@ -14,6 +14,9 @@ qualification evidence, not an independent security, RNG or jurisdiction certifi
   Core URLs and keys must be provisioned for every environment.
 - Production starts quarantined and returns `423 PRODUCTION_RELEASE_GATES_PENDING`
   before launch/play or any wallet transaction. No environment variable unlocks it.
+- Every native process with Railway project/service/deployment context requires an
+  existing absolute Railway volume mount, including sandbox. Missing mount aborts
+  before directory/database creation or restore; local test contexts remain usable.
 - Native SQLite contains an immutable identity table. Foreign identity fails in a
   read-only preflight before WAL/schema writes. Unbound legacy DBs may only migrate
   in sandbox. A DB outside the real persistent mount is rejected.
