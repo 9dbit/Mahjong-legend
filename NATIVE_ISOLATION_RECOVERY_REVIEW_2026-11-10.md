@@ -181,3 +181,28 @@ These document library properties, not a certificate for any game implementation
 Independent security review, statistical certification, real external operator
 conformance and actual distinct-person go-live approval remain outside this code's
 self-attestation. Production remains quarantined.
+
+
+## Independent-player concurrency repair
+
+A focused concurrent-client test first failed on all three preceding runtimes: one
+player's delayed, real signed local HTTP wallet response prevented an unrelated
+player from completing a native round within three seconds. UNO held SQLite's
+write transaction across wallet HTTP, Mahjong held one global request lock, and
+Skygate queued all players on one Promise chain.
+
+The runtime now serializes each player separately. UNO commits the durable outcome
+and requested phase in a short transaction before any callback; callbacks assert
+no SQLite transaction remains open. Python recovery also takes the same player and
+round/ticket locks in that order. Idle Python locks are weakly retained, avoiding
+an unbounded player-lock registry. Skygate uses per-player Promise queues with
+cleanup, per-token redemption queues and a guarded recovery pass sharing those
+player queues. Each runtime remains one process/replica with its own durable volume.
+
+The same local regression now completes the unrelated player's entire native
+round while the delayed reserve and a concurrent duplicate for the slow player
+remain blocked. After releasing the delay, both retries produce the same stored
+outcome and each player has exactly one debit and one credit. Existing restart,
+lost-response and complete-volume replacement tests remain mandatory. This proves
+that the specific global bottleneck is removed; it does not substitute for the
+separate deployed 500/1,000-session latency/soak qualification.
