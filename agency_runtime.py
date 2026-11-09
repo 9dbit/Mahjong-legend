@@ -13,6 +13,7 @@ from fastapi import FastAPI, Request, HTTPException
 from fastapi.responses import JSONResponse, FileResponse, HTMLResponse
 from starlette.concurrency import run_in_threadpool
 from agency_wallet import AgencyWallet, AgencyWalletError
+from deployment_identity import open_bound_database, public_identity, canonical_path, requested_identity, require_play, validate_redeemed, cookie_value, runtime_health
 from game_studio.domain import baseline_config, digest, ENGINE_HASH
 import agency_studio as studio
 from mahjong_legend.engine import GameConfig, play_round, verify_round, sha256, display_decimal
@@ -26,16 +27,20 @@ def wallet():
     return AgencyWallet(os.environ['AGENCY_WALLET_ORIGIN'],os.environ['AGENCY_WALLET_KEY_ID'],os.environ['AGENCY_WALLET_SECRET'],allow_local=os.getenv('AGENCY_WALLET_LOCAL_QA')=='1')
 
 def connect():
-    path=os.environ['MAHJONG_AGENCY_DB_PATH']
+    path=canonical_path(os.environ['MAHJONG_AGENCY_DB_PATH'])
+    os.environ['MAHJONG_AGENCY_DB_PATH']=path
     if not Path(path).is_absolute(): raise RuntimeError('Persistent absolute database path required')
-    Path(path).parent.mkdir(parents=True,exist_ok=True)
-    db=sqlite3.connect(path,timeout=30,isolation_level=None);db.row_factory=sqlite3.Row
+    db=open_bound_database(path,'mahjong-wild');db.row_factory=sqlite3.Row
     db.execute('PRAGMA foreign_keys=ON');db.execute('PRAGMA busy_timeout=30000');db.execute('PRAGMA synchronous=FULL')
     return db
 
 def init():
     if os.getenv('AGENCY_WALLET_MODE')!='sandbox': raise RuntimeError('Native Mahjong supports sandbox only')
     wallet()
+    if os.getenv('ENGINE_RESTORE_OBJECT_KEY') or os.getenv('ENGINE_RESTORE_OBJECT'):
+        from tools.native_backup import restore_from_remote
+        path=canonical_path(os.environ['MAHJONG_AGENCY_DB_PATH'])
+        restore_from_remote(path,'mahjong',requested_identity('mahjong-wild',path))
     with LOCK:
         db=connect();db.execute('PRAGMA journal_mode=WAL')
         db.executescript('''
@@ -76,13 +81,15 @@ def session_context(s):
     return {'navigation':s.get('navigation'),'session_expires_at':expires,'session_expired':expired}
 
 def actor_session(db,request):
+    require_play()
     raw=request.cookies.get(COOKIE,'')
     if not re.fullmatch('[a-f0-9]{64}',raw): raise HTTPException(401,'Buka Mahjong dari website agen')
     row=db.execute('SELECT * FROM launches WHERE cookie_hash=? AND created_at>?',(hashtext(raw),time.time()-86400)).fetchone()
     if not row or not row['session_json']: raise HTTPException(401,'Sesi tidak tersedia. Buka kembali dari website agen.')
-    s=json.loads(row['session_json']);return s,s['tenant_id']+':'+s['player_id']
+    s=json.loads(row['session_json']);validate_redeemed(s,'mahjong-wild',os.environ['MAHJONG_AGENCY_DB_PATH']);return s,s['tenant_id']+':'+s['player_id']
 
 def guard(request):
+    require_play()
     if request.headers.get('x-ml-request')!='local-demo' or request.headers.get('sec-fetch-site')=='cross-site': raise HTTPException(403,'Same-origin game request required')
     origin=request.headers.get('origin')
     if origin and origin.split('://',1)[-1]!=request.headers.get('host'): raise HTTPException(403,'Same-origin request required')
@@ -186,6 +193,7 @@ def spin(db,s,actor,data):
        'state':state(db,s,actor),'idempotency_key':key,'ticket_id':tid,'settlement':{'payout_minor':t['payout'],'coin_scale':s['coin_scale'],'rounding':'half_up'}}
 
 def recover():
+    if os.getenv('AGENCY_ENVIRONMENT','sandbox')=='production': return
     with LOCK:
         db=connect()
         try:
@@ -243,17 +251,19 @@ async def launch(request:Request):
     return await run_in_threadpool(redeem,request,token)
 
 def redeem(request,token):
-    cookie=hmac.new(os.environ['AGENCY_WALLET_SECRET'].encode(),('cookie:'+token).encode(),'sha256').hexdigest()
+    require_play()
+    cookie=cookie_value(token,'mahjong-wild',os.environ['MAHJONG_AGENCY_DB_PATH'])
     with LOCK:
         db=connect()
         try:
             rid='mahjong-redeem-'+hashtext(token)
             try: s=remote('redeem',{'token':token,'request_id':rid})
             except AgencyWalletError as e: raise HTTPException(e.status if e.status<500 else 503,'Launch ditolak. Buka ulang dari website agen.') from None
+            validate_redeemed(s,'mahjong-wild',os.environ['MAHJONG_AGENCY_DB_PATH'])
             if s.get('game')!='mahjong-wild' or type(s.get('coin_scale')) is not int or not 0<=s['coin_scale']<=12: raise HTTPException(409,'Game/presisi wallet tidak sesuai')
             db.execute('INSERT INTO launches VALUES(?,?,?,?,?) ON CONFLICT(token_hash) DO UPDATE SET session_json=excluded.session_json',(hashtext(token),rid,hashtext(cookie),json.dumps(s),time.time()))
         finally: db.close()
-    response=JSONResponse({'ok':True,'mode':'sandbox','coin_scale':s['coin_scale'],**session_context(s)})
+    response=JSONResponse({'ok':True,'mode':os.getenv('AGENCY_ENVIRONMENT','sandbox'),'coin_scale':s['coin_scale'],**session_context(s)})
     response.set_cookie(COOKIE,cookie,httponly=True,secure=request.url.scheme=='https' or request.headers.get('x-forwarded-proto')=='https',samesite='strict',max_age=86400)
     return response
 
@@ -263,7 +273,7 @@ def health():
     try: db.execute('SELECT 1')
     finally: db.close()
     sync=getattr(app.state,'studio',None)
-    return {'ok':True,'provider':'soft-tech','version':'provider-v1','game':'Mahjong Wild','mode':'sandbox','wallet':'soft-tech','database':'connected','source_commit':os.getenv('RAILWAY_GIT_COMMIT_SHA',''),'engine_sha256':ENGINE_HASH,'studio':{'enabled':bool(sync),'last_sync':sync.last_sync if sync else None,'error':sync.error if sync else ''}}
+    return {**runtime_health(),'ok':True,'provider':'soft-tech','version':'provider-v1','game':'Mahjong Wild','mode':os.getenv('AGENCY_ENVIRONMENT','sandbox'),'wallet':'soft-tech','environment':os.getenv('AGENCY_ENVIRONMENT','sandbox'),'deployment_identity':public_identity('mahjong-wild',os.environ['MAHJONG_AGENCY_DB_PATH']),'database':'connected','source_commit':os.getenv('RAILWAY_GIT_COMMIT_SHA',''),'engine_sha256':ENGINE_HASH,'studio':{'enabled':bool(sync),'last_sync':sync.last_sync if sync else None,'error':sync.error if sync else ''}}
 
 @app.get('/api/agency/context')
 def context(request:Request):

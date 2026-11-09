@@ -7,6 +7,8 @@ from __future__ import annotations
 import hashlib
 import hmac
 import json
+import os
+import re
 import secrets
 import time
 import urllib.error
@@ -26,17 +28,27 @@ class _NoRedirect(urllib.request.HTTPRedirectHandler):
 
 
 class AgencyWallet:
-    def __init__(self, origin: str, key_id: str, secret: str, *, allow_local=False):
+    def __init__(self, origin: str, key_id: str, secret: str, *, allow_local=False, environment=None, audience=None):
         url = urllib.parse.urlsplit(origin)
         local = allow_local and url.scheme == 'http' and url.hostname in ('localhost', '127.0.0.1')
         if url.username or url.password or url.path not in ('', '/') or url.query or url.fragment or not (url.scheme == 'https' or local):
             raise ValueError('Agency wallet origin must be HTTPS')
         if not key_id or len(secret) < 32:
             raise ValueError('Agency wallet credentials required')
+        self.environment = environment or os.getenv('AGENCY_ENVIRONMENT', 'sandbox')
+        self.audience = audience or os.getenv('AGENCY_CORE_DEPLOYMENT_ID', '')
+        if self.environment not in ('sandbox', 'preproduction', 'production'):
+            raise ValueError('Invalid agency environment')
+        if self.environment != 'sandbox' and not self.audience:
+            raise ValueError('Explicit agency audience required')
+        if self.audience and not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9._:-]{7,127}', self.audience):
+            raise ValueError('Invalid agency audience')
         self.origin, self.key_id, self.secret = origin.rstrip('/'), key_id, secret.encode()
         self.opener = urllib.request.build_opener(_NoRedirect())
 
     def request(self, action: str, payload: dict) -> dict:
+        if self.environment == 'production':
+            raise AgencyWalletError(423, 'PRODUCTION_RELEASE_GATES_PENDING')
         if action not in ('redeem', 'status', 'reserve', 'settle', 'void', 'studio-sync'):
             raise ValueError('Unsupported agency action')
         if action == 'redeem' and not payload.get('request_id'):
@@ -44,10 +56,13 @@ class AgencyWallet:
         path = '/api/v4/agency-game/' + action
         body = json.dumps(payload, separators=(',', ':'), ensure_ascii=False).encode()
         timestamp, nonce = str(int(time.time())), secrets.token_hex(16)
-        message = '\n'.join(('agency.v1', 'POST', path, timestamp, nonce, hashlib.sha256(body).hexdigest())).encode()
+        domain = ('agency.v2', self.environment, self.audience) if self.audience else ('agency.v1',)
+        message = '\n'.join((*domain, 'POST', path, timestamp, nonce, hashlib.sha256(body).hexdigest())).encode()
         headers = {'Content-Type': 'application/json', 'X-Agency-Key': self.key_id,
                    'X-Agency-Timestamp': timestamp, 'X-Agency-Nonce': nonce,
                    'X-Agency-Signature': hmac.new(self.secret, message, hashlib.sha256).hexdigest()}
+        if self.audience:
+            headers.update({'X-Agency-Version':'2', 'X-Agency-Environment':self.environment, 'X-Agency-Audience':self.audience})
         try:
             with self.opener.open(urllib.request.Request(self.origin + path, data=body, headers=headers, method='POST'), timeout=12) as response:
                 return json.loads(response.read())

@@ -1,0 +1,15 @@
+{
+  "game": "mahjong",
+  "scenario": "disposable-native-volume-deleted-and-replaced",
+  "transport": "in-memory S3 double; real native HTTP + SQLite + AES-GCM",
+  "settled_rounds_preserved": 1,
+  "pending_rounds_recovered": 1,
+  "rounds_generated": 2,
+  "duplicate_debits": 0,
+  "duplicate_credits": 0,
+  "rpo_lost_committed_rounds": 0,
+  "snapshot_age_seconds": 0.8600177764892578,
+  "rto_seconds": 0.07634549499925924,
+  "old_and_new_keys_restore": true,
+  "production_certified": false
+}
