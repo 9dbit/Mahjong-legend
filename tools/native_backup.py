@@ -47,6 +47,7 @@ def backup_once(db_path, game, bucket, prefix):
         downloaded = storage.get_object(Bucket=bucket, Key=key_name)['Body'].read()
         if downloaded != payload:
             raise RuntimeError('Remote backup readback mismatch')
+        restore_verify(downloaded, key.hex())
         return {'object': key_name, 'manifest': manifest, 'verified': True}
 
 def restore_verify(payload, key_hex):
