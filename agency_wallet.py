@@ -1,4 +1,4 @@
-"""Server-only Playground agency wallet transport for FastAPI/Django adapters.
+"""Server-only Soft Tech agency wallet transport for FastAPI/Django adapters.
 Persist request IDs, round references and server outcomes before requests. A timeout
 has unknown outcome: retry the identical business request or query status. Never
 credit a local wallet as a fallback and never send this secret to the browser.

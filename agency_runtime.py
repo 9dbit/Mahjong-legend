@@ -136,7 +136,7 @@ def advance(db,rid):
 
 def balance(s):
     try: return remote('status',{'tenant_id':s['tenant_id'],'session_id':s['session_id']})
-    except AgencyWalletError: raise HTTPException(503,'Saldo Playground belum tersedia') from None
+    except AgencyWalletError: raise HTTPException(503,'Saldo Soft Tech belum tersedia') from None
 
 def state(db,s,actor):
     t=get_ticket(db,actor)
@@ -152,8 +152,8 @@ def state(db,s,actor):
       'rules':{'grid':list(cfg.heights),'ways':2000,'base_multipliers':list(cfg.base_mult),'bonus_multipliers':list(cfg.bonus_mult),'scatter_per_reel':cfg.scatter_prob,
        'free_spins_for_3_scatters':cfg.raw['free_spins_for_3_scatters'],'extra_free_spins':cfg.raw['extra_free_spins_per_additional_scatter'],'paytable':cfg.raw['paytable'],'symbols':cfg.raw['symbols']},
       'manifest':m,'last_round_id':json.loads(last['outcome_json'])['round_id'] if last else None,
-      'virtual_credits_only':True,'session_storage':'persistent','preview':False,'wallet':'playground','simulation':True,
-      'settlement_policy':{'coin_scale':s['coin_scale'],'rounding':'half_up','note':f"Sandbox Playground. Payout dibulatkan half-up ke {s['coin_scale']} desimal per ronde; seluruh free spins dihitung sebelum pembulatan. Tidak ada reset saldo lokal."}}
+      'virtual_credits_only':True,'session_storage':'persistent','preview':False,'wallet':'soft-tech','simulation':True,
+      'settlement_policy':{'coin_scale':s['coin_scale'],'rounding':'half_up','note':f"Sandbox Soft Tech. Payout dibulatkan half-up ke {s['coin_scale']} desimal per ronde; seluruh free spins dihitung sebelum pembulatan. Tidak ada reset saldo lokal."}}
 
 def spin(db,s,actor,data):
     if set(data)-{'ticket_id','idempotency_key','bet'}: raise HTTPException(422,'Payload spin tidak valid')
@@ -246,7 +246,7 @@ def health():
     try: db.execute('SELECT 1')
     finally: db.close()
     sync=getattr(app.state,'studio',None)
-    return {'ok':True,'game':'Mahjong Wild','mode':'sandbox','wallet':'playground','database':'connected','source_commit':os.getenv('RAILWAY_GIT_COMMIT_SHA',''),'engine_sha256':ENGINE_HASH,'studio':{'enabled':bool(sync),'last_sync':sync.last_sync if sync else None,'error':sync.error if sync else ''}}
+    return {'ok':True,'provider':'soft-tech','version':'provider-v1','game':'Mahjong Wild','mode':'sandbox','wallet':'soft-tech','database':'connected','source_commit':os.getenv('RAILWAY_GIT_COMMIT_SHA',''),'engine_sha256':ENGINE_HASH,'studio':{'enabled':bool(sync),'last_sync':sync.last_sync if sync else None,'error':sync.error if sync else ''}}
 
 @app.get('/api/agency/context')
 def context(request:Request):
@@ -274,7 +274,7 @@ def dispatch(request,operation,data):
             s,actor=actor_session(db,request)
             if operation=='state': return state(db,s,actor)
             if operation=='spin': return spin(db,s,actor,data)
-            if operation=='reset': raise HTTPException(403,'Saldo dikelola Playground; reset lokal dinonaktifkan')
+            if operation=='reset': raise HTTPException(403,'Saldo dikelola Soft Tech; reset lokal dinonaktifkan')
             rows=db.execute("SELECT * FROM tickets WHERE actor=? AND state='settled' ORDER BY finished_at DESC LIMIT 100",(actor,)).fetchall()
             if operation=='last-round':
                 if not rows: raise HTTPException(404,'Belum ada ronde')

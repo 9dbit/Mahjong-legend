@@ -9,7 +9,7 @@
   if(!ui)return;
   for(const a of document.querySelectorAll('[data-agency-return]')){a.hidden=!destination;if(destination){a.href=destination;a.textContent=a.id==='agency-return'?'‹':'‹ Kembali ke '+label;a.title='Kembali ke '+label;a.setAttribute('aria-label','Kembali ke '+label);}}
   ui.panel.hidden=!lastError;
-  if(lastError){ui.title.textContent=expired?'Sesi game berakhir':'Game belum dapat dilanjutkan';ui.message.textContent=expired?'Kembali ke website agen lalu buka game lagi. Hasil ronde yang sudah diterima tetap diproses oleh Playground.':lastError;ui.retry.hidden=expired;}
+  if(lastError){ui.title.textContent=expired?'Sesi game berakhir':'Game belum dapat dilanjutkan';ui.message.textContent=expired?'Kembali ke website agen lalu buka game lagi. Hasil ronde yang sudah diterima tetap diproses oleh Soft Tech.':lastError;ui.retry.hidden=expired;}
  }
  function mount(){
   if(!enabled||ui||!document.body)return;
@@ -30,6 +30,6 @@
   apply();
  }
  function error(e){enable();if(e?.status===401&&destination)expired=true;lastError=['AbortError','TimeoutError','TypeError'].includes(e?.name)?'Koneksi terputus. Pilih Coba lagi untuk memulihkan status ronde.':String(e?.message||'Game belum tersedia. Coba lagi.');apply();}
- window.PlaygroundNavigation={enable,update,error,canStart:()=>!expired};
+ window.SoftTechNavigation={enable,update,error,canStart:()=>!expired};
  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',mount);
 })();
