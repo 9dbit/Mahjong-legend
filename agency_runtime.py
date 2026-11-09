@@ -220,6 +220,20 @@ async def lifespan(app):
 
 app=FastAPI(lifespan=lifespan,docs_url=None,redoc_url=None,openapi_url=None)
 
+@app.get('/health/backup')
+async def backup_health():
+    from datetime import datetime,timezone
+    status=Path('/data/mahjong-backup-status.json')
+    try:
+        marker=json.loads(status.read_text())
+        if marker.get('backup_verified') is not True: raise ValueError('not verified')
+        verified_at=datetime.fromisoformat(marker['verified_at'])
+        age=(datetime.now(timezone.utc)-verified_at).total_seconds()
+        if verified_at.tzinfo is None or age<0 or age>90000: raise ValueError('stale evidence')
+        return {'ok':True,'backup_verified':True,'verified_at':marker['verified_at']}
+    except (OSError,ValueError,KeyError,TypeError):
+        return JSONResponse({'ok':False,'backup_verified':False},status_code=503)
+
 @app.exception_handler(HTTPException)
 async def errors(request,e): return JSONResponse({'error':e.detail},status_code=e.status_code)
 
