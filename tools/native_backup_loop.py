@@ -18,7 +18,9 @@ def run():
     parser.add_argument('--game',required=True)
     args=parser.parse_args()
     interval=max(3600,int(os.getenv('ENGINE_BACKUP_INTERVAL_SECONDS','86400')))
+    print(json.dumps({'event':'engine.backup.worker_started','game':args.game,'interval_seconds':interval}),flush=True)
     while True:
+        retry_seconds=interval
         try:
             if not Path(args.database).is_file():
                 print(json.dumps({'event':'engine.backup.waiting_for_db','game':args.game}),flush=True)
@@ -29,8 +31,9 @@ def run():
             print(json.dumps({'event':'engine.backup.remote_verified','game':args.game,
                               'object':result['object'],'sha256':result['manifest']['sha256']}),flush=True)
         except Exception as exc:
+            retry_seconds=min(interval,300)
             print(json.dumps({'event':'engine.backup.failed','game':args.game,'error_type':type(exc).__name__,
                               'error':str(exc)[:160]}),file=sys.stderr,flush=True)
-        time.sleep(interval)
+        time.sleep(retry_seconds)
 if __name__=='__main__':
     run()
