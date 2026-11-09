@@ -11,10 +11,24 @@ import tempfile
 import time
 from pathlib import Path
 
+def s3_addressing_style(value):
+    """Translate Railway's URL-style alias to botocore's accepted values."""
+    style = value.strip().lower()
+    if style == 'virtual-host':
+        style = 'virtual'
+    if style not in ('auto', 'virtual', 'path'):
+        raise ValueError(
+            'ENGINE_BACKUP_S3_URL_STYLE must be auto, virtual, path, or virtual-host'
+        )
+    return style
+
 def backup_once(db_path, game, bucket, prefix):
     from boto3 import client
     from botocore.config import Config
     from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+    addressing_style = s3_addressing_style(
+        os.environ.get('ENGINE_BACKUP_S3_URL_STYLE', 'virtual')
+    )
     key = bytes.fromhex(os.environ['ENGINE_BACKUP_KEY_HEX'])
     if len(key) != 32:
         raise ValueError('ENGINE_BACKUP_KEY_HEX must contain 32 bytes')
@@ -41,7 +55,7 @@ def backup_once(db_path, game, bucket, prefix):
                          aws_access_key_id=os.environ['ENGINE_BACKUP_S3_ACCESS_KEY_ID'],
                          aws_secret_access_key=os.environ['ENGINE_BACKUP_S3_SECRET_ACCESS_KEY'],
                          region_name=os.environ.get('ENGINE_BACKUP_S3_REGION', 'auto'),
-                         config=Config(s3={'addressing_style':os.environ.get('ENGINE_BACKUP_S3_URL_STYLE','virtual')}))
+                         config=Config(s3={'addressing_style': addressing_style}))
         storage.put_object(Bucket=bucket, Key=key_name, Body=payload,
                            Metadata={'sha256': manifest['sha256'], 'game': game})
         downloaded = storage.get_object(Bucket=bucket, Key=key_name)['Body'].read()
