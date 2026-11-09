@@ -95,3 +95,18 @@ class BackupTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+def test_cryptography47_archive_restores_after_security_upgrade(tmp_path):
+    import base64,hashlib,json,sqlite3
+    from pathlib import Path
+    from tools.native_backup import restore_to_path
+    fixture=json.loads((Path(__file__).parent/'fixtures/native-backup-cryptography47.json').read_text())
+    assert fixture['producer']=='cryptography==47.0.0'
+    payload=base64.b64decode(fixture['ciphertext_base64'])
+    assert hashlib.sha256(payload).hexdigest()==fixture['ciphertext_sha256']
+    target=tmp_path/'restored.sqlite'
+    manifest=restore_to_path(payload,target,key_hex=fixture['public_test_key_hex'])
+    assert manifest['sha256']==fixture['plaintext_sha256']
+    with sqlite3.connect(target) as db:
+        assert db.execute('SELECT round_id,state,payout FROM rounds').fetchall()==[('fixed-public-test-round','settled','42')]

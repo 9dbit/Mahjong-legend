@@ -7,7 +7,7 @@ RUN npm run build
 
 FROM python:3.12-slim AS artwork
 WORKDIR /app
-RUN pip install --no-cache-dir 'Pillow==12.3.0'
+RUN pip install --no-cache-dir 'Pillow==13.0.0'
 COPY web/ /app/web/
 COPY mahjong_legend/ /app/mahjong_legend/
 COPY tools/ /app/tools/

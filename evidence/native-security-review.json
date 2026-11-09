@@ -1,0 +1,577 @@
+{
+  "reviewed_at": "2026-11-09T20:56:21.652269+00:00",
+  "source_base": "414ac29ebf80f400da6e0f1b1f19b57a39e0632f",
+  "method": "pip-audit 2.10.1 against PyPI, direct pins then complete installed runtime dependency closure with extras/markers evaluated for Python 3.12 Linux x86_64; --disable-pip --no-deps avoids unrelated resolver/network approval",
+  "before_findings": [
+    {
+      "package": "pillow",
+      "version": "12.3.0",
+      "advisories": [
+        {
+          "id": "PYSEC-2026-4327",
+          "aliases": [
+            "CVE-2026-112394",
+            "GHSA-4558-3h8r-v8xp"
+          ],
+          "fix_versions": [
+            "13.0.0"
+          ]
+        },
+        {
+          "id": "PYSEC-2026-4328",
+          "aliases": [
+            "GHSA-4rr5-89j8-mwwm",
+            "CVE-2026-112396"
+          ],
+          "fix_versions": [
+            "13.0.0"
+          ]
+        },
+        {
+          "id": "PYSEC-2026-4326",
+          "aliases": [
+            "GHSA-27h8-gf7j-v5hc",
+            "CVE-2026-112392"
+          ],
+          "fix_versions": [
+            "13.0.0"
+          ]
+        },
+        {
+          "id": "PYSEC-2026-4339",
+          "aliases": [
+            "CVE-2026-96639",
+            "GHSA-v9pv-5gc8-w2m6"
+          ],
+          "fix_versions": [
+            "13.0.0"
+          ]
+        },
+        {
+          "id": "PYSEC-2026-4340",
+          "aliases": [
+            "CVE-2026-96641",
+            "GHSA-4rm8-3hmm-39fg"
+          ],
+          "fix_versions": [
+            "13.0.0"
+          ]
+        },
+        {
+          "id": "PYSEC-2026-4343",
+          "aliases": [
+            "CVE-2026-96644",
+            "GHSA-9v9v-9qvf-h2hj"
+          ],
+          "fix_versions": [
+            "13.0.0"
+          ]
+        },
+        {
+          "id": "PYSEC-2026-4334",
+          "aliases": [
+            "GHSA-pchr-8j38-3x4p",
+            "CVE-2026-112896"
+          ],
+          "fix_versions": [
+            "13.0.0"
+          ]
+        },
+        {
+          "id": "PYSEC-2026-4337",
+          "aliases": [
+            "GHSA-p8hx-v2p6-rp84",
+            "CVE-2026-96636"
+          ],
+          "fix_versions": [
+            "13.0.0"
+          ]
+        },
+        {
+          "id": "PYSEC-2026-4341",
+          "aliases": [
+            "GHSA-3j72-p6qg-6xp7",
+            "CVE-2026-96642"
+          ],
+          "fix_versions": [
+            "13.0.0"
+          ]
+        },
+        {
+          "id": "PYSEC-2026-4330",
+          "aliases": [
+            "GHSA-5x8w-8jj5-q52h",
+            "CVE-2026-112398"
+          ],
+          "fix_versions": [
+            "13.0.0"
+          ]
+        },
+        {
+          "id": "PYSEC-2026-4338",
+          "aliases": [
+            "GHSA-g842-9rc4-69pw",
+            "CVE-2026-96637"
+          ],
+          "fix_versions": [
+            "13.0.0"
+          ]
+        },
+        {
+          "id": "PYSEC-2026-4335",
+          "aliases": [
+            "CVE-2026-112901",
+            "GHSA-xgh8-jp6q-p5x8"
+          ],
+          "fix_versions": [
+            "13.0.0"
+          ]
+        },
+        {
+          "id": "PYSEC-2026-4336",
+          "aliases": [
+            "CVE-2026-114501",
+            "GHSA-654x-cwwv-5j9c"
+          ],
+          "fix_versions": [
+            "13.0.0"
+          ]
+        },
+        {
+          "id": "PYSEC-2026-4331",
+          "aliases": [
+            "GHSA-7mwm-ghpf-9vrm",
+            "CVE-2026-112402"
+          ],
+          "fix_versions": [
+            "13.0.0"
+          ]
+        },
+        {
+          "id": "PYSEC-2026-4332",
+          "aliases": [
+            "CVE-2026-112403",
+            "GHSA-8g5g-8vmr-9782"
+          ],
+          "fix_versions": [
+            "13.0.0"
+          ]
+        },
+        {
+          "id": "PYSEC-2026-4329",
+          "aliases": [
+            "CVE-2026-112397",
+            "GHSA-58r4-6rv3-gfh8"
+          ],
+          "fix_versions": [
+            "13.0.0"
+          ]
+        },
+        {
+          "id": "PYSEC-2026-4333",
+          "aliases": [
+            "CVE-2026-112405",
+            "GHSA-cp9v-662q-vvx9"
+          ],
+          "fix_versions": [
+            "13.0.0"
+          ]
+        },
+        {
+          "id": "PYSEC-2026-4342",
+          "aliases": [
+            "CVE-2026-96643",
+            "GHSA-g4qv-2jxx-769h"
+          ],
+          "fix_versions": [
+            "13.0.0"
+          ]
+        },
+        {
+          "id": "CVE-2026-112895",
+          "aliases": [
+            "GHSA-p4wg-p73j-c528"
+          ],
+          "fix_versions": [
+            "13.0.0"
+          ]
+        },
+        {
+          "id": "CVE-2026-112400",
+          "aliases": [
+            "GHSA-65qm-jvmh-6pqg"
+          ],
+          "fix_versions": [
+            "13.0.0"
+          ]
+        },
+        {
+          "id": "CVE-2026-112897",
+          "aliases": [
+            "GHSA-q45j-58j2-45rg"
+          ],
+          "fix_versions": [
+            "13.0.0"
+          ]
+        },
+        {
+          "id": "CVE-2026-112395",
+          "aliases": [
+            "GHSA-462x-pgg6-55fp"
+          ],
+          "fix_versions": [
+            "13.0.0"
+          ]
+        },
+        {
+          "id": "CVE-2026-112404",
+          "aliases": [
+            "GHSA-c6hw-5grf-ff96"
+          ],
+          "fix_versions": [
+            "13.0.0"
+          ]
+        },
+        {
+          "id": "CVE-2026-112899",
+          "aliases": [
+            "GHSA-vx6w-vv9f-6gvg"
+          ],
+          "fix_versions": [
+            "13.0.0"
+          ]
+        },
+        {
+          "id": "CVE-2026-112900",
+          "aliases": [
+            "GHSA-w889-685w-c8fh"
+          ],
+          "fix_versions": [
+            "13.0.0"
+          ]
+        },
+        {
+          "id": "CVE-2026-112893",
+          "aliases": [
+            "GHSA-j4m9-6w36-pw47"
+          ],
+          "fix_versions": [
+            "13.0.0"
+          ]
+        },
+        {
+          "id": "CVE-2026-112891",
+          "aliases": [
+            "GHSA-fc9g-5qg7-mf45"
+          ],
+          "fix_versions": [
+            "13.0.0"
+          ]
+        },
+        {
+          "id": "CVE-2026-112390",
+          "aliases": [
+            "GHSA-22hg-r758-rrw9"
+          ],
+          "fix_versions": [
+            "13.0.0"
+          ]
+        },
+        {
+          "id": "CVE-2026-112401",
+          "aliases": [
+            "GHSA-74r2-7ff9-mjj2"
+          ],
+          "fix_versions": [
+            "13.0.0"
+          ]
+        },
+        {
+          "id": "CVE-2026-112391",
+          "aliases": [
+            "GHSA-254f-3936-288h"
+          ],
+          "fix_versions": [
+            "13.0.0"
+          ]
+        },
+        {
+          "id": "CVE-2026-112894",
+          "aliases": [
+            "GHSA-jg86-v3jv-hrpm"
+          ],
+          "fix_versions": [
+            "13.0.0"
+          ]
+        },
+        {
+          "id": "CVE-2026-112406",
+          "aliases": [
+            "GHSA-f2g6-542v-9j58"
+          ],
+          "fix_versions": [
+            "13.0.0"
+          ]
+        },
+        {
+          "id": "CVE-2026-112399",
+          "aliases": [
+            "GHSA-5xm2-6676-qcp9"
+          ],
+          "fix_versions": [
+            "13.0.0"
+          ]
+        },
+        {
+          "id": "CVE-2026-112892",
+          "aliases": [
+            "GHSA-gg2r-wvfm-q9rx"
+          ],
+          "fix_versions": [
+            "13.0.0"
+          ]
+        },
+        {
+          "id": "CVE-2026-112393",
+          "aliases": [
+            "GHSA-332p-7hrc-92wf"
+          ],
+          "fix_versions": [
+            "13.0.0"
+          ]
+        },
+        {
+          "id": "CVE-2026-96638",
+          "aliases": [
+            "GHSA-24rc-8hj2-v98c"
+          ],
+          "fix_versions": [
+            "13.0.0"
+          ]
+        },
+        {
+          "id": "CVE-2026-96640",
+          "aliases": [
+            "GHSA-mrfp-p49p-3hf2"
+          ],
+          "fix_versions": [
+            "13.0.0"
+          ]
+        },
+        {
+          "id": "CVE-2026-96778",
+          "aliases": [
+            "GHSA-g7cr-3p24-7wf7"
+          ],
+          "fix_versions": [
+            "13.0.0"
+          ]
+        },
+        {
+          "id": "GHSA-78g4-xqwv-q3g8",
+          "aliases": [],
+          "fix_versions": [
+            "13.0.0"
+          ]
+        }
+      ]
+    },
+    {
+      "package": "cryptography",
+      "version": "47.0.0",
+      "advisories": [
+        {
+          "id": "PYSEC-2026-3554",
+          "aliases": [
+            "CVE-2026-69248",
+            "GHSA-m2h6-j472-rp4c"
+          ],
+          "fix_versions": [
+            "49.0.0"
+          ]
+        },
+        {
+          "id": "PYSEC-2026-3552",
+          "aliases": [
+            "GHSA-g6cj-pr64-35w5",
+            "CVE-2026-69247"
+          ],
+          "fix_versions": [
+            "50.0.0"
+          ]
+        },
+        {
+          "id": "PYSEC-2026-3553",
+          "aliases": [
+            "CVE-2026-69249",
+            "GHSA-jwv3-5hgf-82ww"
+          ],
+          "fix_versions": [
+            "49.0.0"
+          ]
+        },
+        {
+          "id": "GHSA-537c-gmf6-5ccf",
+          "aliases": [],
+          "fix_versions": [
+            "48.0.1"
+          ]
+        }
+      ]
+    },
+    {
+      "package": "starlette",
+      "version": "0.50.0",
+      "advisories": [
+        {
+          "id": "PYSEC-2026-161",
+          "aliases": [
+            "CVE-2026-48710",
+            "GHSA-86qp-5c8j-p5mr",
+            "X41-2026-002"
+          ],
+          "fix_versions": [
+            "1.0.1"
+          ]
+        },
+        {
+          "id": "PYSEC-2026-2281",
+          "aliases": [
+            "CVE-2026-48818",
+            "GHSA-wqp7-x3pw-xc5r"
+          ],
+          "fix_versions": [
+            "1.1.0"
+          ]
+        },
+        {
+          "id": "PYSEC-2026-2280",
+          "aliases": [
+            "CVE-2026-48817",
+            "GHSA-x746-7m8f-x49c"
+          ],
+          "fix_versions": [
+            "1.1.0"
+          ]
+        },
+        {
+          "id": "PYSEC-2026-249",
+          "aliases": [
+            "CVE-2026-54283",
+            "GHSA-82w8-qh3p-5jfq"
+          ],
+          "fix_versions": [
+            "1.3.1"
+          ]
+        },
+        {
+          "id": "PYSEC-2026-248",
+          "aliases": [
+            "GHSA-jp82-jpqv-5vv3",
+            "CVE-2026-54282"
+          ],
+          "fix_versions": [
+            "1.3.0"
+          ]
+        }
+      ]
+    }
+  ],
+  "fixed_pins": {
+    "fastapi": "0.138.2",
+    "starlette": "1.3.1",
+    "cryptography": "50.0.2",
+    "pillow": "13.0.0"
+  },
+  "credential_signature_scan": {
+    "repo": "Mahjong-legend",
+    "tracked_text_files_scanned": 182,
+    "binary_files_skipped": 158,
+    "files_over_2mb_skipped": 0,
+    "matches": [],
+    "scope": "Known credential signatures in tracked source only; not entropy scanning, Git history, archives, runtime variables or independent penetration test"
+  },
+  "old_archive_compatibility": {
+    "producer": "cryptography 47.0.0",
+    "reader": "cryptography 50.0.2",
+    "verified": true,
+    "test": "tests/test_native_backup.py::test_cryptography47_archive_restores_after_security_upgrade"
+  },
+  "local_tests": {
+    "passed": 68,
+    "subtests_passed": 38
+  },
+  "sources": [
+    "https://cryptography.io/en/latest/changelog/",
+    "https://github.com/pyca/cryptography/security/advisories/GHSA-537c-gmf6-5ccf",
+    "https://github.com/pyca/cryptography/security/advisories/GHSA-g6cj-pr64-35w5",
+    "https://github.com/Kludex/starlette/security/advisories/GHSA-82w8-qh3p-5jfq",
+    "https://github.com/Kludex/starlette/security/advisories/GHSA-86qp-5c8j-p5mr",
+    "https://pypi.org/project/fastapi/0.138.2/",
+    "https://pillow.readthedocs.io/en/stable/releasenotes/13.0.0.html"
+  ],
+  "limits": [
+    "Application engineering review only; independent penetration test and RNG/math certificate outstanding",
+    "Dependency closure describes this test runtime; Docker base image/OS packages and npm Studio build dependencies not audited here",
+    "Some transitive packages and base-image tags remain unpinned; final image SBOM/digest gate remains required",
+    "Python API body buffering has no complete streaming cap before parsing; separate availability hardening remains open",
+    "No raw environment variables, runtime credentials or Git history scanned"
+  ],
+  "pillow_artwork_verification": {
+    "pillow": "13.0.0",
+    "scope": "Docker artwork commands in disposable copy; repository source assets unchanged",
+    "steps": [
+      {
+        "script": "build_locked_ui.py",
+        "args": [],
+        "exit_code": 0,
+        "repeat_after_transient_read_failure": true
+      },
+      {
+        "script": "build_presentation_fx.py",
+        "args": [],
+        "exit_code": 0,
+        "duration_seconds": 0.331
+      },
+      {
+        "script": "build_approved_ui.py",
+        "args": [],
+        "exit_code": 0,
+        "duration_seconds": 2.415
+      },
+      {
+        "script": "build_portrait_ui.py",
+        "args": [],
+        "exit_code": 0,
+        "duration_seconds": 2.22
+      },
+      {
+        "script": "build_responsive_runtime.py",
+        "args": [
+          "--runtime-only"
+        ],
+        "exit_code": 0,
+        "duration_seconds": 0.034
+      },
+      {
+        "script": "build_fullframe_ui.py",
+        "args": [
+          "--runtime-only"
+        ],
+        "exit_code": 0,
+        "duration_seconds": 1.791
+      },
+      {
+        "script": "build_studio_runtime.py",
+        "args": [],
+        "exit_code": 0,
+        "duration_seconds": 0.042
+      }
+    ]
+  },
+  "post_fix_audit": {
+    "packages": 37,
+    "reported_vulnerabilities": 0,
+    "dependency_closure_verified": true
+  }
+}

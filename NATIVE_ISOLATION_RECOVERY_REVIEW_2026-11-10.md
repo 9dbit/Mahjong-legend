@@ -230,3 +230,29 @@ outcome and each player has exactly one debit and one credit. Existing restart,
 lost-response and complete-volume replacement tests remain mandatory. This proves
 that the specific global bottleneck is removed; it does not substitute for the
 separate deployed 500/1,000-session latency/soak qualification.
+
+
+## Dependency security review follow-up
+
+The installed runtime closure was enumerated with Python 3.12/Linux dependency
+markers and extras, then checked with pip-audit 2.10.1 against PyPI. The original
+cryptography cap selected 47.0.0 and excluded fixes for four distinct upstream
+advisories. It is now pinned to 50.0.2. A checked-in public fixture made with
+cryptography 47.0.0 restores correctly under 50.0.2, including SQLite integrity
+and a settled round record. FastAPI is pinned to 0.138.2 with Starlette 1.3.1 to
+remove five distinct advisories present in the original Starlette 0.50 closure.
+
+`evidence/native-security-review.json` records finding IDs, exact pins, upstream
+sources, verification and scope limits. `evidence/native-dependency-audit.json`
+contains the audit result; `evidence/native-runtime-dependencies.txt` records the
+resolved packages audited. These do not certify the final container image or
+replace an independent review. Container OS packages, image digests, Git history,
+compressed archives and runtime secret stores require their own controls. A bounded
+credential-signature scan of tracked text found no known private-key/AWS/GitHub-token
+signatures. Absence of these patterns is not proof that no secret exists.
+
+Pillow is pinned to 13.0.0 in both the runtime and artwork build stage to address
+the upstream 12.3.0 image decoder/encoder advisories. The exact seven artwork
+commands ran in a disposable copy without changing repository assets. One initial
+scratch WebP read failed; repeating that stage succeeded, then every remaining
+artwork command passed. The image build and deployed artifact remain release gates.
