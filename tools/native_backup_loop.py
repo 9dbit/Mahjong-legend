@@ -24,6 +24,7 @@ def run():
                 print(json.dumps({'event':'engine.backup.waiting_for_db','game':args.game}),flush=True)
                 time.sleep(30)
                 continue
+            print(json.dumps({'event':'engine.backup.started','game':args.game}),flush=True)
             result=backup_once(args.database,args.game,os.environ['ENGINE_BACKUP_S3_BUCKET'],'native')
             print(json.dumps({'event':'engine.backup.remote_verified','game':args.game,
                               'object':result['object'],'sha256':result['manifest']['sha256']}),flush=True)
