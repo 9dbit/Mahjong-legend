@@ -30,5 +30,6 @@ COPY tools/start_studio.py /app/tools/start_studio.py
 COPY tools/native_backup.py /app/tools/native_backup.py
 COPY tools/native_backup_loop.py /app/tools/native_backup_loop.py
 COPY tools/native_backup_status.py /app/tools/native_backup_status.py
+COPY tools/native_retention.py /app/tools/native_retention.py
 EXPOSE 8080
 CMD ["python", "tools/start_studio.py"]

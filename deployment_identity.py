@@ -95,7 +95,8 @@ def require_play():
 def validate_redeemed(session, game, path):
     identity = requested_identity(game, path)
     strict = identity['environment'] != 'sandbox' or bool(os.getenv('AGENCY_CORE_DEPLOYMENT_ID'))
-    if strict and (session.get('environment') != identity['environment'] or
+    if strict and (session.get('game') != game or session.get('provider') != 'soft-tech' or
+                   session.get('environment') != identity['environment'] or
                    session.get('core_deployment_id', session.get('deployment_id')) != identity['core_deployment_id']):
         from fastapi import HTTPException
         raise HTTPException(409, 'CORE_DEPLOYMENT_IDENTITY_MISMATCH')

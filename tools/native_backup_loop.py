@@ -34,9 +34,9 @@ def run(argv=None, *, status_file=None):
             result=backup_once(args.database,args.game,os.environ['ENGINE_BACKUP_S3_BUCKET'],'native')
             if result.get('verified') is not True:
                 raise RuntimeError('Backup verification was not confirmed')
-            write_backup_status(status_file,{'backup_verified':True,'verified_at':datetime.now(timezone.utc).isoformat(),'source_commit':source_commit,'object':result['object'],'sha256':result['manifest']['sha256'],'ciphertext_sha256':result.get('ciphertext_sha256'),'key_id':result.get('key_id')})
+            write_backup_status(status_file,{'backup_verified':True,'verified_at':datetime.now(timezone.utc).isoformat(),'source_commit':source_commit,'object':result['object'],'sha256':result['manifest']['sha256'],'ciphertext_sha256':result.get('ciphertext_sha256'),'key_id':result.get('key_id'),'retention':result.get('retention')})
             print(json.dumps({'event':'engine.backup.remote_verified','game':args.game,
-                              'object':result['object'],'sha256':result['manifest']['sha256'],'ciphertext_sha256':result.get('ciphertext_sha256'),'key_id':result.get('key_id')}),flush=True)
+                              'object':result['object'],'sha256':result['manifest']['sha256'],'ciphertext_sha256':result.get('ciphertext_sha256'),'key_id':result.get('key_id'),'retention':result.get('retention')}),flush=True)
         except Exception as exc:
             retry_seconds=min(interval,300)
             try: write_backup_status(status_file,{'backup_verified':False,'failed_at':datetime.now(timezone.utc).isoformat(),'source_commit':source_commit,'error_type':type(exc).__name__})

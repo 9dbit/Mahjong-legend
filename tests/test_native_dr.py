@@ -25,7 +25,7 @@ def test_full_native_volume_loss_key_rotation_and_recovery(tmp_path,monkeypatch)
     class Wallet:
         def request(self,action,p):
             nonlocal balance,lost
-            if action=='redeem':return {'tenant_id':'tenant','player_id':'player','session_id':'session','game':'mahjong-wild','coin_scale':2,'currency':'VCOIN','environment':'preproduction','deployment_id':'core-dr-deployment'}
+            if action=='redeem':return {'provider':'soft-tech','tenant_id':'tenant','player_id':'player','session_id':'session','game':'mahjong-wild','coin_scale':2,'currency':'VCOIN','environment':'preproduction','deployment_id':'core-dr-deployment'}
             if action=='status':return {'balance':str(balance),'reserved':'0'}
             if action=='reserve':
                 rid=p['round_ref']

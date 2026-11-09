@@ -63,7 +63,31 @@ def backup_once(db_path, game, bucket, prefix):
         if downloaded != payload:
             raise RuntimeError('Remote backup readback mismatch')
         restore_verify(downloaded, key.hex())
-        return {'object': key_name, 'manifest': manifest, 'ciphertext_sha256': hashlib.sha256(payload).hexdigest(), 'key_id': key_id, 'verified': True}
+        result = {'object': key_name, 'manifest': manifest, 'ciphertext_sha256': hashlib.sha256(payload).hexdigest(), 'key_id': key_id, 'verified': True}
+        if os.getenv('ENGINE_BACKUP_RETENTION_ENABLED') == 'true':
+            result['retention'] = run_retention(storage, bucket, game, result)
+        return result
+
+def run_retention(storage, bucket, game, current):
+    try: from .native_retention import enforce_retention
+    except ImportError: from native_retention import enforce_retention
+    identity=current['manifest'].get('deployment_identity')
+    def list_page(token):
+        response=storage.list_objects_v2(Bucket=bucket,Prefix='native/'+game+'/',MaxKeys=1000,**({'ContinuationToken':token} if token else {}))
+        if response.get('IsTruncated') and not response.get('NextContinuationToken'):raise RuntimeError('RETENTION_INVENTORY_INVALID')
+        return {'keys':[r['Key'] for r in response.get('Contents',[])],'next_token':response.get('NextContinuationToken') if response.get('IsTruncated') else None}
+    def download(key):
+        response=storage.get_object(Bucket=bucket,Key=key)
+        return {'bytes':response['Body'].read(),'etag':response.get('ETag')}
+    def verify(payload):
+        with tempfile.TemporaryDirectory() as directory:
+            return restore_to_path(payload,Path(directory)/'verify.sqlite',expected_identity=identity)
+    return enforce_retention(game=game,identity=identity,current_object=current['object'],current_ciphertext_sha256=current['ciphertext_sha256'],
+        list_page=list_page,download=download,remove=lambda key,etag:storage.delete_object(Bucket=bucket,Key=key,IfMatch=etag),verify=verify,
+        restoring_object=os.getenv('ENGINE_RESTORE_OBJECT_KEY') or os.getenv('ENGINE_RESTORE_OBJECT'),
+        mode=os.getenv('ENGINE_BACKUP_RETENTION_MODE','dry-run'),max_deletes=int(os.getenv('ENGINE_BACKUP_RETENTION_MAX_DELETES','5')),
+        logger=lambda event:print(json.dumps(event),flush=True))
+
 
 def key_ring(env=None):
     env = os.environ if env is None else env

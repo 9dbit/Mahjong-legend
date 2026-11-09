@@ -94,15 +94,35 @@ using mutable Studio files cannot claim full-volume recovery from this profile.
 
 ## Retention policy
 
-Proposed enforced profile: keep all snapshots for at least 7 days, the newest valid
+Implemented bounded profile: keep all snapshots for at least 7 days, the newest valid
 snapshot for each of the last 7 UTC dates, 4 ISO weeks, and 12 calendar months,
 and always the newest verified snapshot. Delete only objects in the exact native
 prefix with a valid managed-object name. Never prune while newest backup is stale,
 its readback/decryption/integrity fails, credentials are missing, or the inventory
 cannot be paginated completely. A dry-run plan and execution receipt must be kept.
-No runtime deletion policy is enabled by this code revision; storage enforcement
-and WORM capability remain separate deployment evidence. Keep decrypt keys for
-all retained snapshots; an untested key removal is not an acceptable rotation.
+Set `ENGINE_BACKUP_RETENTION_ENABLED=true`; first use `ENGINE_BACKUP_RETENTION_MODE=dry-run`
+and inspect the sanitized plan. Set mode `apply` to enforce after each fresh verified
+backup. The default bound is five deletions per run (maximum ten), an inventory cap
+of 4,096 objects and at most 32 authenticated snapshot checks. The newest two and
+the currently configured restore object are always protected. Legacy object names
+without a random suffix and unrelated keys are never deleted. Every required keeper
+and candidate is decrypted, integrity checked and matched to this exact immutable
+native identity before any deletion. A foreign/tampered/missing/stale proof aborts
+pruning. Deletes require the downloaded object's ETag through `If-Match`; a store
+that rejects this condition fails closed. No unconditional fallback is attempted.
+
+`/health/backup` includes the sanitized retention receipt when enabled, including
+mode, policy ID, verification status, eligible and deleted counts. Runtime logs
+separately record plan/completion/failure. A successful zero-delete run proves the
+policy is active but does not assert an expired live backup existed. Fixture tests
+exercise bounded deletion, tampering, foreign identity, unknown key, incomplete
+pagination and changed ETag cases. Keep decrypt keys for all retained snapshots.
+
+Railway's current official S3 compatibility page explicitly lists bucket lifecycle,
+object versioning and object locks as unsupported:
+https://docs.railway.com/storage-buckets#s3-compatibility . Therefore this application
+policy supplies retention scheduling but cannot supply WORM protection. Production
+requirements needing storage immutability need a separate capable storage target.
 
 ## Security and math review
 

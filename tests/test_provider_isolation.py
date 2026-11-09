@@ -39,9 +39,9 @@ def test_volume_escape_and_cookie_scope(isolated,tmp_path,monkeypatch):
     assert a!=b
 
 def test_redeemed_scope_and_production_quarantine(isolated,monkeypatch):
-    good={'environment':'preproduction','deployment_id':'core-test-deployment'}
+    good={'provider':'soft-tech','game':'mahjong-wild','environment':'preproduction','deployment_id':'core-test-deployment'}
     identity.validate_redeemed(good,'mahjong-wild',isolated)
-    for bad in ({},dict(good,environment='sandbox'),dict(good,deployment_id='different-core')):
+    for bad in ({},dict(good,environment='sandbox'),dict(good,deployment_id='different-core'),dict(good,provider='foreign'),dict(good,game='wrong-game')):
         with pytest.raises(HTTPException):identity.validate_redeemed(bad,'mahjong-wild',isolated)
     monkeypatch.setenv('AGENCY_ENVIRONMENT','production')
     with pytest.raises(HTTPException) as exc:identity.require_play()
