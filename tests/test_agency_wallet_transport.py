@@ -152,6 +152,23 @@ class Handler(BaseHTTPRequestHandler):
             if mode == 'invalid-json':
                 self.respond(200, b'{invalid json')
                 return
+            if mode in ('drip-length', 'drip-chunked'):
+                # Each byte arrives before the inactivity timeout; the complete
+                # body deliberately takes much longer than the request budget.
+                response_body = b'{"ok":true,"padding":"' + b'x' * 16 + b'"}'
+                self.send_response(200)
+                if mode == 'drip-length':
+                    self.send_header('Content-Length', str(len(response_body)))
+                else:
+                    self.send_header('Transfer-Encoding', 'chunked')
+                self.end_headers()
+                for byte in response_body:
+                    chunk = bytes([byte])
+                    self.wfile.write(chunk if mode == 'drip-length' else b'1\r\n' + chunk + b'\r\n')
+                    self.wfile.flush()
+                    time.sleep(0.04)
+                if mode == 'drip-chunked': self.wfile.write(b'0\r\n\r\n')
+                return
             if mode == 'oversized':
                 self.respond(200, b'x' * (1024 * 1024 + 1))
                 return
@@ -315,3 +332,24 @@ def test_request_byte_cap_and_production_lock_reject_before_any_http(tls):
     assert transport_metrics()['requests'] == 0
     assert client.request('status', {'padding': 'x' * (65536 - overhead)})['ok']
     assert len(tls.server.state.records[0]['body']) == 65536
+
+
+@pytest.mark.parametrize('mode', ['drip-length', 'drip-chunked'])
+def test_slow_drip_body_respects_total_budget_without_retry_or_pool_leak(tls, monkeypatch, mode):
+    assert wallet_module.REQUEST_TIMEOUT_SECONDS == 12.0
+    # Scale only this isolated fixture budget; production remains twelve seconds.
+    monkeypatch.setattr(wallet_module, 'REQUEST_TIMEOUT_SECONDS', 0.15)
+    client = tls.client()
+    started = time.monotonic()
+    with pytest.raises((TimeoutError, urllib3.exceptions.HTTPError)):
+        client.request('status', {'fixture_mode': mode})
+    elapsed = time.monotonic() - started
+    assert 0.10 <= elapsed < 0.60, {'mode': mode, 'elapsed_seconds': elapsed}
+    assert len(tls.server.state.records) == 1
+    assert transport_metrics()['in_flight'] == 0
+    assert transport_metrics()['failures'] == 1
+    # A partial TLS body must not contaminate the next explicit request.
+    assert client.request('status', {})['ok']
+    assert len(tls.server.state.records) == 2
+    assert transport_metrics()['in_flight'] == 0
+    print(json.dumps({'scenario': mode, 'fixture_budget_seconds': 0.15, 'elapsed_seconds': round(elapsed, 6), 'production_timeout_seconds': 12.0, 'automatic_retries': 0}))

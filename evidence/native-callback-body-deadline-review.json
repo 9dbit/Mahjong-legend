@@ -1,0 +1,67 @@
+{
+  "schema": "softtech.native.callback-body-deadline-review.v1",
+  "scope": "Generic source review and disposable local TLS fixtures only; no live operational data.",
+  "parent_source_commit": "9df83877436037b52e913e4995bba72f3f13ce66",
+  "changed_runtime_file": "agency_wallet.py",
+  "implementation": "Use HTTPResponse.read1 with decoding disabled so available body bytes return to the existing monotonic deadline check; reset the socket timeout to the remaining budget before each read.",
+  "production_timeout_seconds": 12.0,
+  "maximum_in_flight_unchanged": 40,
+  "automatic_retries": false,
+  "redirects": false,
+  "fixture": {
+    "transport": "Actual HTTP/1.1 over verified local TLS with a disposable private CA and localhost-only SAN certificate.",
+    "body_byte_interval_seconds": 0.04,
+    "test_only_budget_seconds": 0.15,
+    "pre_fix_reproduction_seconds": {
+      "content_length": 1.571323448,
+      "chunked": 1.61236595
+    },
+    "post_fix_results": [
+      {
+        "scenario": "drip-length",
+        "fixture_budget_seconds": 0.15,
+        "elapsed_seconds": 0.150809,
+        "production_timeout_seconds": 12.0,
+        "automatic_retries": 0
+      },
+      {
+        "scenario": "drip-chunked",
+        "fixture_budget_seconds": 0.15,
+        "elapsed_seconds": 0.151255,
+        "production_timeout_seconds": 12.0,
+        "automatic_retries": 0
+      }
+    ],
+    "assertions": [
+      "Deadline fails before the slow full body completes",
+      "One request reaches the server; no automatic retry",
+      "Partial response is discarded and pool permits return to zero",
+      "A later explicit request succeeds with no inherited response data"
+    ],
+    "transport_tests_passed": 14,
+    "full_qualification_tests_passed": 105,
+    "subtests_passed": 38
+  },
+  "unchanged": [
+    "Signatures and fresh nonces",
+    "Immutable environment/game/deployment validation",
+    "Production quarantine",
+    "Request and response byte caps",
+    "AnyIO worker count",
+    "Connection pool size",
+    "Durable outcome and callback intent",
+    "Accounting retry and recovery behavior",
+    "Math and artwork source hashes"
+  ],
+  "limitations": [
+    "This narrow fix covers slow response body data after HTTP headers. It does not implement a separate cancellation timer for DNS, TLS, HTTP headers, or chunk framing/trailers handled inside http.client.",
+    "The documented urllib3 total/read timeout is not itself a hard wall-clock bound for every transport phase.",
+    "The 150ms fixture setting applies only inside the test; the production constant stays 12 seconds.",
+    "Local tests do not establish live capacity, soak latency, external operator certification, or independent security approval.",
+    "No Railway configuration, source pin, pending sandbox/production packet, or runtime changed as part of this follow-up."
+  ],
+  "references": [
+    "https://urllib3.readthedocs.io/en/stable/reference/urllib3.response.html",
+    "https://urllib3.readthedocs.io/en/stable/reference/urllib3.util.html"
+  ]
+}

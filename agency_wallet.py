@@ -86,7 +86,9 @@ class _SharedTransport:
                 connection = response.connection
                 if connection is not None and connection.sock is not None:
                     connection.sock.settimeout(remaining)
-                chunk = response.read(min(65536, MAX_RESPONSE_BYTES + 1 - len(data)), decode_content=False)
+                # read1 returns after one underlying read, so a peer dripping
+                # bytes cannot keep read(amt) waiting past the remaining budget.
+                chunk = response.read1(min(65536, MAX_RESPONSE_BYTES + 1 - len(data)), decode_content=False)
                 if not chunk:
                     drained = True; break
                 data.extend(chunk)
