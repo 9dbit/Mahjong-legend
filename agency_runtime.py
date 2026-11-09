@@ -206,7 +206,9 @@ async def lifespan(app):
         def backup_worker():
             try:
                 print('[ENGINE BACKUP] Mahjong worker thread entered',flush=True)
+                print('[ENGINE BACKUP] Mahjong importing backup module',flush=True)
                 from tools.native_backup_loop import run
+                print('[ENGINE BACKUP] Mahjong module loaded',flush=True)
                 run(['--database',os.environ['MAHJONG_AGENCY_DB_PATH'],'--game','mahjong'])
             except BaseException as exc:
                 print(f'[ENGINE BACKUP] Mahjong worker terminated: {type(exc).__name__}: {str(exc)[:160]}',flush=True)
