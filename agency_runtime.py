@@ -14,7 +14,7 @@ from fastapi.responses import JSONResponse, FileResponse, HTMLResponse
 from starlette.concurrency import run_in_threadpool
 from agency_wallet import AgencyWallet, AgencyWalletError, transport_metrics
 from native_locks import operation_lock, active_lock_count
-from deployment_identity import open_bound_database, public_identity, canonical_path, requested_identity, require_play, validate_redeemed, cookie_value, runtime_health
+from deployment_identity import initialize_bound_database, open_bound_database, public_identity, canonical_path, requested_identity, require_play, validate_redeemed, cookie_value, runtime_health
 from game_studio.domain import baseline_config, digest, ENGINE_HASH
 import agency_studio as studio
 from mahjong_legend.engine import GameConfig, play_round, verify_round, sha256, display_decimal
@@ -27,11 +27,12 @@ LOCK=threading.RLock()
 def wallet():
     return AgencyWallet(os.environ['AGENCY_WALLET_ORIGIN'],os.environ['AGENCY_WALLET_KEY_ID'],os.environ['AGENCY_WALLET_SECRET'],allow_local=os.getenv('AGENCY_WALLET_LOCAL_QA')=='1')
 
-def connect():
+def connect(*, initialize=False):
     path=canonical_path(os.environ['MAHJONG_AGENCY_DB_PATH'])
     os.environ['MAHJONG_AGENCY_DB_PATH']=path
     if not Path(path).is_absolute(): raise RuntimeError('Persistent absolute database path required')
-    db=open_bound_database(path,'mahjong-wild');db.row_factory=sqlite3.Row
+    opener=initialize_bound_database if initialize else open_bound_database
+    db=opener(path,'mahjong-wild');db.row_factory=sqlite3.Row
     db.execute('PRAGMA foreign_keys=ON');db.execute('PRAGMA busy_timeout=30000');db.execute('PRAGMA synchronous=FULL')
     return db
 
@@ -43,7 +44,7 @@ def init():
         path=canonical_path(os.environ['MAHJONG_AGENCY_DB_PATH'])
         restore_from_remote(path,'mahjong',requested_identity('mahjong-wild',path))
     with LOCK:
-        db=connect();db.execute('PRAGMA journal_mode=WAL')
+        db=connect(initialize=True);db.execute('PRAGMA journal_mode=WAL')
         db.executescript('''
         CREATE TABLE IF NOT EXISTS launches(token_hash TEXT PRIMARY KEY, request_id TEXT NOT NULL, cookie_hash TEXT NOT NULL UNIQUE, session_json TEXT, created_at REAL NOT NULL);
         CREATE TABLE IF NOT EXISTS tickets(id TEXT PRIMARY KEY, actor TEXT NOT NULL, seed TEXT NOT NULL, config_json TEXT NOT NULL, engine_hash TEXT NOT NULL,

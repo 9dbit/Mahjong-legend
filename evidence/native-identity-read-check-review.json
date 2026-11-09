@@ -1,0 +1,40 @@
+{
+  "schema_version": 1,
+  "classification": "generic_native_identity_open_regression_review",
+  "change": "Separate explicit startup identity initialization from existing bound-database request opens.",
+  "request_path": [
+    "Read-only SQLite precheck validates identity and all persisted immutable-trigger definitions before opening read/write.",
+    "The subsequent mode=rw connection repeats identity and guard validation. Missing files cannot be recreated by requests.",
+    "Existing-bound opens perform no BEGIN IMMEDIATE, identity DDL, trigger repair, or persisted identity writes."
+  ],
+  "startup_path": [
+    "Explicit initializer creates a new binding and all three immutable guards in one transaction.",
+    "Existing bound databases, including valid restored databases, must already contain the expected guards; missing or altered guards fail closed.",
+    "Legacy sandbox adoption remains possible only through explicit startup initialization. Existing unbound application databases cannot be adopted into preproduction or production."
+  ],
+  "preserved": [
+    "Native financial state machine, commit boundaries and wallet amounts.",
+    "Game math, RNG, source lock, cookie namespace, environment and Core-audience checks.",
+    "Python worker count, callback connection pool, TLS verification and request deadlines."
+  ],
+  "validation": {
+    "full_local_regression_tests": 120,
+    "subtests": 38,
+    "focused_identity_tests": 21,
+    "includes": [
+      "Bound opens complete while an unrelated SQLite writer remains uncommitted.",
+      "Wrong identity and damaged guards fail before any read/write open and leave the database unchanged.",
+      "Missing request target does not create a file or parent directory.",
+      "Injected trigger-creation interruption leaves no partial identity binding.",
+      "Valid restored bindings start without recreating guards.",
+      "Existing cookie, audience, cross-environment, real local TLS, native recovery, encrypted backup, retention and math regressions."
+    ]
+  },
+  "scope_note": "Generic source and synthetic/local regression evidence only; no live capacity, external operator certification, physical-host separation or go-live approval is asserted.",
+  "source_sha256": {
+    "deployment_identity.py": "4346da2c81a268fd7a881dcb88158633a7e293325c4205c4faea45ac5176c139",
+    "agency_runtime.py": "074046dc584dcde7411eb8239f01ec4fdc91bb93382040b5bd4837bca46782a4",
+    "tests/test_provider_isolation.py": "d7433edcb0cd2c7ba13a98558c3158e768b705fa07b09ec559672aadfc74ea25"
+  },
+  "locked_game_source_files_verified": 1
+}

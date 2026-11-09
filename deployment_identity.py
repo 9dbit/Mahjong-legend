@@ -58,28 +58,101 @@ def _compare(db, identity):
     return True
 
 
+# These definitions are persisted at intentional startup/creation only. Every
+# request checks the stored definitions; missing/altered guards are not repaired.
+_IDENTITY_GUARDS = {
+    'native_identity_' + action.lower():
+        'CREATE TRIGGER native_identity_' + action.lower() +
+        ' BEFORE ' + action + ' ON native_deployment_identity '
+        "BEGIN SELECT RAISE(ABORT,'immutable native identity'); END"
+    for action in ('UPDATE', 'DELETE', 'INSERT')
+}
+
+
+def _verify_guards(db):
+    rows = db.execute("SELECT name,sql FROM sqlite_master WHERE type='trigger' "
+                      "AND tbl_name='native_deployment_identity'").fetchall()
+    actual = {name: ' '.join((sql or '').strip().rstrip(';').split())
+              for name, sql in rows}
+    if actual != _IDENTITY_GUARDS:
+        raise RuntimeError('NATIVE_IDENTITY_GUARDS_MISMATCH')
+
+
+def _require_bound(db, identity):
+    if not _compare(db, identity):
+        raise RuntimeError('UNBOUND_DATABASE_CANNOT_OPEN')
+    _verify_guards(db)
+
+
 def open_bound_database(path, game):
+    """Open an existing binding without entering SQLite's writer queue.
+
+    The read-only precheck must precede any read/write connection: SQLite can
+    recover a hot journal when opening a writable database. Check again on the
+    returned connection, so request authority never relies on a cached identity.
+    """
     path = canonical_path(path)
     identity = requested_identity(game, path)
-    # Wrong-environment restore must fail before WAL/schema writes.
+    if not Path(path).is_file():
+        raise RuntimeError('NATIVE_DATABASE_NOT_INITIALIZED')
+    ro = sqlite3.connect(Path(path).as_uri() + '?mode=ro', uri=True)
+    try:
+        _require_bound(ro, identity)
+    finally:
+        ro.close()
+    # mode=rw also fails if the file disappears after the precheck. It cannot
+    # recreate an empty database during a request or silently adopt a volume.
+    db = sqlite3.connect(Path(path).as_uri() + '?mode=rw', uri=True,
+                         timeout=30, isolation_level=None)
+    try:
+        _require_bound(db, identity)
+        db.row_factory = sqlite3.Row
+        return db
+    except Exception:
+        db.close()
+        raise
+
+
+def initialize_bound_database(path, game):
+    """Intentional startup/creation path, preserving legacy sandbox adoption.
+
+    Existing bound databases must already have all three immutable guards. The
+    initializer never repairs missing or altered guards on a restored database.
+    Identity plus guards for a new binding are committed in one transaction.
+    """
+    path = canonical_path(path)
+    identity = requested_identity(game, path)
     if Path(path).exists():
         ro = sqlite3.connect(Path(path).as_uri() + '?mode=ro', uri=True)
-        try: _compare(ro, identity)
-        finally: ro.close()
+        try:
+            bound = _compare(ro, identity)
+            if bound:
+                _verify_guards(ro)
+        finally:
+            ro.close()
+        if bound:
+            db = open_bound_database(path, game)
+            try:
+                os.chmod(path, 0o600)
+                return db
+            except Exception:
+                db.close()
+                raise
     Path(path).parent.mkdir(parents=True, exist_ok=True)
     db = sqlite3.connect(path, timeout=30, isolation_level=None)
-    os.chmod(path, 0o600)
     try:
+        os.chmod(path, 0o600)
         db.execute('BEGIN IMMEDIATE')
-        if not _compare(db, identity):
+        if _compare(db, identity):
+            # A concurrent initializer may have completed after the precheck.
+            _verify_guards(db)
+        else:
             db.execute('CREATE TABLE native_deployment_identity(singleton INTEGER PRIMARY KEY CHECK(singleton=1), identity_json TEXT NOT NULL)')
             db.execute('INSERT INTO native_deployment_identity VALUES(1,?)', (json.dumps(identity, sort_keys=True, separators=(',', ':')),))
-        db.executescript("""
-        CREATE TRIGGER IF NOT EXISTS native_identity_update BEFORE UPDATE ON native_deployment_identity BEGIN SELECT RAISE(ABORT,'immutable native identity'); END;
-        CREATE TRIGGER IF NOT EXISTS native_identity_delete BEFORE DELETE ON native_deployment_identity BEGIN SELECT RAISE(ABORT,'immutable native identity'); END;
-        CREATE TRIGGER IF NOT EXISTS native_identity_insert BEFORE INSERT ON native_deployment_identity BEGIN SELECT RAISE(ABORT,'immutable native identity'); END;
-        """)
+            for statement in _IDENTITY_GUARDS.values():
+                db.execute(statement)
         db.commit()
+        _require_bound(db, identity)
         db.row_factory = sqlite3.Row
         return db
     except Exception:
