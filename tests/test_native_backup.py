@@ -15,7 +15,7 @@ class FakeS3:
         self.objects = {}
 
     def put_object(self, Bucket, Key, Body, Metadata):
-        self.objects[(Bucket, Key)] = Body
+        self.objects[(Bucket, Key)] = Body.read() if hasattr(Body, 'read') else Body
 
     def get_object(self, Bucket, Key):
         return {'Body': io.BytesIO(self.objects[(Bucket, Key)])}

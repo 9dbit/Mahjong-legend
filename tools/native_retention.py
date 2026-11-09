@@ -1,6 +1,7 @@
 """Bounded retention after verification; never assumes Railway lifecycle or WORM."""
 import hashlib, json, os, re, time
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 POLICY = 'native-7d-4w-12m-v1'
 DAY = 86400
 
@@ -123,15 +124,28 @@ def enforce_retention(*, game, identity, current_object, current_ciphertext_sha2
         for key in sorted(required):
             record=records.get(key)
             if not record: raise RuntimeError('RETENTION_OBJECT_SCOPE_INVALID')
-            response=download(key)
-            if not isinstance(response,dict) or not isinstance(response.get('bytes'),bytes): raise RuntimeError('RETENTION_DOWNLOAD_INVALID')
-            digest=hashlib.sha256(response['bytes']).hexdigest()
-            if key==current_object and digest!=current_ciphertext_sha256: raise RuntimeError('RETENTION_CURRENT_CIPHERTEXT_CHANGED')
-            manifest=verify(response['bytes'])
-            if not isinstance(manifest,dict) or manifest.get('game')!=game or manifest.get('created_at')!=record['created_at'] or not str(manifest.get('sha256','')).startswith(record['hash_prefix']) or manifest.get('deployment_identity')!=identity:
-                raise RuntimeError('RETENTION_FOREIGN_OR_MALFORMED_MANIFEST')
-            if key==current_object and not 0<=now-manifest['created_at']<=25*3600: raise RuntimeError('RETENTION_CURRENT_BACKUP_STALE')
-            proofs[key]={'digest':digest,'etag':response.get('etag')}
+            response=download(key); payload=None
+            try:
+                if not isinstance(response,dict): raise RuntimeError('RETENTION_DOWNLOAD_INVALID')
+                if isinstance(response.get('path'),(str,os.PathLike)) and 'bytes' not in response:
+                    payload=Path(response['path'])
+                    if not payload.is_absolute() or not payload.is_file(): raise RuntimeError('RETENTION_DOWNLOAD_INVALID')
+                    checksum=hashlib.sha256()
+                    with payload.open('rb') as stream:
+                        while chunk:=stream.read(1024*1024): checksum.update(chunk)
+                    digest=checksum.hexdigest()
+                elif isinstance(response.get('bytes'),bytes) and 'path' not in response:
+                    payload=response['bytes']; digest=hashlib.sha256(payload).hexdigest()
+                else: raise RuntimeError('RETENTION_DOWNLOAD_INVALID')
+                if key==current_object and digest!=current_ciphertext_sha256: raise RuntimeError('RETENTION_CURRENT_CIPHERTEXT_CHANGED')
+                manifest=verify(payload)
+                if not isinstance(manifest,dict) or manifest.get('game')!=game or manifest.get('created_at')!=record['created_at'] or not str(manifest.get('sha256','')).startswith(record['hash_prefix']) or manifest.get('deployment_identity')!=identity:
+                    raise RuntimeError('RETENTION_FOREIGN_OR_MALFORMED_MANIFEST')
+                if key==current_object and not 0<=now-manifest['created_at']<=25*3600: raise RuntimeError('RETENTION_CURRENT_BACKUP_STALE')
+                proofs[key]={'digest':digest,'etag':response.get('etag')}
+            finally:
+                if isinstance(response,dict) and callable(response.get('cleanup')): response['cleanup']()
+                response=None; payload=None
         report['planned_objects']=[r['key'] for r in plan['candidates']]
         logger({'event':'engine.backup.retention_plan',**report})
         if probe_requested or (mode=='apply' and plan['candidates']):

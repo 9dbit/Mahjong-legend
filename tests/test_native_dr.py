@@ -10,7 +10,7 @@ from deployment_identity import requested_identity
 from tools.native_backup import backup_once,restore_from_remote,restore_verify
 class Storage:
     def __init__(self):self.objects={}
-    def put_object(self,Bucket,Key,Body,Metadata):self.objects[Key]=Body
+    def put_object(self,Bucket,Key,Body,Metadata):self.objects[Key]=Body.read() if hasattr(Body, 'read') else Body
     def get_object(self,Bucket,Key):return {'Body':io.BytesIO(self.objects[Key])}
 
 def test_full_native_volume_loss_key_rotation_and_recovery(tmp_path,monkeypatch):

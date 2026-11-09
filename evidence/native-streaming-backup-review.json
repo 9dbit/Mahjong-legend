@@ -1,0 +1,85 @@
+{
+  "schema": "softtech.native.streaming-backup-review.v1",
+  "scope": "Generic synthetic SQLite fixtures only. No live runtime identifiers, credentials or operational records.",
+  "change": {
+    "archive_format": "Unchanged sqlite-online-backup-v1: 4-byte header length, authenticated JSON manifest, 12-byte nonce, ciphertext, 16-byte AES-GCM tag",
+    "io_chunk_bytes": 1048576,
+    "upload": "Seekable file body through boto3",
+    "download": "Chunked remote body to private temporary file; body closed on failure",
+    "restore": "Authenticate tag, plaintext SHA-256 and size before SQLite read; verify immutable identity and integrity before atomic no-overwrite link",
+    "retention": "Same policy, authenticated proofs and fresh conditional-delete canary; file-backed archive removed in finally before next verification",
+    "temporary_disk": "At most approximately two snapshot-sized temporary files per sequential backup/restore/retention phase; temporary files are removed on normal completion or raised errors"
+  },
+  "python_memory": {
+    "before": {
+      "requested_mib": 128,
+      "snapshot_bytes": 134406144,
+      "retention": true,
+      "baseline_rss_kib": 30444,
+      "baseline_peak_kib": 30284,
+      "peak_rss_kib": 964348,
+      "incremental_peak_kib": 933904,
+      "incremental_to_snapshot_ratio": 7.115,
+      "elapsed_seconds": 3.243,
+      "verified": true,
+      "retention_verified": true,
+      "transport": "disposable disk fixture, no external request",
+      "module": "uno-luck/scripts/native_backup.py; identical to Mahjong tools/native_backup.py"
+    },
+    "after": [
+      {
+        "requested_mib": 64,
+        "snapshot_bytes": 67211264,
+        "retention": true,
+        "baseline_rss_kib": 30488,
+        "baseline_peak_kib": 30436,
+        "peak_rss_kib": 42744,
+        "incremental_peak_kib": 12256,
+        "incremental_to_snapshot_ratio": 0.187,
+        "elapsed_seconds": 1.937,
+        "verified": true,
+        "retention_verified": true,
+        "transport": "disposable disk fixture, no external request",
+        "module": "native_backup.py",
+        "module_sha256": "e7d0b4712f5cdf96655da9638823efec606e5a4a01851d74ba4f5894baad5d79"
+      },
+      {
+        "requested_mib": 128,
+        "snapshot_bytes": 134406144,
+        "retention": true,
+        "baseline_rss_kib": 30492,
+        "baseline_peak_kib": 30440,
+        "peak_rss_kib": 42632,
+        "incremental_peak_kib": 12140,
+        "incremental_to_snapshot_ratio": 0.092,
+        "elapsed_seconds": 3.073,
+        "verified": true,
+        "retention_verified": true,
+        "transport": "disposable disk fixture, no external request",
+        "module": "native_backup.py",
+        "module_sha256": "e7d0b4712f5cdf96655da9638823efec606e5a4a01851d74ba4f5894baad5d79"
+      }
+    ]
+  },
+  "verification": {
+    "streaming_tests": 20,
+    "additional_retention_cleanup_cases": 3,
+    "wire_byte_compatibility": true,
+    "cryptography47_archive_compatibility": true,
+    "real_boto3_http_fixture": true,
+    "complete_native_volume_loss_and_rotation_regression": true,
+    "locked_math_and_art_unchanged": true,
+    "full_qualification_tests": 91,
+    "subtests": 38
+  },
+  "limitations": [
+    "RSS results are local process measurements using synthetic data and filesystem S3 fixtures; live container memory, filesystem cache and network behavior still require observation.",
+    "Disk space remains proportional to snapshot size. Temp storage must be disk-backed with sufficient free space.",
+    "This change does not certify math/RNG, external operator wallets, independent security review or go-live approval."
+  ],
+  "references": [
+    "https://cryptography.io/en/stable/hazmat/primitives/symmetric-encryption/",
+    "https://docs.aws.amazon.com/boto3/latest/reference/services/s3/bucket/put_object.html"
+  ],
+  "game": "mahjong"
+}

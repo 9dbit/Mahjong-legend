@@ -69,6 +69,7 @@ def test_backup_worker_enforces_policy_on_real_encrypted_sqlite_snapshot(tmp_pat
     class Storage:
         def __init__(self):self.objects={};self.deleted=[]
         def put_object(self,Bucket,Key,Body,Metadata):
+            Body=Body.read() if hasattr(Body, 'read') else Body
             self.objects[Key]=Body;return {'ETag':'"'+hashlib.sha256(Body).hexdigest()+'"'}
         def get_object(self,Bucket,Key):return {'Body':io.BytesIO(self.objects[Key]),'ETag':'"'+hashlib.sha256(self.objects[Key]).hexdigest()+'"'}
         def head_object(self,Bucket,Key):
@@ -137,3 +138,24 @@ def test_explicit_probe_qualifies_empty_new_bucket_during_dryrun():
     report=enforce_retention(**{**options,'mode':'dry-run','probe_requested':True})
     assert report['verified'] and report['conditional_delete_verified'] and report['eligible_count']==0
     assert probes==[True] and not deleted and report['effective_mode']=='dry-run'
+
+
+@pytest.mark.parametrize('failure', [None, 'verify', 'checksum'])
+def test_file_backed_retention_cleans_each_archive_before_next_and_on_failure(tmp_path, failure):
+    objects,deleted,events,options,current,second,old,legacy,add,key=fixture()
+    active=[];cleaned=[]
+    def download(name):
+        assert not active, 'archive downloads must not overlap'
+        path=tmp_path/'archive.aesgcm';path.write_bytes(objects[name]['bytes']);active.append(path)
+        def cleanup():
+            path.unlink();active.remove(path);cleaned.append(name)
+        return {'path':path,'etag':objects[name].get('etag'),'cleanup':cleanup}
+    def verify(path):
+        if failure=='verify':raise RuntimeError('injected verification failure')
+        return decrypt_payload(path.read_bytes(),key.hex())[0]
+    if failure=='checksum':options['current_ciphertext_sha256']='0'*64
+    report=enforce_retention(**{**options,'download':download,'verify':verify})
+    assert bool(report['verified'])==(failure is None)
+    assert not active and cleaned and not list(tmp_path.iterdir())
+    if failure:assert not deleted
+    else:assert report['deleted_count']==5
