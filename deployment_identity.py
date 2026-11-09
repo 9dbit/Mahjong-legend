@@ -5,12 +5,13 @@ Production stays quarantined until a separately reviewed release control exists.
 """
 import hashlib, hmac, json, os, re, sqlite3, time, secrets
 from pathlib import Path
+from native_observability import process_health
 
 PROCESS_BOOT_ID = secrets.token_hex(16)
 PROCESS_STARTED = time.monotonic()
 
 def runtime_health():
-    return {'process_boot_id': PROCESS_BOOT_ID, 'uptime_seconds': int(time.monotonic() - PROCESS_STARTED)}
+    return {'process_boot_id': PROCESS_BOOT_ID, 'uptime_seconds': int(time.monotonic() - PROCESS_STARTED), **process_health()}
 
 
 def requested_identity(game, path):

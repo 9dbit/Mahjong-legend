@@ -31,4 +31,4 @@ jobs:
       - name: Install native test dependencies
         run: pip install -r requirements.txt pytest httpx Pillow
       - name: Native identity, recovery, accounting and math regression tests
-        run: python -m pytest -q tests/test_native_backup.py tests/test_native_backup_streaming.py tests/test_native_backup_status.py tests/test_provider_isolation.py tests/test_native_dr.py tests/test_native_retention.py tests/test_native_concurrency.py tests/test_agency_wallet_transport.py tests/test_agency_native.py tests/test_game_engine.py tests/test_math_validation.py
+        run: python -m pytest -q tests/test_native_backup.py tests/test_native_backup_streaming.py tests/test_native_backup_status.py tests/test_provider_isolation.py tests/test_native_dr.py tests/test_native_retention.py tests/test_native_concurrency.py tests/test_native_history_queries.py tests/test_native_observability.py tests/test_agency_wallet_transport.py tests/test_agency_native.py tests/test_game_engine.py tests/test_math_validation.py

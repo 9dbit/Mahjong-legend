@@ -9,11 +9,12 @@ from contextlib import asynccontextmanager
 from decimal import Decimal, ROUND_HALF_UP, ROUND_CEILING, localcontext
 from datetime import datetime
 from pathlib import Path
-from fastapi import FastAPI, Request, HTTPException
+from fastapi import Depends, FastAPI, Request, HTTPException
 from fastapi.responses import JSONResponse, FileResponse, HTMLResponse
 from starlette.concurrency import run_in_threadpool
 from agency_wallet import AgencyWallet, AgencyWalletError, transport_metrics
 from native_locks import operation_lock, active_lock_count
+from native_observability import thread_limiter_health
 from deployment_identity import initialize_bound_database, open_bound_database, public_identity, canonical_path, requested_identity, require_play, validate_redeemed, cookie_value, runtime_health
 from game_studio.domain import baseline_config, digest, ENGINE_HASH
 import agency_studio as studio
@@ -52,6 +53,7 @@ def init():
           outcome_json TEXT, central_id TEXT, created_at REAL NOT NULL, finished_at REAL, error_status INTEGER);
         CREATE UNIQUE INDEX IF NOT EXISTS one_open ON tickets(actor) WHERE state IN ('ready','pending','reserved');
         CREATE UNIQUE INDEX IF NOT EXISTS request_once ON tickets(actor,request_id) WHERE request_id IS NOT NULL;
+        CREATE INDEX IF NOT EXISTS tickets_settled_history ON tickets(actor,state,finished_at DESC) WHERE state='settled';
         ''');db.close()
 
 def remote(action,p):
@@ -281,12 +283,12 @@ def redeem(request,token):
     return response
 
 @app.get('/health')
-def health():
+def health(limiter_health: dict = Depends(thread_limiter_health)):
     db=connect()
     try: db.execute('SELECT 1')
     finally: db.close()
     sync=getattr(app.state,'studio',None)
-    return {**runtime_health(),'callback_transport':transport_metrics(),'pending_operation_locks':active_lock_count(),'ok':True,'provider':'soft-tech','version':'provider-v1','game':'Mahjong Wild','mode':os.getenv('AGENCY_ENVIRONMENT','sandbox'),'wallet':'soft-tech','environment':os.getenv('AGENCY_ENVIRONMENT','sandbox'),'deployment_identity':public_identity('mahjong-wild',os.environ['MAHJONG_AGENCY_DB_PATH']),'database':'connected','source_commit':os.getenv('RAILWAY_GIT_COMMIT_SHA',''),'engine_sha256':ENGINE_HASH,'studio':{'enabled':bool(sync),'last_sync':sync.last_sync if sync else None,'error':sync.error if sync else ''}}
+    return {**runtime_health(),**limiter_health,'callback_transport':transport_metrics(),'pending_operation_locks':active_lock_count(),'ok':True,'provider':'soft-tech','version':'provider-v1','game':'Mahjong Wild','mode':os.getenv('AGENCY_ENVIRONMENT','sandbox'),'wallet':'soft-tech','environment':os.getenv('AGENCY_ENVIRONMENT','sandbox'),'deployment_identity':public_identity('mahjong-wild',os.environ['MAHJONG_AGENCY_DB_PATH']),'database':'connected','source_commit':os.getenv('RAILWAY_GIT_COMMIT_SHA',''),'engine_sha256':ENGINE_HASH,'studio':{'enabled':bool(sync),'last_sync':sync.last_sync if sync else None,'error':sync.error if sync else ''}}
 
 @app.get('/api/agency/context')
 def context(request:Request):
