@@ -202,6 +202,15 @@ def worker(stop):
 @asynccontextmanager
 async def lifespan(app):
     init();stop=threading.Event();threading.Thread(target=worker,args=(stop,),daemon=True).start()
+    if os.getenv('ENGINE_BACKUP_ENABLED')=='true':
+        def backup_worker():
+            try:
+                print('[ENGINE BACKUP] Mahjong worker thread entered',flush=True)
+                from tools.native_backup_loop import run
+                run(['--database',os.environ['MAHJONG_AGENCY_DB_PATH'],'--game','mahjong'])
+            except BaseException as exc:
+                print(f'[ENGINE BACKUP] Mahjong worker terminated: {type(exc).__name__}: {str(exc)[:160]}',flush=True)
+        threading.Thread(target=backup_worker,name='mahjong-native-backup',daemon=True).start()
     app.state.studio=studio.StudioSync(wallet()) if studio.enabled() else None
     if app.state.studio:threading.Thread(target=app.state.studio.run,args=(stop,),daemon=True).start()
     yield
