@@ -1,8 +1,59 @@
 """Bounded retention after verification; never assumes Railway lifecycle or WORM."""
-import hashlib, json, re, time
+import hashlib, json, os, re, time
 from datetime import datetime, timedelta, timezone
 POLICY = 'native-7d-4w-12m-v1'
 DAY = 86400
+
+
+def _strong_etag(value):
+    return isinstance(value, str) and re.fullmatch(r'"[^"\s]{1,200}"', value) is not None
+
+
+def _http_status(error):
+    response = getattr(error, 'response', {})
+    return response.get('ResponseMetadata', {}).get('HTTPStatusCode') if isinstance(response, dict) else None
+
+
+def probe_conditional_deletion(*, game, identity, put, download, head, remove, now=None):
+    """Exercise only a new disposable canary; never infer If-Match from a 2xx DELETE."""
+    now = int(time.time()) if now is None else now
+    report = {'verified': False, 'verified_at': datetime.fromtimestamp(now, timezone.utc).isoformat(),
+              'wrong_etag_rejected': False, 'correct_etag_deleted': False, 'absence_verified': False}
+    try:
+        if (not re.fullmatch(r'[a-z0-9-]{1,32}', game) or not isinstance(identity, dict)
+            or identity.get('environment') not in ('sandbox', 'preproduction', 'production')
+            or not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9._:-]{7,127}', identity.get('deployment_id', ''))):
+            raise RuntimeError('RETENTION_PROBE_SCOPE_INVALID')
+        token = os.urandom(16).hex()
+        object_name = f"native/{game}/.retention-probe/{identity['environment']}/{identity['deployment_id']}/{token}.probe"
+        report['probe_object'] = object_name
+        payloads = [json.dumps({'deployment_identity': identity, 'probe': token, 'generation': n}, sort_keys=True, separators=(',', ':')).encode() for n in (1, 2)]
+        first, second = (put(object_name, payload) for payload in payloads)
+        if not _strong_etag(first.get('etag')) or not _strong_etag(second.get('etag')) or first['etag'] == second['etag']:
+            raise RuntimeError('RETENTION_PROBE_ETAG_UNAVAILABLE')
+        try:
+            remove(object_name, first['etag'])
+        except Exception as error:
+            if _http_status(error) != 412: raise RuntimeError('RETENTION_PROBE_FAILED') from None
+            report['wrong_etag_rejected'] = True
+        if not report['wrong_etag_rejected']:
+            raise RuntimeError('RETENTION_PROBE_CONDITION_IGNORED')
+        read = download(object_name)
+        if read.get('etag') != second['etag'] or read.get('bytes') != payloads[1]:
+            raise RuntimeError('RETENTION_PROBE_CONTENT_CHANGED')
+        remove(object_name, second['etag'])
+        report['correct_etag_deleted'] = True
+        try:
+            head(object_name)
+        except Exception as error:
+            if _http_status(error) != 404: raise RuntimeError('RETENTION_PROBE_ABSENCE_UNVERIFIED') from None
+            report['absence_verified'] = True
+        if not report['absence_verified']:
+            raise RuntimeError('RETENTION_PROBE_ABSENCE_UNVERIFIED')
+        report['verified'] = True
+    except Exception as error:
+        report['error_code'] = str(error) if re.fullmatch(r'RETENTION_[A-Z_]+', str(error)) else 'RETENTION_PROBE_FAILED'
+    return report
 
 
 def _week(seconds):
@@ -46,9 +97,10 @@ def retention_plan(keys, *, game, now=None, restoring_object=None, max_deletes=5
 
 
 def enforce_retention(*, game, identity, current_object, current_ciphertext_sha256, list_page, download, remove, verify,
-                      now=None, restoring_object=None, mode='dry-run', max_objects=4096, max_deletes=5, logger=lambda event:None):
+                      now=None, restoring_object=None, mode='dry-run', max_objects=4096, max_deletes=5, logger=lambda event:None,
+                      check_conditional_delete=None, probe_requested=False):
     now=int(time.time()) if now is None else now
-    report={'policy':POLICY,'enabled':True,'mode':mode,'verified':False,'inventory_count':0,'managed_count':0,'retained_count':0,'protected_unknown_count':0,'eligible_count':0,'deleted_count':0,'verified_at':datetime.fromtimestamp(now,timezone.utc).isoformat()}
+    report={'policy':POLICY,'enabled':True,'mode':mode,'effective_mode':'dry-run','verified':False,'conditional_delete_verified':False,'inventory_count':0,'managed_count':0,'retained_count':0,'protected_unknown_count':0,'eligible_count':0,'deleted_count':0,'verified_at':datetime.fromtimestamp(now,timezone.utc).isoformat()}
     try:
         if mode not in ('dry-run','apply') or not identity or not current_object or not re.fullmatch(r'[a-f0-9]{64}',current_ciphertext_sha256): raise RuntimeError('RETENTION_CONFIG_INVALID')
         keys=[];tokens=set();token=None
@@ -82,10 +134,18 @@ def enforce_retention(*, game, identity, current_object, current_ciphertext_sha2
             proofs[key]={'digest':digest,'etag':response.get('etag')}
         report['planned_objects']=[r['key'] for r in plan['candidates']]
         logger({'event':'engine.backup.retention_plan',**report})
+        if probe_requested or (mode=='apply' and plan['candidates']):
+            if check_conditional_delete is None: raise RuntimeError('RETENTION_CONDITIONAL_DELETE_UNVERIFIED')
+            capability=check_conditional_delete()
+            report['conditional_delete']=capability
+            if not isinstance(capability,dict) or capability.get('verified') is not True:
+                raise RuntimeError(capability.get('error_code','RETENTION_CONDITIONAL_DELETE_UNVERIFIED') if isinstance(capability,dict) else 'RETENTION_CONDITIONAL_DELETE_UNVERIFIED')
+            report['conditional_delete_verified']=True
+            report['effective_mode']=mode
         if mode=='apply':
             for candidate in plan['candidates']:
                 proof=proofs[candidate['key']];etag=proof['etag']
-                if not isinstance(etag,str) or not etag or '\r' in etag or '\n' in etag: raise RuntimeError('RETENTION_CONDITIONAL_DELETE_UNAVAILABLE')
+                if not _strong_etag(etag): raise RuntimeError('RETENTION_CONDITIONAL_DELETE_UNAVAILABLE')
                 remove(candidate['key'],etag);report['deleted_count']+=1
         report['verified']=True;logger({'event':'engine.backup.retention_completed',**report});return report
     except Exception as error:

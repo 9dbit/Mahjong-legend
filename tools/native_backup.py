@@ -69,8 +69,8 @@ def backup_once(db_path, game, bucket, prefix):
         return result
 
 def run_retention(storage, bucket, game, current):
-    try: from .native_retention import enforce_retention
-    except ImportError: from native_retention import enforce_retention
+    try: from .native_retention import enforce_retention, probe_conditional_deletion
+    except ImportError: from native_retention import enforce_retention, probe_conditional_deletion
     identity=current['manifest'].get('deployment_identity')
     def list_page(token):
         response=storage.list_objects_v2(Bucket=bucket,Prefix='native/'+game+'/',MaxKeys=1000,**({'ContinuationToken':token} if token else {}))
@@ -86,6 +86,11 @@ def run_retention(storage, bucket, game, current):
         list_page=list_page,download=download,remove=lambda key,etag:storage.delete_object(Bucket=bucket,Key=key,IfMatch=etag),verify=verify,
         restoring_object=os.getenv('ENGINE_RESTORE_OBJECT_KEY') or os.getenv('ENGINE_RESTORE_OBJECT'),
         mode=os.getenv('ENGINE_BACKUP_RETENTION_MODE','dry-run'),max_deletes=int(os.getenv('ENGINE_BACKUP_RETENTION_MAX_DELETES','5')),
+        probe_requested=os.getenv('ENGINE_BACKUP_RETENTION_PROBE')=='true',
+        check_conditional_delete=lambda:probe_conditional_deletion(game=game,identity=identity,
+            put=lambda key,payload:{'etag':storage.put_object(Bucket=bucket,Key=key,Body=payload,Metadata={'purpose':'retention-capability-probe'}).get('ETag')},
+            download=download,head=lambda key:storage.head_object(Bucket=bucket,Key=key),
+            remove=lambda key,etag:storage.delete_object(Bucket=bucket,Key=key,IfMatch=etag)),
         logger=lambda event:print(json.dumps(event),flush=True))
 
 

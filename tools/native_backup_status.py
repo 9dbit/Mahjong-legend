@@ -57,7 +57,7 @@ def backup_health(status_file, source_commit, *, now=None, enabled=True):
         result = {'ok': True, 'backup_verified': True, 'verified_at': timestamp, 'source_commit': source_commit}
         retention = marker.get('retention')
         if isinstance(retention, dict) and retention.get('enabled') is True:
-            result['retention'] = {key: retention.get(key) for key in ('policy','enabled','mode','verified','verified_at','eligible_count','deleted_count','error_code')}
+            result['retention'] = {key: retention.get(key) for key in ('policy','enabled','mode','effective_mode','verified','verified_at','eligible_count','deleted_count','conditional_delete_verified','conditional_delete','error_code')}
         return result
     except (OSError, ValueError, KeyError, TypeError, OverflowError):
         return failed

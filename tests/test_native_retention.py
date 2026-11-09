@@ -2,7 +2,7 @@ import hashlib, json, os
 from datetime import datetime, timezone
 import pytest
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
-from tools.native_retention import retention_plan,enforce_retention,POLICY
+from tools.native_retention import retention_plan,enforce_retention,probe_conditional_deletion,POLICY
 from tools.native_backup import decrypt_payload
 NOW=int(datetime(2026,11,10,12,tzinfo=timezone.utc).timestamp());DAY=86400
 IDENTITY={'environment':'preproduction','deployment_id':'native-fixture','core_deployment_id':'core-fixture','game_id':'mahjong-wild','identity_version':1}
@@ -20,7 +20,7 @@ def fixture():
     legacy=f'native/{GAME}/1000000000-abcdefabcdefabcd.aesgcm';objects[legacy]={'bytes':b'never delete legacy'}
     def remove(name,etag):
         assert objects[name]['etag']==etag;del objects[name];deleted.append(name)
-    options=dict(game=GAME,identity=IDENTITY,current_object=current,current_ciphertext_sha256=hashlib.sha256(objects[current]['bytes']).hexdigest(),now=NOW,mode='apply',list_page=lambda token:{'keys':list(objects),'next_token':None},download=lambda k:objects[k],remove=remove,verify=lambda b:decrypt_payload(b,key.hex())[0],logger=events.append)
+    options=dict(game=GAME,identity=IDENTITY,current_object=current,current_ciphertext_sha256=hashlib.sha256(objects[current]['bytes']).hexdigest(),now=NOW,mode='apply',list_page=lambda token:{'keys':list(objects),'next_token':None},download=lambda k:objects[k],remove=remove,verify=lambda b:decrypt_payload(b,key.hex())[0],logger=events.append,check_conditional_delete=lambda:{'verified':True})
     return objects,deleted,events,options,current,second,old,legacy,add,key
 
 def test_calendar_retention_protects_young_two_latest_and_periodic_snapshots():
@@ -68,11 +68,16 @@ def test_backup_worker_enforces_policy_on_real_encrypted_sqlite_snapshot(tmp_pat
     db=sqlite3.connect(path);db.execute('CREATE TABLE native_deployment_identity(singleton INTEGER PRIMARY KEY,identity_json TEXT)');db.execute('INSERT INTO native_deployment_identity VALUES(1,?)',(json.dumps(IDENTITY),));db.execute('CREATE TABLE rounds(id TEXT PRIMARY KEY,payout TEXT)');db.execute("INSERT INTO rounds VALUES('settled','42')");db.commit();db.close()
     class Storage:
         def __init__(self):self.objects={};self.deleted=[]
-        def put_object(self,Bucket,Key,Body,Metadata):self.objects[Key]=Body
+        def put_object(self,Bucket,Key,Body,Metadata):
+            self.objects[Key]=Body;return {'ETag':'"'+hashlib.sha256(Body).hexdigest()+'"'}
         def get_object(self,Bucket,Key):return {'Body':io.BytesIO(self.objects[Key]),'ETag':'"'+hashlib.sha256(self.objects[Key]).hexdigest()+'"'}
+        def head_object(self,Bucket,Key):
+            if Key not in self.objects:raise storage_error(404)
+            return {'ETag':'"'+hashlib.sha256(self.objects[Key]).hexdigest()+'"'}
         def list_objects_v2(self,**kwargs):return {'Contents':[{'Key':key} for key in self.objects],'IsTruncated':False}
         def delete_object(self,Bucket,Key,IfMatch):
-            assert IfMatch=='"'+hashlib.sha256(self.objects[Key]).hexdigest()+'"';del self.objects[Key];self.deleted.append(Key)
+            if IfMatch!='"'+hashlib.sha256(self.objects[Key]).hexdigest()+'"':raise storage_error(412)
+            del self.objects[Key];self.deleted.append(Key)
     storage=Storage()
     values={'ENGINE_BACKUP_KEY_HEX':os.urandom(32).hex(),'ENGINE_BACKUP_S3_ENDPOINT':'https://storage.example','ENGINE_BACKUP_S3_ACCESS_KEY_ID':'test','ENGINE_BACKUP_S3_SECRET_ACCESS_KEY':'test','ENGINE_BACKUP_S3_BUCKET':'backups','ENGINE_BACKUP_RETENTION_ENABLED':'false'}
     for k,v in values.items():monkeypatch.setenv(k,v)
@@ -83,6 +88,52 @@ def test_backup_worker_enforces_policy_on_real_encrypted_sqlite_snapshot(tmp_pat
         monkeypatch.setenv('ENGINE_BACKUP_RETENTION_ENABLED','true');monkeypatch.setenv('ENGINE_BACKUP_RETENTION_MODE','apply')
         with patch('time.time',return_value=NOW):result=backup_once(str(path),GAME,'backups','native')
     assert result['verified'] and result['retention']['verified'] and result['retention']['mode']=='apply'
-    assert result['retention']['deleted_count']==2 and len(storage.deleted)==2
+    assert result['retention']['deleted_count']==2 and len(storage.deleted)==3
+    assert result['retention']['conditional_delete_verified'] and result['retention']['conditional_delete']['absence_verified']
     assert legacy in storage.objects and result['object'] in storage.objects
     assert len(storage.objects)==3
+
+
+def storage_error(status):
+    from botocore.exceptions import ClientError
+    return ClientError({'Error':{'Code':str(status)},'ResponseMetadata':{'HTTPStatusCode':status}},'Fixture')
+
+
+@pytest.mark.parametrize('behavior',['supported','ignored','wrong-status','content-changed','delete-noop','head-denied','weak-etag'])
+def test_conditional_delete_probe_proves_backend_semantics_using_only_new_canary(behavior):
+    objects={};deleted=[]
+    def put(name,body):
+        assert name.startswith(f"native/{GAME}/.retention-probe/preproduction/native-fixture/")
+        objects[name]={'bytes':body,'etag':'"'+hashlib.sha256(body).hexdigest()+'"'}
+        return {'etag':('W/' if behavior=='weak-etag' else '')+objects[name]['etag']}
+    def download(name):return {**objects[name],'bytes':b'changed' if behavior=='content-changed' else objects[name]['bytes']}
+    def head(name):
+        if behavior=='head-denied':raise storage_error(403)
+        if name not in objects:raise storage_error(404)
+        return objects[name]
+    def remove(name,etag):
+        if etag!=objects[name]['etag'] and behavior!='ignored':raise storage_error(400 if behavior=='wrong-status' else 412)
+        if behavior!='delete-noop':del objects[name];deleted.append(name)
+    report=probe_conditional_deletion(game=GAME,identity=IDENTITY,put=put,download=download,head=head,remove=remove,now=NOW)
+    assert report['verified']==(behavior=='supported')
+    if behavior=='supported':
+        assert report['wrong_etag_rejected'] and report['correct_etag_deleted'] and report['absence_verified'] and not objects
+    else:assert report['error_code'].startswith('RETENTION_PROBE_')
+    assert len(set(deleted))<=1
+
+
+def test_missing_or_failed_live_capability_proof_blocks_backup_deletion_and_forces_dryrun():
+    for check in (None,lambda:{'verified':False,'error_code':'RETENTION_PROBE_CONDITION_IGNORED'}):
+        objects,deleted,events,options,*_=fixture()
+        report=enforce_retention(**{**options,'check_conditional_delete':check})
+        assert not report['verified'] and not report['conditional_delete_verified'] and not deleted
+        assert report['mode']=='apply' and report['effective_mode']=='dry-run'
+
+
+def test_explicit_probe_qualifies_empty_new_bucket_during_dryrun():
+    objects,deleted,events,options,current,second,*_=fixture();probes=[]
+    options['list_page']=lambda token:{'keys':[current,second],'next_token':None}
+    options['check_conditional_delete']=lambda:(probes.append(True) or {'verified':True,'absence_verified':True})
+    report=enforce_retention(**{**options,'mode':'dry-run','probe_requested':True})
+    assert report['verified'] and report['conditional_delete_verified'] and report['eligible_count']==0
+    assert probes==[True] and not deleted and report['effective_mode']=='dry-run'

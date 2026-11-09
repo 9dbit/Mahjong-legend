@@ -114,6 +114,27 @@ native identity before any deletion. A foreign/tampered/missing/stale proof abor
 pruning. Deletes require the downloaded object's ETag through `If-Match`; a store
 that rejects this condition fails closed. No unconditional fallback is attempted.
 
+Candidate deletion additionally requires a fresh live backend capability proof. The
+runtime creates one random canary under
+`native/<game>/.retention-probe/<environment>/<deployment>/`, writes two generations,
+requires HTTP 412 for the first generation's stale valid ETag, checks the second
+payload and ETag remained identical, conditionally deletes that canary with its
+current ETag, and requires HEAD 404 afterward. A server ignoring `If-Match`, an
+ambiguous status, a weak/missing ETag, changed contents or incomplete cleanup blocks
+all backup deletion and reports `effective_mode:dry-run`. The canary is the only
+object touched by this capability check; it cannot match a backup object name.
+Failed probe objects may remain for review and are never treated as backups.
+
+Set `ENGINE_BACKUP_RETENTION_PROBE=true` to obtain this capability evidence on the
+next verified backup even in dry-run with zero aged candidates. A requested probe
+performs at most one bounded canary sequence per backup pass; no cross-run capability
+cache can outlive endpoint or policy changes. Apply mode always probes before any
+eligible candidate deletion. The sanitized receipt and `/health/backup` expose
+`conditional_delete_verified` and the canary's 412/readback/delete/404 result. An
+apply receipt with zero eligible candidates and no explicit probe does not claim
+conditional-deletion capability. Actual Railway support is established only by
+that live runtime receipt, not by the local S3 fixtures.
+
 `/health/backup` includes the sanitized retention receipt when enabled, including
 mode, policy ID, verification status, eligible and deleted counts. Runtime logs
 separately record plan/completion/failure. A successful zero-delete run proves the
