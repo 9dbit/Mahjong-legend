@@ -13,6 +13,7 @@ from pathlib import Path
 
 def backup_once(db_path, game, bucket, prefix):
     from boto3 import client
+    from botocore.config import Config
     from cryptography.hazmat.primitives.ciphers.aead import AESGCM
     key = bytes.fromhex(os.environ['ENGINE_BACKUP_KEY_HEX'])
     if len(key) != 32:
@@ -39,7 +40,8 @@ def backup_once(db_path, game, bucket, prefix):
         storage = client('s3', endpoint_url=os.environ['ENGINE_BACKUP_S3_ENDPOINT'],
                          aws_access_key_id=os.environ['ENGINE_BACKUP_S3_ACCESS_KEY_ID'],
                          aws_secret_access_key=os.environ['ENGINE_BACKUP_S3_SECRET_ACCESS_KEY'],
-                         region_name=os.environ.get('ENGINE_BACKUP_S3_REGION', 'iad'))
+                         region_name=os.environ.get('ENGINE_BACKUP_S3_REGION', 'auto'),
+                         config=Config(s3={'addressing_style':os.environ.get('ENGINE_BACKUP_S3_URL_STYLE','virtual')}))
         storage.put_object(Bucket=bucket, Key=key_name, Body=payload,
                            Metadata={'sha256': manifest['sha256'], 'game': game})
         downloaded = storage.get_object(Bucket=bucket, Key=key_name)['Body'].read()
