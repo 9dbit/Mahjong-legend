@@ -6,12 +6,13 @@ Production stays quarantined until a separately reviewed release control exists.
 import hashlib, hmac, json, os, re, sqlite3, time, secrets
 from pathlib import Path
 from native_observability import process_health
+from tools.native_volume import require_persistent_mount, platform_health
 
 PROCESS_BOOT_ID = secrets.token_hex(16)
 PROCESS_STARTED = time.monotonic()
 
 def runtime_health():
-    return {'process_boot_id': PROCESS_BOOT_ID, 'uptime_seconds': int(time.monotonic() - PROCESS_STARTED), **process_health()}
+    return {'process_boot_id': PROCESS_BOOT_ID, 'uptime_seconds': int(time.monotonic() - PROCESS_STARTED), **process_health(), **platform_health()}
 
 
 def requested_identity(game, path):
@@ -29,12 +30,6 @@ def requested_identity(game, path):
     return {'environment': environment, 'deployment_id': deployment,
             'core_deployment_id': core, 'game_id': game, 'identity_version': 1}
 
-
-def require_persistent_mount():
-    if any(os.getenv(name) for name in ('RAILWAY_PROJECT_ID','RAILWAY_SERVICE_ID','RAILWAY_DEPLOYMENT_ID')):
-        mount = os.getenv('RAILWAY_VOLUME_MOUNT_PATH','')
-        if not mount or not Path(mount).is_absolute() or not Path(mount).is_dir():
-            raise RuntimeError('PERSISTENT_NATIVE_VOLUME_REQUIRED')
 
 def canonical_path(path):
     require_persistent_mount()

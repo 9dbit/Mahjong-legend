@@ -13,7 +13,7 @@ class Storage:
     def put_object(self,Bucket,Key,Body,Metadata):self.objects[Key]=Body.read() if hasattr(Body, 'read') else Body
     def get_object(self,Bucket,Key):return {'Body':io.BytesIO(self.objects[Key])}
 
-def test_full_native_volume_loss_key_rotation_and_recovery(tmp_path,monkeypatch):
+def test_full_native_volume_loss_key_rotation_and_recovery(tmp_path,monkeypatch,capsys):
     volume=tmp_path/'disposable-volume';volume.mkdir();path=volume/'native.sqlite';old,new=os.urandom(32).hex(),os.urandom(32).hex()
     values={'AGENCY_WALLET_MODE':'sandbox','AGENCY_ENVIRONMENT':'preproduction','AGENCY_DEPLOYMENT_ID':'mahjong-dr-deployment','AGENCY_CORE_DEPLOYMENT_ID':'core-dr-deployment','MAHJONG_AGENCY_DB_PATH':str(path),'AGENCY_WALLET_ORIGIN':'https://core.example','AGENCY_WALLET_KEY_ID':'test-engine','AGENCY_WALLET_SECRET':'q'*40,'AGENCY_STUDIO_SYNC':'0','ENGINE_BACKUP_KEYS_JSON':json.dumps({'old':old}),'ENGINE_BACKUP_ACTIVE_KEY_ID':'old','ENGINE_BACKUP_S3_ENDPOINT':'https://storage.example','ENGINE_BACKUP_S3_ACCESS_KEY_ID':'test','ENGINE_BACKUP_S3_SECRET_ACCESS_KEY':'test','ENGINE_BACKUP_S3_BUCKET':'backups'}
     for k,v in values.items():monkeypatch.setenv(k,v)
@@ -67,6 +67,11 @@ def test_full_native_volume_loss_key_rotation_and_recovery(tmp_path,monkeypatch)
             assert restore_verify(storage.objects[rotated['object']])['key_id']=='rotated'
         rto=time.monotonic()-lost_at
         assert restore_from_remote(str(path),'mahjong',requested_identity('mahjong-wild',str(path))) is None
+        events = [json.loads(line) for line in capsys.readouterr().out.splitlines() if line.startswith('{') and 'engine.restore.completed' in line]
+        assert len(events) == 1  # The existing marked database path must not claim a second fresh restore.
+        assert events[0]['event_at'].endswith('Z') and events[0]['platform_deployment_id'] is None
+        from datetime import datetime, timezone
+        assert datetime.fromisoformat(events[0]['event_at']) <= datetime.now(timezone.utc)
         monkeypatch.setenv('ENGINE_BACKUP_KEYS_JSON',json.dumps({'rotated':new}))
         with pytest.raises(ValueError,match='unavailable'):restore_verify(storage.objects[backup['object']])
         report={'game':'mahjong','scenario':'disposable-native-volume-deleted-and-replaced','transport':'in-memory S3 double; real native HTTP + SQLite + AES-GCM','settled_rounds_preserved':1,'pending_rounds_recovered':1,'rounds_generated':generated,'duplicate_debits':0,'duplicate_credits':0,'rpo_lost_committed_rounds':0,'snapshot_age_seconds':max(0,time.time()-backup['manifest']['created_at']),'rto_seconds':rto,'old_and_new_keys_restore':True,'production_certified':False}

@@ -14,7 +14,9 @@ from fastapi.responses import JSONResponse, FileResponse, HTMLResponse
 from starlette.concurrency import run_in_threadpool
 from agency_wallet import AgencyWallet, AgencyWalletError, transport_metrics
 from native_locks import operation_lock, active_lock_count
-from native_observability import thread_limiter_health
+from native_observability import (thread_limiter_health, phase_health, NativePhaseMiddleware,
+    phase, phase_call, measured, measured_lock, commit_db, execute_write, close_db,
+    classify_operation, recovery_operation, run_observed, CALLBACK_PHASES)
 from deployment_identity import initialize_bound_database, open_bound_database, public_identity, canonical_path, requested_identity, require_play, validate_redeemed, cookie_value, runtime_health
 from game_studio.domain import baseline_config, digest, ENGINE_HASH
 import agency_studio as studio
@@ -28,13 +30,15 @@ LOCK=threading.RLock()
 def wallet():
     return AgencyWallet(os.environ['AGENCY_WALLET_ORIGIN'],os.environ['AGENCY_WALLET_KEY_ID'],os.environ['AGENCY_WALLET_SECRET'],allow_local=os.getenv('AGENCY_WALLET_LOCAL_QA')=='1')
 
+@measured('db_open_total')
 def connect(*, initialize=False):
     path=canonical_path(os.environ['MAHJONG_AGENCY_DB_PATH'])
     os.environ['MAHJONG_AGENCY_DB_PATH']=path
     if not Path(path).is_absolute(): raise RuntimeError('Persistent absolute database path required')
     opener=initialize_bound_database if initialize else open_bound_database
-    db=opener(path,'mahjong-wild');db.row_factory=sqlite3.Row
-    db.execute('PRAGMA foreign_keys=ON');db.execute('PRAGMA busy_timeout=30000');db.execute('PRAGMA synchronous=FULL')
+    db=phase_call('open_bound_total',opener,path,'mahjong-wild');db.row_factory=sqlite3.Row
+    with phase('connection_pragmas'):
+        db.execute('PRAGMA foreign_keys=ON');db.execute('PRAGMA busy_timeout=30000');db.execute('PRAGMA synchronous=FULL')
     return db
 
 def init():
@@ -57,9 +61,10 @@ def init():
         ''');db.close()
 
 def remote(action,p):
-    try: return wallet().request(action,p)
-    except AgencyWalletError: raise
-    except Exception: raise HTTPException(503,'Koneksi wallet terputus. Hasil tersimpan; ulangi request yang sama.') from None
+    with phase(CALLBACK_PHASES.get(action)):
+        try: return wallet().request(action,p)
+        except AgencyWalletError: raise
+        except Exception: raise HTTPException(503,'Koneksi wallet terputus. Hasil tersimpan; ulangi request yang sama.') from None
 
 def hashtext(value): return hashlib.sha256(value.encode()).hexdigest()
 
@@ -84,6 +89,7 @@ def session_context(s):
     except (ValueError,TypeError): expired=False
     return {'navigation':s.get('navigation'),'session_expires_at':expires,'session_expired':expired}
 
+@measured('session_validation')
 def actor_session(db,request):
     require_play()
     raw=request.cookies.get(COOKIE,'')
@@ -110,10 +116,10 @@ async def body(request):
 def get_ticket(db,actor):
     t=db.execute("SELECT * FROM tickets WHERE actor=? AND state IN ('ready','pending','reserved') ORDER BY created_at LIMIT 1",(actor,)).fetchone()
     if t and t['state']=='ready' and (t['created_at']<time.time()-86400 or t['engine_hash']!=ENGINE_HASH):
-        db.execute("UPDATE tickets SET state='expired' WHERE id=?",(t['id'],));t=None
+        execute_write('autocommit_ticket_execute',db,"UPDATE tickets SET state='expired' WHERE id=?",(t['id'],));t=None
     if not t:
         rid=str(uuid.uuid4())
-        db.execute('INSERT INTO tickets(id,actor,seed,config_json,engine_hash,created_at) VALUES(?,?,?,?,?,?)',(rid,actor,secrets.token_hex(32),json.dumps(studio.active_config()),ENGINE_HASH,time.time()))
+        execute_write('autocommit_ticket_execute',db,'INSERT INTO tickets(id,actor,seed,config_json,engine_hash,created_at) VALUES(?,?,?,?,?,?)',(rid,actor,secrets.token_hex(32),json.dumps(studio.active_config()),ENGINE_HASH,time.time()))
         t=db.execute('SELECT * FROM tickets WHERE id=?',(rid,)).fetchone()
     return t
 
@@ -131,7 +137,7 @@ def advance(db,rid):
     if db.in_transaction: raise RuntimeError('Native wallet callbacks require a committed intent')
     row=db.execute('SELECT actor FROM tickets WHERE id=?',(rid,)).fetchone()
     if not row: raise HTTPException(404,'Tiket tidak tersedia')
-    with operation_lock('player:'+row['actor']), operation_lock('round:'+rid): return _advance_unlocked(db,rid)
+    with measured_lock('player_lock_acquire',operation_lock('player:'+row['actor'])), measured_lock('round_lock_acquire',operation_lock('round:'+rid)): return _advance_unlocked(db,rid)
 
 def _advance_unlocked(db,rid):
     t=db.execute('SELECT * FROM tickets WHERE id=?',(rid,)).fetchone()
@@ -142,29 +148,31 @@ def _advance_unlocked(db,rid):
         try: r=remote('reserve',{'tenant_id':s['tenant_id'],'session_id':s['session_id'],'round_ref':'mahjong-'+rid,'stake':t['stake'],'max_payout':t['max_payout']})
         except AgencyWalletError as e:
             if 400<=e.status<500 and e.status not in (408,429):
-                db.execute("UPDATE tickets SET state='failed',error_status=? WHERE id=?",(e.status,rid));db.commit()
+                execute_write('autocommit_failure_execute',db,"UPDATE tickets SET state='failed',error_status=? WHERE id=?",(e.status,rid));commit_db(db)
             raise HTTPException(e.status if e.status<500 else 503,'Reservasi wallet belum berhasil. Periksa saldo, sesi dan risk pool.') from None
-        db.execute("UPDATE tickets SET central_id=?,state='reserved' WHERE id=?",(r['id'],rid));db.commit()
+        execute_write('autocommit_result_execute',db,"UPDATE tickets SET central_id=?,state='reserved' WHERE id=?",(r['id'],rid));commit_db(db)
         t=db.execute('SELECT * FROM tickets WHERE id=?',(rid,)).fetchone()
     try: remote('settle',{'tenant_id':s['tenant_id'],'round_id':t['central_id'],'payout':t['payout'],'evidence':'mahjong-native-v1:'+hashtext(t['outcome_json'])})
     except AgencyWalletError: raise HTTPException(503,'Settlement tertunda; hasil tersimpan dan akan direkonsiliasi.') from None
-    db.execute("UPDATE tickets SET state='settled',finished_at=? WHERE id=?",(time.time(),rid))
+    execute_write('autocommit_result_execute',db,"UPDATE tickets SET state='settled',finished_at=? WHERE id=?",(time.time(),rid))
     return db.execute('SELECT * FROM tickets WHERE id=?',(rid,)).fetchone()
 
 def balance(s):
     try: return remote('status',{'tenant_id':s['tenant_id'],'session_id':s['session_id']})
     except AgencyWalletError: raise HTTPException(503,'Saldo Soft Tech belum tersedia') from None
 
+@measured('response_assembly_inclusive')
 def state(db,s,actor):
-    with operation_lock('player:'+actor): return _state_unlocked(db,s,actor)
+    with measured_lock('player_lock_acquire',operation_lock('player:'+actor)): return _state_unlocked(db,s,actor)
 
 def _state_unlocked(db,s,actor):
     t=get_ticket(db,actor)
     if t['state'] in ('pending','reserved'):
         advance(db,t['id']);t=get_ticket(db,actor)
     m=manifest(t,s['coin_scale']);cfg=GameConfig(json.loads(t['config_json'])['math']);b=balance(s)
-    last=db.execute("SELECT * FROM tickets WHERE actor=? AND state='settled' ORDER BY finished_at DESC LIMIT 1",(actor,)).fetchone()
-    count=db.execute("SELECT count(*) FROM tickets WHERE actor=? AND state='settled'",(actor,)).fetchone()[0]
+    with phase('history_read'):
+        last=db.execute("SELECT * FROM tickets WHERE actor=? AND state='settled' ORDER BY finished_at DESC LIMIT 1",(actor,)).fetchone()
+        count=db.execute("SELECT count(*) FROM tickets WHERE actor=? AND state='settled'",(actor,)).fetchone()[0]
     return {**session_context({**s,**b}),'game':'Mahjong Wild','version':cfg.raw['version'],'ui_version':'agency-v1','balance':credits(b['balance'],s['coin_scale']),
       'reserved':credits(b['reserved'],s['coin_scale']),'spin_price':m['bet']['default'],'bet_options':m['bet']['options'],'max_payout_x':str(cfg.cap),'spin_count':count,
       'next_seed_commitment_sha256':sha256(bytes.fromhex(t['seed'])),'config_sha256':cfg.digest,
@@ -176,7 +184,7 @@ def _state_unlocked(db,s,actor):
       'settlement_policy':{'coin_scale':s['coin_scale'],'rounding':'half_up','note':f"Sandbox Soft Tech. Payout dibulatkan half-up ke {s['coin_scale']} desimal per ronde; seluruh free spins dihitung sebelum pembulatan. Tidak ada reset saldo lokal."}}
 
 def spin(db,s,actor,data):
-    with operation_lock('player:'+actor): return _spin_unlocked(db,s,actor,data)
+    with measured_lock('player_lock_acquire',operation_lock('player:'+actor)): return _spin_unlocked(db,s,actor,data)
 
 def _spin_unlocked(db,s,actor,data):
     if set(data)-{'ticket_id','idempotency_key','bet'}: raise HTTPException(422,'Payload spin tidak valid')
@@ -189,17 +197,20 @@ def _spin_unlocked(db,s,actor,data):
     t=db.execute('SELECT * FROM tickets WHERE id=? AND actor=?',(tid,actor)).fetchone()
     if not t: raise HTTPException(404,'Tiket tidak dimiliki sesi ini')
     if t['request_id'] and (t['request_id']!=key or t['bet']!=bet): raise HTTPException(409,'Payload retry berbeda')
+    classify_operation({'ready':'spin_new','pending':'spin_resume','reserved':'spin_resume',
+                        'settled':'replay_completed','failed':'replay_failed'}.get(t['state'],'request_unclassified'))
     if t['state']=='ready':
         if t['created_at']<time.time()-86400 or t['engine_hash']!=ENGINE_HASH: raise HTTPException(409,'Tiket lama. Muat ulang.')
         if bet not in manifest(t,s['coin_scale'])['bet']['options']: raise HTTPException(422,'Taruhan tidak tersedia untuk presisi agen')
-        cfg=GameConfig(json.loads(t['config_json'])['math'])
-        outcome=play_round(t['seed'],cfg)
-        with localcontext() as ctx:
-            ctx.prec=80
-            payout=units(Decimal(bet)*Decimal(outcome['total_payout_x']),s['coin_scale'],ROUND_HALF_UP)
-            maximum=units(Decimal(bet)*cfg.cap,s['coin_scale'],ROUND_CEILING)
-        stake=units(bet,s['coin_scale'])
-        db.execute("UPDATE tickets SET state='pending',request_id=?,bet=?,stake=?,payout=?,max_payout=?,session_json=?,outcome_json=? WHERE id=?",
+        with phase('local_prepare'):
+            cfg=GameConfig(json.loads(t['config_json'])['math'])
+            outcome=play_round(t['seed'],cfg)
+            with localcontext() as ctx:
+                ctx.prec=80
+                payout=units(Decimal(bet)*Decimal(outcome['total_payout_x']),s['coin_scale'],ROUND_HALF_UP)
+                maximum=units(Decimal(bet)*cfg.cap,s['coin_scale'],ROUND_CEILING)
+            stake=units(bet,s['coin_scale'])
+        execute_write('autocommit_intent_execute',db,"UPDATE tickets SET state='pending',request_id=?,bet=?,stake=?,payout=?,max_payout=?,session_json=?,outcome_json=? WHERE id=?",
             (key,bet,stake,payout,maximum,json.dumps(s),json.dumps(outcome,separators=(',',':')),tid))
         # Autocommit + synchronous FULL: no network before this outcome is durable.
     t=advance(db,tid)
@@ -208,14 +219,17 @@ def _spin_unlocked(db,s,actor,data):
        'round_release_id':manifest(t,s['coin_scale'])['release_id'],'round_manifest':manifest(t,s['coin_scale']),
        'state':state(db,s,actor),'idempotency_key':key,'ticket_id':tid,'settlement':{'payout_minor':t['payout'],'coin_scale':s['coin_scale'],'rounding':'half_up'}}
 
+@recovery_operation
 def recover():
     if os.getenv('AGENCY_ENVIRONMENT','sandbox')=='production': return
     db=connect()
     try:
-        for row in db.execute("SELECT id FROM tickets WHERE state IN ('pending','reserved') LIMIT 20").fetchall():
+        with phase('recovery_scan'):
+            rows=db.execute("SELECT id FROM tickets WHERE state IN ('pending','reserved') LIMIT 20").fetchall()
+        for row in rows:
             try: advance(db,row['id'])
             except Exception: pass # Durable intent is retained, never locally refunded.
-    finally: db.close()
+    finally: close_db(db)
 
 def worker(stop):
     while not stop.wait(30):
@@ -259,6 +273,10 @@ async def headers(request,next):
       'Content-Security-Policy':"default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob:; connect-src 'self'; worker-src 'self' blob:; object-src 'none'; base-uri 'none'; frame-ancestors 'none'"})
     return response
 
+app.add_middleware(NativePhaseMiddleware,routes={
+    ('GET','/api/state'):'state',
+    ('POST','/api/spin'):'request_unclassified'})
+
 @app.post('/api/agency/launch')
 async def launch(request:Request):
     guard(request);data=await body(request);token=data.get('token','')
@@ -288,7 +306,7 @@ def health(limiter_health: dict = Depends(thread_limiter_health)):
     try: db.execute('SELECT 1')
     finally: db.close()
     sync=getattr(app.state,'studio',None)
-    return {**runtime_health(),**limiter_health,'callback_transport':transport_metrics(),'pending_operation_locks':active_lock_count(),'ok':True,'provider':'soft-tech','version':'provider-v1','game':'Mahjong Wild','mode':os.getenv('AGENCY_ENVIRONMENT','sandbox'),'wallet':'soft-tech','environment':os.getenv('AGENCY_ENVIRONMENT','sandbox'),'deployment_identity':public_identity('mahjong-wild',os.environ['MAHJONG_AGENCY_DB_PATH']),'database':'connected','source_commit':os.getenv('RAILWAY_GIT_COMMIT_SHA',''),'engine_sha256':ENGINE_HASH,'studio':{'enabled':bool(sync),'last_sync':sync.last_sync if sync else None,'error':sync.error if sync else ''}}
+    return {**runtime_health(),**limiter_health,**phase_health(),'callback_transport':transport_metrics(),'pending_operation_locks':active_lock_count(),'ok':True,'provider':'soft-tech','version':'provider-v1','game':'Mahjong Wild','mode':os.getenv('AGENCY_ENVIRONMENT','sandbox'),'wallet':'soft-tech','environment':os.getenv('AGENCY_ENVIRONMENT','sandbox'),'deployment_identity':public_identity('mahjong-wild',os.environ['MAHJONG_AGENCY_DB_PATH']),'database':'connected','source_commit':os.getenv('RAILWAY_GIT_COMMIT_SHA',''),'engine_sha256':ENGINE_HASH,'studio':{'enabled':bool(sync),'last_sync':sync.last_sync if sync else None,'error':sync.error if sync else ''}}
 
 @app.get('/api/agency/context')
 def context(request:Request):
@@ -306,7 +324,7 @@ async def api(request:Request,operation:str):
     if request.method=='POST': guard(request);data=await body(request)
     else: data={}
     if (operation in ('state','last-round'))!=(request.method=='GET'): raise HTTPException(405,'Method not allowed')
-    return await run_in_threadpool(dispatch,request,operation,data)
+    return await run_observed(request,dispatch,request,operation,data)
 
 def dispatch(request,operation,data):
     db=connect()
@@ -324,7 +342,7 @@ def dispatch(request,operation,data):
         found=next((r for r in rows if json.loads(r['outcome_json'])['round_id']==transcript.get('round_id')),None)
         if not found: raise HTTPException(404,'Ronde tidak dimiliki player')
         return verify_round(transcript,GameConfig(json.loads(found['config_json'])['math']))
-    finally: db.close()
+    finally: close_db(db)
 
 @app.get('/agency-navigation.js')
 def navigation_script(): return FileResponse(ROOT/'agency-navigation.js',media_type='application/javascript')

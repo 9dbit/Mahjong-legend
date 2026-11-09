@@ -9,8 +9,10 @@ ROOT=Path(__file__).resolve().parents[1]
 os.chdir(ROOT)
 if os.getenv('AGENCY_WALLET_MODE'):
     if os.getenv('AGENCY_WALLET_MODE')!='sandbox': raise SystemExit('Native game supports sandbox only')
+    from native_volume import require_persistent_mount
+    require_persistent_mount()
     if os.getuid()==0 and os.getenv('RAILWAY_VOLUME_MOUNT_PATH')=='/data':
-        Path('/data').mkdir(exist_ok=True);os.chown('/data',1000,1000);os.setgid(1000);os.setuid(1000)
+        os.chown('/data',1000,1000);os.setgid(1000);os.setuid(1000)
     os.execvp(sys.executable,[sys.executable,'-m','uvicorn','agency_runtime:app','--host','0.0.0.0','--port',os.getenv('PORT','8080'),'--workers','1'])
 os.environ.setdefault('DJANGO_SETTINGS_MODULE','studio_server.settings')
 if os.environ.get('STUDIO_ROLE','web')=='worker':

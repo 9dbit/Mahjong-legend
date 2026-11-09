@@ -121,7 +121,8 @@ class BackupWorkerTests(unittest.TestCase):
         self.db.write_bytes(b'test fixture; backup transport is replaced in worker tests')
         self.status = Path(self.directory.name) / 'backup-status.json'
         self.config = {'RAILWAY_GIT_COMMIT_SHA': COMMIT,
-                       'ENGINE_BACKUP_S3_BUCKET': 'test-backups'}
+                       'ENGINE_BACKUP_S3_BUCKET': 'test-backups',
+                       'RAILWAY_DEPLOYMENT_ID': '00000000-0000-4000-8000-000000000001'}
         self.receipt = {'verified': True, 'object': 'native/mahjong/test.aesgcm',
                         'manifest': {'sha256': 'b' * 64, 'size': 4096}, 'encrypted_size_bytes': 4608}
 
@@ -146,6 +147,9 @@ class BackupWorkerTests(unittest.TestCase):
         event = next(json.loads(line) for line in output.splitlines() if 'engine.backup.remote_verified' in line)
         self.assertEqual(event['size_bytes'], 4096)
         self.assertEqual(event['encrypted_size_bytes'], 4608)
+        self.assertEqual(event['platform_deployment_id'], self.config['RAILWAY_DEPLOYMENT_ID'])
+        self.assertEqual(datetime.fromisoformat(event['event_at']).utcoffset(), timedelta(0))
+        self.assertGreaterEqual(datetime.fromisoformat(event['event_at']) + timedelta(milliseconds=1), datetime.fromisoformat(marker['verified_at']))
         self.assertEqual(marker['size_bytes'], 4096)
         self.assertNotIn(str(self.db), json.dumps(event))
 

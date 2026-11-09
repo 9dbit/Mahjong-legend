@@ -13,6 +13,7 @@ from datetime import datetime,timezone
 sys.path.insert(0,str(Path(__file__).resolve().parent))
 from native_backup import backup_once,restore_verify
 from native_backup_status import write_backup_status
+from native_volume import event_provenance
 
 def run(argv=None, *, status_file=None):
     parser=argparse.ArgumentParser()
@@ -35,7 +36,7 @@ def run(argv=None, *, status_file=None):
             if result.get('verified') is not True:
                 raise RuntimeError('Backup verification was not confirmed')
             write_backup_status(status_file,{'backup_verified':True,'verified_at':datetime.now(timezone.utc).isoformat(),'source_commit':source_commit,'object':result['object'],'sha256':result['manifest']['sha256'],'ciphertext_sha256':result.get('ciphertext_sha256'),'size_bytes':result['manifest'].get('size'),'encrypted_size_bytes':result.get('encrypted_size_bytes'),'key_id':result.get('key_id'),'retention':result.get('retention')})
-            print(json.dumps({'event':'engine.backup.remote_verified','game':args.game,
+            print(json.dumps({'event':'engine.backup.remote_verified','game':args.game,**event_provenance(),
                               'object':result['object'],'sha256':result['manifest']['sha256'],'ciphertext_sha256':result.get('ciphertext_sha256'),'size_bytes':result['manifest'].get('size'),'encrypted_size_bytes':result.get('encrypted_size_bytes'),'key_id':result.get('key_id'),'retention':result.get('retention')}),flush=True)
         except Exception as exc:
             retry_seconds=min(interval,300)

@@ -31,49 +31,14 @@ jobs:
       - name: Install native test dependencies
         run: pip install -r requirements.txt pytest httpx Pillow
       - name: Native identity, recovery, accounting and math regression tests
-        run: python -m pytest -q tests/test_native_backup.py tests/test_native_backup_streaming.py tests/test_native_backup_status.py tests/test_provider_isolation.py tests/test_native_dr.py tests/test_native_retention.py tests/test_native_concurrency.py tests/test_native_history_queries.py tests/test_native_observability.py tests/test_agency_wallet_transport.py tests/test_agency_native.py tests/test_game_engine.py tests/test_math_validation.py
+        run: python -m pytest -q tests/test_native_backup.py tests/test_native_backup_streaming.py tests/test_native_backup_status.py tests/test_provider_isolation.py tests/test_native_dr.py tests/test_native_retention.py tests/test_native_concurrency.py tests/test_native_history_queries.py tests/test_native_observability.py tests/test_native_volume.py tests/test_native_phase_observability.py tests/test_agency_wallet_transport.py tests/test_agency_native.py tests/test_game_engine.py tests/test_math_validation.py
+      - name: Verify real same-filesystem bind mount and fail-closed transitions
+        run: sudo unshare --mount --propagation private "$(command -v python)" tests/native_volume_mount_fixture.py
       - name: Build production native image
         run: docker build --file Dockerfile --progress plain --tag softtech-mahjong-native:ci .
-      - name: Verify native imports and health inside the final image
+      - name: Verify actual image entrypoint with and without a mounted volume
         run: |
-          docker run --rm -i --network none --entrypoint python softtech-mahjong-native:ci - <<'PY'
-          import os
-          from pathlib import Path
-          from tempfile import TemporaryDirectory
-          import anyio
-          import agency_runtime as native
-          import native_observability
-          import tools.native_backup
-          import tools.native_backup_loop
-          import tools.native_backup_status
-          import tools.native_retention
-
-          # No checkout mount: these modules must come from the built image.
-          assert Path(native.__file__).resolve() == Path('/app/agency_runtime.py')
-          assert Path(native_observability.__file__).resolve() == Path('/app/native_observability.py')
-          assert native.thread_limiter_health is native_observability.thread_limiter_health
-          with TemporaryDirectory(prefix='native-image-smoke-') as temporary:
-              os.environ.update(
-                  AGENCY_WALLET_MODE='sandbox', AGENCY_ENVIRONMENT='preproduction',
-                  AGENCY_DEPLOYMENT_ID='native-image-smoke',
-                  AGENCY_CORE_DEPLOYMENT_ID='core-image-smoke',
-                  AGENCY_WALLET_ORIGIN='https://core.example.invalid',
-                  AGENCY_WALLET_KEY_ID='synthetic-image-smoke',
-                  AGENCY_WALLET_SECRET='synthetic-image-smoke-secret-not-for-use',
-                  MAHJONG_AGENCY_DB_PATH=str(Path(temporary) / 'native.sqlite'),
-                  AGENCY_STUDIO_SYNC='0', ENGINE_BACKUP_ENABLED='false')
-              native.init()
-
-              async def check_health():
-                  limiter = await native.thread_limiter_health()
-                  assert limiter['anyio_thread_limiter'] == {
-                      'total_tokens': 40, 'borrowed_tokens': 0, 'tasks_waiting': 0}
-                  health = native.health(limiter_health=limiter)
-                  assert health['ok'] and health['database'] == 'connected'
-                  assert health['deployment_identity']['deployment_id'] == 'native-image-smoke'
-                  assert health['cpu_usage_microseconds'] is not None
-                  assert health['memory_rss_bytes'] > 0
-
-              anyio.run(check_health)
-          print('PASS: final image imports native runtime, backup modules and health dependency')
-          PY
+          native_volume_fixture="$(mktemp -d)"
+          trap 'sudo rm -rf "$native_volume_fixture"' EXIT
+          docker run --rm -i --network none --entrypoint python softtech-mahjong-native:ci - unmounted < tests/native_volume_image_probe.py
+          docker run --rm -i --network none --mount "type=bind,source=$native_volume_fixture,target=/data" --entrypoint python softtech-mahjong-native:ci - mounted < tests/native_volume_image_probe.py

@@ -13,6 +13,10 @@ import tempfile
 import time
 from pathlib import Path
 from contextlib import closing
+if __package__:
+    from .native_volume import require_persistent_mount, event_provenance
+else:
+    from native_volume import require_persistent_mount, event_provenance
 
 CHUNK_SIZE = 1024 * 1024
 
@@ -130,6 +134,7 @@ def s3_addressing_style(value):
     return style
 
 def backup_once(db_path, game, bucket, prefix):
+    require_persistent_mount()
     from boto3 import client
     from botocore.config import Config
     addressing_style = s3_addressing_style(
@@ -293,10 +298,7 @@ def restore_verify(payload, key_hex=None, *, keys=None):
 
 def restore_from_remote(destination, game, expected_identity):
     """Explicit startup recovery on a fresh replacement volume only."""
-    if any(os.getenv(name) for name in ('RAILWAY_PROJECT_ID','RAILWAY_SERVICE_ID','RAILWAY_DEPLOYMENT_ID')):
-        mount = os.getenv('RAILWAY_VOLUME_MOUNT_PATH','')
-        if not mount or not Path(mount).is_absolute() or not Path(mount).is_dir():
-            raise RuntimeError('PERSISTENT_NATIVE_VOLUME_REQUIRED')
+    require_persistent_mount()
     object_name = os.getenv('ENGINE_RESTORE_OBJECT_KEY') or os.getenv('ENGINE_RESTORE_OBJECT')
     if not object_name: return None
     expected_hash = os.getenv('ENGINE_RESTORE_CIPHERTEXT_SHA256', '')
@@ -338,7 +340,7 @@ def restore_from_remote(destination, game, expected_identity):
     descriptor = os.open(target.parent, os.O_RDONLY)
     try: os.fsync(descriptor)
     finally: os.close(descriptor)
-    print(json.dumps({'event':'engine.restore.completed','game':game,'object':object_name,
+    print(json.dumps({'event':'engine.restore.completed','game':game,'object':object_name,**event_provenance(),
                       'snapshot_created_at':manifest['created_at'],'ciphertext_sha256':expected_hash,
                       'rto_restore_seconds':round(time.monotonic()-started,6)}), flush=True)
     return manifest
