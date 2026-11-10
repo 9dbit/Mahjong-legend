@@ -12,6 +12,7 @@ from pathlib import Path
 from fastapi import Depends, FastAPI, Request, HTTPException
 from fastapi.responses import JSONResponse, FileResponse, HTMLResponse
 from starlette.concurrency import run_in_threadpool
+from native_worker_limits import configure_native_worker_limit
 from agency_wallet import AgencyWallet, AgencyWalletError, transport_metrics
 from native_locks import operation_lock, active_lock_count
 from native_observability import (thread_limiter_health, phase_health, NativePhaseMiddleware,
@@ -238,6 +239,7 @@ def worker(stop):
 
 @asynccontextmanager
 async def lifespan(app):
+    configure_native_worker_limit()
     init();stop=threading.Event();threading.Thread(target=worker,args=(stop,),daemon=True).start()
     if os.getenv('ENGINE_BACKUP_ENABLED')=='true':
         def backup_worker():

@@ -24,7 +24,7 @@ COPY --from=artwork /app/web/ /app/web/
 COPY --from=studio /app/web/studio/ /app/web/studio/
 COPY studio_server/ /app/studio_server/
 COPY game_studio/ /app/game_studio/
-COPY native_locks.py native_observability.py deployment_identity.py agency_runtime.py agency_wallet.py agency_studio.py agency-client.js agency-navigation.js /app/
+COPY native_locks.py native_observability.py native_worker_limits.py deployment_identity.py agency_runtime.py agency_wallet.py agency_studio.py agency-client.js agency-navigation.js /app/
 COPY manage.py /app/manage.py
 COPY tools/start_studio.py /app/tools/start_studio.py
 COPY tools/native_backup.py /app/tools/native_backup.py
