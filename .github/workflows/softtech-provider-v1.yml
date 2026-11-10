@@ -1,7 +1,7 @@
 name: Soft Tech native provider qualification
 on:
   push:
-    branches: [feat/softtech-provider-v1-20261109]
+    branches: [feat/softtech-provider-v1-20261109, feat/native-registry-identity-20261110]
   workflow_dispatch:
 permissions:
   contents: read

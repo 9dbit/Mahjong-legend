@@ -38,6 +38,31 @@ These samples help distinguish hypotheses during a capacity run. Platform
 resource measurements and the existing qualification gates remain required.
 This patch does not establish capacity, security, or certification approval.
 
+## Phase-registry identity
+
+The existing `native_phases` diagnostic includes `registry_id`, a UUID created
+once per `_PhaseMetrics` collector, and `reset_count`, an integer that is zero
+for that collector's lifetime. Repeated health reads, completed requests,
+request-slot reuse, and recovery operations preserve that registry identity.
+The aggregate counters have no in-place reset API. Clearing aggregate storage
+must construct a new collector with a new `registry_id`; individual request
+buffers are cleared on slot reuse without clearing the aggregate counters.
+A fresh service process also constructs a fresh registry.
+
+Qualification interval subtraction requires matching registry, process, source,
+and deployment identities, `reset_count == 0` at both boundaries, and valid
+quiescent snapshots. A replaced registry invalidates the interval even if its
+counters have already grown beyond the earlier values. These fields do not
+make snapshots from an earlier deployment comparable retroactively.
+
+If snapshot collection fails, health retains that collector's registry identity
+and reset count while reporting `available: false` and `telemetry_error: true`.
+If UUID creation fails, the identity is `null` and telemetry reports an error;
+business work still runs, while the qualification consumer rejects comparison.
+Registry identity is content-free and does not contain a player, request,
+wallet, or database identifier. Gameplay, RNG, wallet durability, and the
+configured worker-token capacity are unchanged.
+
 ## Focused validation
 
 Run `python -m pytest -q tests/test_native_observability.py` in the repository.
@@ -47,6 +72,12 @@ workers plus five waiting tasks. They call the real native `/health` route,
 verify its pre-admission queue sample, then release the workers and verify zero
 borrowed/waiting tokens. Identity mismatch still fails the request without
 altering the bound database. Unavailable diagnostics serialize as explicit null.
+
+Run `python -m pytest -q tests/test_native_phase_observability.py` for the phase
+collector. Identity tests verify request-slot reuse, collector replacement,
+fresh subprocesses, entropy failure, and snapshot failure. The real native
+health/round/replay test verifies identity continuity alongside exactly one
+debit and one credit for the round.
 
 ## API references
 

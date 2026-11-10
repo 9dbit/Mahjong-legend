@@ -11,6 +11,7 @@ import time
 from array import array
 from contextvars import ContextVar
 from functools import wraps
+from uuid import uuid4
 
 from starlette.concurrency import run_in_threadpool
 
@@ -186,6 +187,10 @@ class _Capture:
 
 class _PhaseMetrics:
     def __init__(self):
+        # Aggregate counters never reset in place: clearing their storage must
+        # construct a new registry and identity. reset_count stays zero for this
+        # registry's lifetime; reusing an individual request slot is not a reset.
+        self.registry_id = _safe(lambda: str(uuid4()))
         self.lock = threading.Lock()
         self.slots = [_Capture() for _ in range(CAPTURE_LIMIT)]
         self.free = list(range(CAPTURE_LIMIT))
@@ -295,7 +300,9 @@ class _PhaseMetrics:
                     phases[label]['buckets'] = list(values[5:])
             operations[name] = {'completed': count[0], 'errors': count[1], 'aborted': count[2],
                                 'counters': dict(zip(COUNTERS, count[3:])), 'phases': phases}
-        return {'schema': PHASE_SCHEMA, 'available': True, 'capture_limit': CAPTURE_LIMIT,
+        return {'schema': PHASE_SCHEMA, 'available': True,
+                'registry_id': self.registry_id, 'reset_count': 0,
+                'capture_limit': CAPTURE_LIMIT,
                 'telemetry_error': _TELEMETRY_FAILED, 'unit': 'microseconds',
                 'histogram': 'per_operation_phase_sum', 'bucket_upper_us': BUCKET_UPPER_US,
                 **summary, 'operations': operations}
@@ -305,9 +312,12 @@ _METRICS = _PhaseMetrics()
 
 
 def phase_health():
-    sample = _safe(_METRICS.snapshot)
+    registry = _METRICS
+    sample = _safe(registry.snapshot)
     return {'native_phases': sample if sample is not None else {
-        'schema': PHASE_SCHEMA, 'available': False, 'telemetry_error': True}}
+        'schema': PHASE_SCHEMA, 'available': False,
+        'registry_id': registry.registry_id, 'reset_count': 0,
+        'telemetry_error': True}}
 
 
 def _update(function, *args, lease=_USE_CURRENT):

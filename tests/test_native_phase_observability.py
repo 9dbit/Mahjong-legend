@@ -1,6 +1,8 @@
 """Real AnyIO queue and SQLite boundaries; diagnostics never change finance."""
 import json
 import sqlite3
+import subprocess
+import sys
 import threading
 import time
 import tracemalloc
@@ -41,6 +43,73 @@ def capture_call(operation, function):
 
 def sample():
     return metrics.phase_health()['native_phases']
+
+
+def test_registry_identity_survives_request_slot_reuse_and_changes_on_replacement(monkeypatch):
+    registry = metrics._METRICS
+    before = sample()
+    assert before['schema'] == 1
+    assert str(uuid.UUID(before['registry_id'], version=4)) == before['registry_id']
+    assert type(before['reset_count']) is int and before['reset_count'] == 0
+    assert sample() == before
+
+    first = capture_call('state', metrics._CURRENT.get)
+    second = capture_call('state', metrics._CURRENT.get)
+    # Slot generation changes clear request-local buffers, not aggregate totals.
+    assert first[0] == second[0] and first[1] != second[1]
+    after = sample()
+    assert after['registry_id'] == before['registry_id']
+    assert after['reset_count'] == 0
+    assert after['completed_operations'] == 2 and after['active_captures'] == 0
+    assert after['operations']['state']['completed'] == 2
+
+    # Rebuilding aggregate storage must not look like continuity in one process.
+    monkeypatch.setattr(metrics, '_METRICS', metrics._PhaseMetrics())
+    replacement = sample()
+    assert str(uuid.UUID(replacement['registry_id'], version=4)) == replacement['registry_id']
+    assert replacement['registry_id'] != before['registry_id']
+    assert replacement['reset_count'] == 0 and replacement['completed_operations'] == 0
+    assert registry.snapshot()['registry_id'] == before['registry_id']
+
+
+def test_registry_identity_changes_across_fresh_processes():
+    script = '''
+import json
+from native_observability import phase_health
+before = phase_health()['native_phases']
+after = phase_health()['native_phases']
+print(json.dumps([before, after]))
+'''
+    ids = {sample()['registry_id']}
+    for _ in range(2):
+        result = subprocess.run([sys.executable, '-c', script], check=True,
+                                capture_output=True, text=True, timeout=10,
+                                cwd=Path(__file__).resolve().parents[1])
+        before, after = json.loads(result.stdout)
+        assert before == after
+        assert str(uuid.UUID(before['registry_id'], version=4)) == before['registry_id']
+        assert before['registry_id'] not in ids
+        ids.add(before['registry_id'])
+        assert before['reset_count'] == 0 and before['completed_operations'] == 0
+
+
+def test_registry_entropy_failure_does_not_block_work_or_fabricate_identity(monkeypatch):
+    def fail():
+        raise OSError('synthetic entropy failure')
+    monkeypatch.setattr(metrics, 'uuid4', fail)
+    monkeypatch.setattr(metrics, '_METRICS', metrics._PhaseMetrics())
+    sentinel = object()
+    assert capture_call('state', lambda: metrics.phase_call('history_read', lambda: sentinel)) is sentinel
+    observed = sample()
+    assert observed['available'] and observed['telemetry_error']
+    assert observed['registry_id'] is None and observed['reset_count'] == 0
+    assert observed['completed_operations'] == 1 and observed['active_captures'] == 0
+    assert observed['operations']['state']['completed'] == 1
+    assert observed['operations']['state']['errors'] == 0
+    assert observed['operations']['state']['phases']['history_read']['invocations'] == 1
+    monkeypatch.setattr(metrics._METRICS, 'snapshot', fail)
+    assert sample() == {'schema': 1, 'available': False, 'registry_id': None,
+                        'reset_count': 0, 'telemetry_error': True}
 
 
 async def wait_counts(limiter, borrowed, waiting):
@@ -278,8 +347,11 @@ def test_telemetry_faults_preserve_return_exception_cleanup_and_recovery_context
         assert capture_call('state', lambda: sentinel) is sentinel
         assert sample()['active_captures'] == 0
     with monkeypatch.context() as patch:
+        registry_id = sample()['registry_id']
         patch.setattr(metrics._METRICS, 'snapshot', fail)
-        assert metrics.phase_health()['native_phases']['available'] is False
+        assert sample() == {'schema': 1, 'available': False,
+                            'registry_id': registry_id, 'reset_count': 0,
+                            'telemetry_error': True}
     @metrics.recovery_operation
     def recovery():
         metrics.phase_call('callback_reserve', lambda: None)
@@ -334,6 +406,9 @@ def play(client, headers):
 
 def test_actual_native_round_completed_replay_and_sql_phase_counts(provider):
     client, headers, rounds, database = provider
+    before = client.get('/health').json()['native_phases']
+    assert str(uuid.UUID(before['registry_id'], version=4)) == before['registry_id']
+    assert before['schema'] == 1 and before['reset_count'] == 0
     path, payload, result = play(client, headers)
     replay = client.post(path, headers=headers, json=payload)
     assert replay.status_code == 200, replay.text
@@ -344,6 +419,7 @@ def test_actual_native_round_completed_replay_and_sql_phase_counts(provider):
     assert len(rounds) == 1 and all(r['debits'] == r['credits'] == 1 for r in rounds.values())
     health = client.get('/health').json()
     observed = health['native_phases']
+    assert observed['registry_id'] == before['registry_id'] and observed['reset_count'] == 0
     assert observed['available'] and not observed['telemetry_error'] and not observed['saturated']
     assert observed['active_captures'] == 0 and observed['dropped_captures'] == 0
     replay_metrics = observed['operations']['replay_completed']
