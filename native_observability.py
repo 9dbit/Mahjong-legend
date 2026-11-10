@@ -10,12 +10,12 @@ import threading
 import time
 from array import array
 from contextvars import ContextVar
-from functools import wraps
+from functools import partial, wraps
 from uuid import uuid4
 
 from starlette.concurrency import run_in_threadpool
 
-from anyio.to_thread import current_default_thread_limiter
+from anyio.to_thread import current_default_thread_limiter, run_sync
 
 try:
     import resource
@@ -103,7 +103,8 @@ PHASES = ('arrival_to_dispatch', 'dispatch_to_worker', 'worker_total',
           'history_read', 'local_prepare', 'callback_status',
           'callback_reserve', 'callback_settle',
           'response_assembly_inclusive', 'db_close', 'recovery_scan',
-          'explicit_rollback')
+          'explicit_rollback', 'dispatch_to_admission', 'admission_wait',
+          'admission_to_worker', 'ticket_read', 'manifest_prepare')
 COUNTERS = ('explicit_transactions_started', 'explicit_transactions_zero_dml',
             'explicit_transactions_with_dml', 'explicit_commit_active',
             'explicit_commit_noop', 'explicit_commit_failed',
@@ -146,7 +147,7 @@ def _elapsed(start, end):
 
 class _Capture:
     __slots__ = ('lock', 'generation', 'finished', 'operation', 'arrival',
-                 'dispatch', 'worker_end', 'worker_state', 'http_done',
+                 'dispatch', 'admitted', 'worker_end', 'worker_state', 'http_done',
                  'error', 'aborted', 'depth', 'tx_start', 'tx_dml',
                  'calls', 'totals', 'maxima', 'counters', 'saturated')
 
@@ -162,7 +163,7 @@ class _Capture:
     def reset(self, generation, operation, arrival):
         self.generation, self.operation, self.arrival = generation, operation, arrival
         self.finished = self.http_done = self.error = self.aborted = self.saturated = False
-        self.dispatch = self.worker_end = self.tx_start = None
+        self.dispatch = self.admitted = self.worker_end = self.tx_start = None
         self.worker_state, self.depth, self.tx_dml = 'none', 0, 0
         for values in (self.calls, self.totals, self.maxima, self.counters):
             for i in range(len(values)):
@@ -461,6 +462,51 @@ def close_db(db):
     return phase_call('db_close', db.close)
 
 
+class _ObservedThreadLimiter:
+    """Observe one acquisition on the serving loop's unchanged default limiter.
+
+    AnyIO's asyncio backend uses the context manager; its Trio backend uses
+    acquire/release_on_behalf_of. Each entry point delegates exactly once, with
+    no extra await/checkpoint, shield, capacity change, or financial retry.
+    Borrower identities are forwarded only, never stored in telemetry.
+    """
+    __slots__ = ('_limiter', '_lease')
+
+    def __init__(self, limiter, lease):
+        self._limiter, self._lease = limiter, lease
+
+    def __getattr__(self, name):
+        return getattr(self._limiter, name)
+
+    def _record_admission(self, started, admitted):
+        def record(capture):
+            capture.admitted = admitted
+            _safe(capture.record, _PHASE['dispatch_to_admission'], capture.dispatch, started)
+            _safe(capture.record, _PHASE['admission_wait'], started, admitted)
+        _update(record, lease=self._lease)
+
+    async def _acquire(self, acquire, *args):
+        started = _clock()
+        result = await acquire(*args)
+        admitted = _clock()
+        # No telemetry exception may escape after a real token was acquired.
+        # A cancelled/failed acquisition is not a successful admission sample.
+        _safe(self._record_admission, started, admitted)
+        return result
+
+    async def __aenter__(self):
+        return await self._acquire(self._limiter.__aenter__)
+
+    async def __aexit__(self, *exception):
+        return await self._limiter.__aexit__(*exception)
+
+    async def acquire(self):
+        return await self._acquire(self._limiter.acquire)
+
+    async def acquire_on_behalf_of(self, borrower):
+        return await self._acquire(self._limiter.acquire_on_behalf_of, borrower)
+
+
 def _run_worker(lease, function, args, kwargs):
     began, cpu_began = _clock(), _cpu_clock()
     def claim(capture):
@@ -469,6 +515,8 @@ def _run_worker(lease, function, args, kwargs):
         capture.worker_state = 'running'
         if capture.dispatch is not None:
             _safe(capture.record, _PHASE['dispatch_to_worker'], capture.dispatch, began)
+        if capture.admitted is not None:
+            _safe(capture.record, _PHASE['admission_to_worker'], capture.admitted, began)
         return True
     claimed = _update(claim, lease=lease)
     token = _safe(_CURRENT.set, lease if claimed else None)
@@ -493,17 +541,29 @@ def _run_worker(lease, function, args, kwargs):
 
 
 async def run_observed(request, function, *args, **kwargs):
-    """One unchanged default AnyIO offload; this measures full dispatch delay."""
+    """One AnyIO offload, observing its existing default limiter acquisition.
+
+    Admission wall time includes the limiter's own await/checkpoint and wake-up.
+    Admission-to-worker includes worker dispatch/start/scheduling and telemetry
+    overhead; it is not an isolated OS scheduler measurement.
+    """
     lease = _safe(request.scope.get, _SCOPE_KEY)
     if lease is None:
         return await run_in_threadpool(function, *args, **kwargs)
     dispatched = _clock()
     def queued(capture):
         capture.dispatch, capture.worker_state = dispatched, 'queued'
+        capture.admitted = None
         capture.record(_PHASE['arrival_to_dispatch'], capture.arrival, dispatched)
     _update(queued, lease=lease)
     try:
-        return await run_in_threadpool(_run_worker, lease, function, args, kwargs)
+        limiter = _safe(lambda: _ObservedThreadLimiter(current_default_thread_limiter(), lease))
+        if limiter is None:
+            # Setup failure falls back before execution; never retry a worker.
+            return await run_in_threadpool(_run_worker, lease, function, args, kwargs)
+        # Match Starlette's partial binding and AnyIO's cancellation defaults.
+        # The delegate wraps the SAME limiter; do not acquire it around run_sync.
+        return await run_sync(partial(_run_worker, lease, function, args, kwargs), limiter=limiter)
     finally:
         # A cancellation before entry must not keep a slot forever. A late
         # queued wrapper executes the original callable without metrics; its

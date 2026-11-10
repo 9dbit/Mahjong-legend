@@ -7,6 +7,8 @@ import threading
 import time
 import tracemalloc
 import uuid
+from contextvars import ContextVar
+from types import SimpleNamespace
 from pathlib import Path
 
 import anyio
@@ -22,6 +24,7 @@ from test_native_concurrency import wallet_server
 
 GAME = 'mahjong-wild'
 IS_UNO = False
+ADMISSION_PHASES = ('dispatch_to_admission', 'admission_wait', 'admission_to_worker')
 
 
 @pytest.fixture(autouse=True)
@@ -31,6 +34,17 @@ def fresh_metrics(monkeypatch):
     assert metrics._CURRENT.get() is None
     yield
     assert metrics._CURRENT.get() is None
+
+
+@pytest.fixture(params=['asyncio', 'uvloop', 'trio'])
+def run_native_loop(request):
+    if request.param != 'asyncio':
+        pytest.importorskip(request.param)
+    def run(scenario):
+        if request.param == 'trio':
+            return anyio.run(scenario, backend='trio')
+        return anyio.run(scenario, backend_options={'use_uvloop': request.param == 'uvloop'})
+    return run
 
 
 def capture_call(operation, function):
@@ -140,7 +154,7 @@ def probe_app(function, *, base_http=True):
     return app
 
 
-def test_real_default_40_workers_five_queued_requests_and_context_isolation():
+def test_real_default_40_workers_five_queued_requests_and_context_isolation(run_native_loop):
     release = threading.Event()
     calls = []
     def occupy():
@@ -186,12 +200,27 @@ def test_real_default_40_workers_five_queued_requests_and_context_isolation():
         assert 'callback_status' not in operations['pick1']['phases']
         dispatch_total = sum(row['phases']['dispatch_to_worker']['total_us'] for row in operations.values())
         assert dispatch_total >= 5 * ((released_at - queued_at) // 1000)
+        admission_total = sum(row['phases']['admission_wait']['total_us'] for row in operations.values())
+        assert admission_total >= 5 * ((released_at - queued_at) // 1000)
+        for row in operations.values():
+            phases = row['phases']
+            count = row['completed']
+            for label in ADMISSION_PHASES:
+                assert phases[label]['operations'] == phases[label]['invocations'] == count
+                assert sum(phases[label]['buckets']) == count
+            # Three adjacent nanosecond spans partition the unchanged full
+            # dispatch span, losing at most two microseconds per invocation.
+            difference = phases['dispatch_to_worker']['total_us'] - sum(
+                phases[label]['total_us'] for label in ADMISSION_PHASES)
+            assert 0 <= difference <= 2 * count
+        assert limiter.total_tokens == 40
+        assert limiter.borrowed_tokens == limiter.statistics().tasks_waiting == 0
         assert 'test-secret-not-for-metrics' not in json.dumps(result)
-    anyio.run(scenario)
+    run_native_loop(scenario)
 
 
-@pytest.mark.parametrize('cancel_when', ['queued', 'running'])
-def test_cancellation_preserves_default_worker_lifetime_and_releases_capture(cancel_when):
+@pytest.mark.parametrize('cancel_when', ['queued', 'admitted', 'running'])
+def test_cancellation_preserves_default_worker_lifetime_and_releases_capture(cancel_when, monkeypatch, run_native_loop):
     release, entered = threading.Event(), threading.Event()
     calls = []
     def occupy():
@@ -201,6 +230,15 @@ def test_cancellation_preserves_default_worker_lifetime_and_releases_capture(can
         entered.set()
         assert release.wait(10)
         return {'ok': True}
+    if cancel_when == 'admitted':
+        original_worker = metrics._run_worker
+        def held_worker(*args):
+            # The real backend holds its token and shield, but the observed
+            # worker entry and business function have not yet run.
+            entered.set()
+            assert release.wait(10)
+            return original_worker(*args)
+        monkeypatch.setattr(metrics, '_run_worker', held_worker)
     async def scenario():
         limiter = anyio.to_thread.current_default_thread_limiter()
         scopes, ended = [], anyio.Event()
@@ -231,6 +269,8 @@ def test_cancellation_preserves_default_worker_lifetime_and_releases_capture(can
                         with anyio.fail_after(5):
                             await ended.wait()
                         assert not calls and sample()['active_captures'] == 0
+                        assert limiter.borrowed_tokens == 40
+                        assert limiter.statistics().tasks_waiting == 0
                     else:
                         await anyio.sleep(0.01)
                         assert not ended.is_set(), 'default AnyIO worker must not be abandoned'
@@ -240,7 +280,195 @@ def test_cancellation_preserves_default_worker_lifetime_and_releases_capture(can
             assert len(calls) == (0 if cancel_when == 'queued' else 1)
             assert sample()['active_captures'] == 0
             assert sample()['completed_operations'] == 1
-    anyio.run(scenario)
+            assert limiter.total_tokens == 40
+            assert limiter.borrowed_tokens == limiter.statistics().tasks_waiting == 0
+            phases = sample()['operations']['state']['phases']
+            if cancel_when == 'queued':
+                assert not set(ADMISSION_PHASES).intersection(phases)
+                assert 'dispatch_to_worker' not in phases
+            else:
+                assert all(phases[label]['invocations'] == 1 for label in ADMISSION_PHASES)
+    run_native_loop(scenario)
+
+
+def test_controlled_delay_after_admission_is_in_admission_to_worker(monkeypatch, run_native_loop):
+    release, entered = threading.Event(), threading.Event()
+    original_worker = metrics._run_worker
+    def held_worker(*args):
+        entered.set()
+        assert release.wait(10)
+        return original_worker(*args)
+    monkeypatch.setattr(metrics, '_run_worker', held_worker)
+
+    async def scenario():
+        limiter = anyio.to_thread.current_default_thread_limiter()
+        responses = []
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(
+                app=probe_app(lambda path: {'ok': True}, base_http=False)),
+                base_url='https://native.example') as client:
+            async def get():
+                responses.append(await client.get('/one'))
+            async with anyio.create_task_group() as group:
+                try:
+                    group.start_soon(get)
+                    with anyio.fail_after(5):
+                        while not entered.is_set():
+                            await anyio.sleep(0.001)
+                    assert limiter.borrowed_tokens == 1
+                    assert limiter.statistics().tasks_waiting == 0
+                    held_at = time.perf_counter_ns()
+                    await anyio.sleep(0.025)
+                    released_at = time.perf_counter_ns()
+                finally:
+                    release.set()
+        assert len(responses) == 1 and responses[0].status_code == 200
+        phases = sample()['operations']['state']['phases']
+        assert phases['admission_to_worker']['total_us'] >= (released_at - held_at) // 1000
+        difference = phases['dispatch_to_worker']['total_us'] - sum(
+            phases[label]['total_us'] for label in ADMISSION_PHASES)
+        assert 0 <= difference <= 2
+        assert limiter.total_tokens == 40 and limiter.borrowed_tokens == 0
+    run_native_loop(scenario)
+
+
+@pytest.mark.parametrize('fail_worker', [False, True])
+def test_observed_offload_preserves_kwargs_context_and_uses_only_last_default_token(fail_worker, run_native_loop):
+    release = threading.Event()
+    context = ContextVar('synthetic-worker-context', default='unset')
+    sentinel, original_error = object(), LookupError('original-worker-failure')
+    calls = []
+    def occupy():
+        assert release.wait(10)
+
+    async def scenario():
+        limiter = anyio.to_thread.current_default_thread_limiter()
+        lease = metrics._METRICS.start('state')
+        request = SimpleNamespace(scope={metrics._SCOPE_KEY: lease})
+        token = context.set('caller-context')
+        def work(value, *, limiter, abandon_on_cancel, cancellable):
+            calls.append(value)
+            assert limiter is sentinel
+            assert abandon_on_cancel == 'business-argument' and cancellable == 'also-business'
+            assert context.get() == 'caller-context'
+            assert metrics._CURRENT.get() == lease
+            context.set('worker-only-context')
+            observed = default_limiter.statistics()
+            # 39 ordinary workers plus exactly one observed admission. A
+            # separate limiter or double acquisition cannot satisfy this.
+            assert observed.total_tokens == observed.borrowed_tokens == 40
+            assert observed.tasks_waiting == 0
+            if fail_worker:
+                raise original_error
+            return sentinel
+        default_limiter = limiter
+        try:
+            async with anyio.create_task_group() as group:
+                try:
+                    for _ in range(39):
+                        group.start_soon(anyio.to_thread.run_sync, occupy)
+                    await wait_counts(limiter, 39, 0)
+                    with anyio.fail_after(5):
+                        if fail_worker:
+                            with pytest.raises(LookupError) as caught:
+                                await metrics.run_observed(request, work, sentinel,
+                                    limiter=sentinel, abandon_on_cancel='business-argument', cancellable='also-business')
+                            assert caught.value is original_error
+                        else:
+                            result = await metrics.run_observed(request, work, sentinel,
+                                limiter=sentinel, abandon_on_cancel='business-argument', cancellable='also-business')
+                            assert result is sentinel
+                    assert context.get() == 'caller-context'
+                    assert metrics._CURRENT.get() is None
+                    assert limiter.borrowed_tokens == 39 and limiter.statistics().tasks_waiting == 0
+                finally:
+                    release.set()
+        finally:
+            context.reset(token)
+            metrics._finish_http(lease, metrics._clock(), fail_worker, False)
+        assert calls == [sentinel]
+        assert limiter.total_tokens == 40 and limiter.borrowed_tokens == 0
+        assert sample()['active_captures'] == 0
+        assert sample()['operations']['state']['errors'] == int(fail_worker)
+        assert all(sample()['operations']['state']['phases'][label]['invocations'] == 1
+                   for label in ADMISSION_PHASES)
+    run_native_loop(scenario)
+
+
+@pytest.mark.parametrize('fault', ['setup', 'limiter_lookup', 'record_admission', 'span', 'clock'])
+@pytest.mark.parametrize('fail_worker', [False, True])
+def test_admission_telemetry_faults_do_not_retry_workers_or_leak_tokens(monkeypatch, fault, fail_worker, run_native_loop):
+    def fail(*args):
+        raise RuntimeError('synthetic telemetry fault')
+    if fault == 'setup':
+        monkeypatch.setattr(metrics, '_ObservedThreadLimiter', fail)
+    elif fault == 'limiter_lookup':
+        monkeypatch.setattr(metrics, 'current_default_thread_limiter', fail)
+    elif fault == 'record_admission':
+        monkeypatch.setattr(metrics._ObservedThreadLimiter, '_record_admission', fail)
+    elif fault == 'span':
+        monkeypatch.setattr(metrics._Capture, 'record', fail)
+    else:
+        monkeypatch.setattr(metrics, 'time', SimpleNamespace(
+            perf_counter_ns=fail, thread_time_ns=time.thread_time_ns))
+    calls, sentinel = [], object()
+    original_error = LookupError('original-financial-call-error')
+    def work():
+        calls.append(sentinel)
+        if fail_worker:
+            raise original_error
+        return sentinel
+    async def scenario():
+        limiter = anyio.to_thread.current_default_thread_limiter()
+        lease = metrics._METRICS.start('state')
+        request = SimpleNamespace(scope={metrics._SCOPE_KEY: lease})
+        try:
+            if fail_worker:
+                with pytest.raises(LookupError) as caught:
+                    await metrics.run_observed(request, work)
+                assert caught.value is original_error
+            else:
+                assert await metrics.run_observed(request, work) is sentinel
+        finally:
+            metrics._finish_http(lease, metrics._clock(), fail_worker, False)
+        assert calls == [sentinel]
+        assert limiter.total_tokens == 40
+        assert limiter.borrowed_tokens == limiter.statistics().tasks_waiting == 0
+        assert sample()['active_captures'] == 0 and sample()['telemetry_error']
+        assert sample()['operations']['state']['errors'] == int(fail_worker)
+        if fault in ('setup', 'limiter_lookup', 'record_admission'):
+            phases = sample()['operations']['state']['phases']
+            assert 'dispatch_to_worker' in phases
+            assert not set(ADMISSION_PHASES).intersection(phases)
+    run_native_loop(scenario)
+
+
+@pytest.mark.parametrize('run_native_loop', ['asyncio', 'uvloop'], indirect=True)
+def test_worker_start_failure_releases_admission_without_executing_or_retrying(monkeypatch, run_native_loop):
+    from anyio._backends._asyncio import WorkerThread
+    original_error = RuntimeError('synthetic-worker-start-failure')
+    def fail_start(self):
+        raise original_error
+    monkeypatch.setattr(WorkerThread, 'start', fail_start)
+    calls = []
+    async def scenario():
+        limiter = anyio.to_thread.current_default_thread_limiter()
+        lease = metrics._METRICS.start('state')
+        request = SimpleNamespace(scope={metrics._SCOPE_KEY: lease})
+        try:
+            with pytest.raises(RuntimeError) as caught:
+                await metrics.run_observed(request, lambda: calls.append('executed'))
+            assert caught.value is original_error
+        finally:
+            metrics._finish_http(lease, metrics._clock(), True, True)
+        assert calls == [] and limiter.total_tokens == 40
+        assert limiter.borrowed_tokens == limiter.statistics().tasks_waiting == 0
+        assert sample()['active_captures'] == 0
+        row = sample()['operations']['state']
+        assert row['errors'] == row['aborted'] == 1
+        assert row['phases']['admission_wait']['invocations'] == 1
+        assert 'admission_to_worker' not in row['phases']
+        assert 'worker_total' not in row['phases']
+    run_native_loop(scenario)
 
 
 def test_stale_cancelled_lease_cannot_contaminate_reused_slot():
@@ -292,6 +520,46 @@ def test_real_sqlite_explicit_empty_and_autocommit_boundaries(tmp_path):
     db.close()
 
 
+@pytest.mark.parametrize('failure_at', [None, 'execute', 'fetchone'])
+def test_ticket_read_includes_execute_and_fetch_without_retry_or_content(monkeypatch, failure_at):
+    clock = [0]
+    monkeypatch.setattr(metrics, '_clock', lambda: clock[0])
+    row, original_error = object(), sqlite3.OperationalError('original-read-failure')
+    sql, parameters, calls = 'SELECT private-ticket FROM tickets WHERE actor=?', ('private-player',), []
+
+    class Database:
+        def execute(self, statement, values):
+            assert statement == sql and values is parameters
+            calls.append('execute')
+            clock[0] += 7_000_000
+            if failure_at == 'execute':
+                raise original_error
+            return self
+
+        def fetchone(self):
+            calls.append('fetchone')
+            clock[0] += 11_000_000
+            if failure_at == 'fetchone':
+                raise original_error
+            return row
+
+    def read():
+        return native._ticket_row(Database(), sql, parameters)
+    if failure_at:
+        with pytest.raises(sqlite3.OperationalError) as caught:
+            capture_call('spin_new', read)
+        assert caught.value is original_error
+    else:
+        assert capture_call('spin_new', read) is row
+    assert calls == (['execute'] if failure_at == 'execute' else ['execute', 'fetchone'])
+    observed = sample()
+    phase = observed['operations']['spin_new']['phases']['ticket_read']
+    assert phase['operations'] == phase['invocations'] == 1
+    assert phase['total_us'] == (7000 if failure_at == 'execute' else 18000)
+    assert observed['active_captures'] == 0
+    assert 'private-' not in json.dumps(observed)
+
+
 def test_clock_errors_saturation_unknown_labels_and_fixed_memory(monkeypatch):
     tracemalloc.start()
     before = tracemalloc.get_traced_memory()[0]
@@ -324,7 +592,9 @@ def test_clock_errors_saturation_unknown_labels_and_fixed_memory(monkeypatch):
     for cell in registry.cells + registry.counts:
         for i in range(len(cell)):
             cell[i] = metrics.MAX_VALUE
-    assert len(json.dumps(sample()).encode()) < 512 * 1024
+    # Keep even the maximal fixed phase envelope within the consumer's entire
+    # health-response cap; actual health metadata is checked below as well.
+    assert len(json.dumps(sample()).encode()) < 256 * 1024
 
 
 def test_telemetry_faults_preserve_return_exception_cleanup_and_recovery_context(monkeypatch):
@@ -418,6 +688,7 @@ def test_actual_native_round_completed_replay_and_sql_phase_counts(provider):
         assert replay.json() == result
     assert len(rounds) == 1 and all(r['debits'] == r['credits'] == 1 for r in rounds.values())
     health = client.get('/health').json()
+    assert len(json.dumps(health).encode()) < 256 * 1024
     observed = health['native_phases']
     assert observed['registry_id'] == before['registry_id'] and observed['reset_count'] == 0
     assert observed['available'] and not observed['telemetry_error'] and not observed['saturated']
@@ -443,6 +714,19 @@ def test_actual_native_round_completed_replay_and_sql_phase_counts(provider):
         assert row['phases']['autocommit_intent_execute']['invocations'] == 1
         assert row['phases']['autocommit_result_execute']['invocations'] == 2
         assert row['phases']['autocommit_ticket_execute']['invocations'] == 1
+        assert row['phases']['ticket_read']['invocations'] == 8
+        assert row['phases']['manifest_prepare']['invocations'] == 4
+        assert replay_metrics['phases']['ticket_read']['invocations'] == 5
+        assert replay_metrics['phases']['manifest_prepare']['invocations'] == 3
+        assert health['anyio_thread_limiter']['total_tokens'] == 40
+        for operation in ('state', 'spin_new', 'replay_completed'):
+            measured = observed['operations'][operation]
+            phases = measured['phases']
+            for label in ADMISSION_PHASES:
+                assert phases[label]['operations'] == phases[label]['invocations'] == measured['completed']
+            remainder = phases['dispatch_to_worker']['total_us'] - sum(
+                phases[label]['total_us'] for label in ADMISSION_PHASES)
+            assert 0 <= remainder <= 2 * measured['completed']
     db = native.db_open() if IS_UNO else native.connect()
     assert db.execute('PRAGMA journal_mode').fetchone()[0] == 'wal'
     assert db.execute('PRAGMA synchronous').fetchone()[0] == 2

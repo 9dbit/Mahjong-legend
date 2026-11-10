@@ -114,16 +114,21 @@ async def body(request):
     if not isinstance(data,dict): raise HTTPException(400,'Object required')
     return data
 
+@measured('ticket_read')
+def _ticket_row(db,sql,parameters):
+    return db.execute(sql,parameters).fetchone()
+
 def get_ticket(db,actor):
-    t=db.execute("SELECT * FROM tickets WHERE actor=? AND state IN ('ready','pending','reserved') ORDER BY created_at LIMIT 1",(actor,)).fetchone()
+    t=_ticket_row(db,"SELECT * FROM tickets WHERE actor=? AND state IN ('ready','pending','reserved') ORDER BY created_at LIMIT 1",(actor,))
     if t and t['state']=='ready' and (t['created_at']<time.time()-86400 or t['engine_hash']!=ENGINE_HASH):
         execute_write('autocommit_ticket_execute',db,"UPDATE tickets SET state='expired' WHERE id=?",(t['id'],));t=None
     if not t:
         rid=str(uuid.uuid4())
         execute_write('autocommit_ticket_execute',db,'INSERT INTO tickets(id,actor,seed,config_json,engine_hash,created_at) VALUES(?,?,?,?,?,?)',(rid,actor,secrets.token_hex(32),json.dumps(studio.active_config()),ENGINE_HASH,time.time()))
-        t=db.execute('SELECT * FROM tickets WHERE id=?',(rid,)).fetchone()
+        t=_ticket_row(db,'SELECT * FROM tickets WHERE id=?',(rid,))
     return t
 
+@measured('manifest_prepare')
 def manifest(t,scale):
     c=json.loads(t['config_json']);allowed=[]
     for bet in c['bet']['options']:
@@ -136,12 +141,12 @@ def manifest(t,scale):
 
 def advance(db,rid):
     if db.in_transaction: raise RuntimeError('Native wallet callbacks require a committed intent')
-    row=db.execute('SELECT actor FROM tickets WHERE id=?',(rid,)).fetchone()
+    row=_ticket_row(db,'SELECT actor FROM tickets WHERE id=?',(rid,))
     if not row: raise HTTPException(404,'Tiket tidak tersedia')
     with measured_lock('player_lock_acquire',operation_lock('player:'+row['actor'])), measured_lock('round_lock_acquire',operation_lock('round:'+rid)): return _advance_unlocked(db,rid)
 
 def _advance_unlocked(db,rid):
-    t=db.execute('SELECT * FROM tickets WHERE id=?',(rid,)).fetchone()
+    t=_ticket_row(db,'SELECT * FROM tickets WHERE id=?',(rid,))
     if t['state']=='failed': raise HTTPException(t['error_status'],'Reservasi ditolak. Muat ulang untuk mendapatkan tiket baru.')
     if t['state'] not in ('pending','reserved'): return t
     s=json.loads(t['session_json'])
@@ -152,11 +157,11 @@ def _advance_unlocked(db,rid):
                 execute_write('autocommit_failure_execute',db,"UPDATE tickets SET state='failed',error_status=? WHERE id=?",(e.status,rid));commit_db(db)
             raise HTTPException(e.status if e.status<500 else 503,'Reservasi wallet belum berhasil. Periksa saldo, sesi dan risk pool.') from None
         execute_write('autocommit_result_execute',db,"UPDATE tickets SET central_id=?,state='reserved' WHERE id=?",(r['id'],rid));commit_db(db)
-        t=db.execute('SELECT * FROM tickets WHERE id=?',(rid,)).fetchone()
+        t=_ticket_row(db,'SELECT * FROM tickets WHERE id=?',(rid,))
     try: remote('settle',{'tenant_id':s['tenant_id'],'round_id':t['central_id'],'payout':t['payout'],'evidence':'mahjong-native-v1:'+hashtext(t['outcome_json'])})
     except AgencyWalletError: raise HTTPException(503,'Settlement tertunda; hasil tersimpan dan akan direkonsiliasi.') from None
     execute_write('autocommit_result_execute',db,"UPDATE tickets SET state='settled',finished_at=? WHERE id=?",(time.time(),rid))
-    return db.execute('SELECT * FROM tickets WHERE id=?',(rid,)).fetchone()
+    return _ticket_row(db,'SELECT * FROM tickets WHERE id=?',(rid,))
 
 def balance(s):
     try: return remote('status',{'tenant_id':s['tenant_id'],'session_id':s['session_id']})
@@ -193,9 +198,9 @@ def _spin_unlocked(db,s,actor,data):
     except (ValueError,TypeError,AttributeError): raise HTTPException(422,'Tiket dan idempotency key wajib') from None
     bet=data.get('bet')
     if not isinstance(bet,str) or len(bet)>40: raise HTTPException(422,'Taruhan harus string decimal')
-    other=db.execute('SELECT id FROM tickets WHERE actor=? AND request_id=?',(actor,key)).fetchone()
+    other=_ticket_row(db,'SELECT id FROM tickets WHERE actor=? AND request_id=?',(actor,key))
     if other and other['id']!=tid: raise HTTPException(409,'Idempotency key sudah dipakai untuk tiket lain')
-    t=db.execute('SELECT * FROM tickets WHERE id=? AND actor=?',(tid,actor)).fetchone()
+    t=_ticket_row(db,'SELECT * FROM tickets WHERE id=? AND actor=?',(tid,actor))
     if not t: raise HTTPException(404,'Tiket tidak dimiliki sesi ini')
     if t['request_id'] and (t['request_id']!=key or t['bet']!=bet): raise HTTPException(409,'Payload retry berbeda')
     classify_operation({'ready':'spin_new','pending':'spin_resume','reserved':'spin_resume',

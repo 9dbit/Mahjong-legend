@@ -63,6 +63,108 @@ Registry identity is content-free and does not contain a player, request,
 wallet, or database identifier. Gameplay, RNG, wallet durability, and the
 configured worker-token capacity are unchanged.
 
+## Native admission partition
+
+The Mahjong collector follows the deployed UNO admission observation at commit
+`5a9c322b806d7add539052ccc70091235fc0d0d3`. It delegates to the serving event
+loop's **existing default limiter** inside a single AnyIO offload. It does not
+acquire a second token, create a separate limiter, add a checkpoint or shield,
+change cancellation defaults, or retry a business callable. The configured
+default remains 40 tokens. Synchronous functions and their keyword arguments
+remain bound before offload, matching Starlette's `run_in_threadpool` semantics;
+business keyword names such as `limiter` are not consumed by AnyIO.
+
+| Fixed phase | Boundaries and interpretation |
+| --- | --- |
+| `dispatch_to_admission` | Recorded dispatch to the start of the backend's existing limiter acquisition. Includes the backend's preparation/checkpoint before acquisition. |
+| `admission_wait` | Acquisition entry to its successful return. Includes waiting for capacity and the limiter's own await/checkpoint/wake-up; not a pure queue metric. |
+| `admission_to_worker` | Successful acquisition return to observed worker entry. Includes telemetry recording, dispatch, thread creation/reuse, and scheduling; not an isolated OS scheduler metric. |
+| `dispatch_to_worker` | Existing inclusive dispatch-to-worker interval, retained unchanged. |
+
+For a successful observed dispatch, each of the three components has one
+invocation. Their additive microsecond totals partition `dispatch_to_worker`
+within rounding loss of at most two microseconds per dispatch. This relationship
+applies to sums with matching operation/invocation populations, not to sums of
+histogram percentiles. A cancelled or failed acquisition does not fabricate a
+successful admission. Failure after admission but before worker entry can expose
+the first two components without `admission_to_worker`; it is not a complete
+partition. Background recovery runs directly on its existing thread and does
+not acquire or report a request admission token.
+
+AnyIO's asyncio/uvloop backend delegates context-manager acquisition/release;
+its Trio backend delegates acquisition/release on behalf of its existing
+borrower. Borrower identities are forwarded, never retained in metrics. Telemetry
+setup failure falls back before executing the worker; recording failure after
+admission still returns control to AnyIO so its normal release can run. No
+telemetry fallback repeats a callable that already started. Existing capture
+generation, cancellation cleanup, registry/reset and unavailable-snapshot guards
+remain in force.
+
+## Work performed while the worker is active
+
+`worker_total` is inclusive wall time from observed worker entry through the
+business callable's return or exception. `worker_cpu` uses the same thread's
+CPU clock. Their difference is not a direct measurement of a particular wait:
+it can include database, callbacks, locks, GIL contention and scheduling. Final
+telemetry cleanup and backend token release occur after the observed worker end,
+so this is not a complete token-holding-time measurement.
+
+Two bounded phases fill existing attribution gaps:
+
+- `ticket_read` measures each existing operational ticket `SELECT` through its
+  `fetchone()` return. It covers reads in `get_ticket`, spin validation and round
+  advancement, without changing SQL text, parameter values, query count, order,
+  or returned row. Session/history/recovery-scan queries retain their existing
+  labels. Query text, parameters and row contents are never exported.
+- `manifest_prepare` wraps the existing manifest function: configuration JSON
+  parsing, allowed-bet/scale checks, hashes and result construction. It does not
+  change the manifest, call RNG, or alter the approved game sources.
+
+The existing spans also matter when interpreting worker time:
+
+| Phase | Containment and limitations |
+| --- | --- |
+| `db_open_total` | Includes path preparation, `open_bound_total`, and `connection_pragmas`; do not add these children to the parent. |
+| `open_bound_total` | Includes the existing read-only binding precheck and subsequent read/write open and binding verification. No connection or identity check is removed. |
+| `session_validation` | Includes cookie/session lookup, JSON parsing and redeemed-session validation. |
+| `player_lock_acquire`, `round_lock_acquire` | Acquisition only, possibly multiple invocations for reentrant calls in one operation. |
+| `autocommit_intent_execute` | Existing outcome/intent write remains durable before a wallet callback. Parameter preparation and JSON serialization before `execute_write` are outside this span. |
+| `autocommit_result_execute` | A new successful spin normally invokes it twice: reserved result, then settled result. The histogram is the sum per operation. |
+| `autocommit_ticket_execute` | Existing ticket insert/expiry writes, including a next ticket created during state assembly; seed/config preparation before SQL execution is outside this span. |
+| `local_prepare` | Existing game calculation and amount preparation; approved RNG/math and their invocation order are unchanged. |
+| `callback_status`, `callback_reserve`, `callback_settle` | Include wallet-client preparation, signing, transport and response handling. These are not pure network timings. |
+| `response_assembly_inclusive` | The complete existing `state()` call, including its ticket/manifest work, status callback and history queries. A spin/replay calls it while building its response. |
+| `history_read`, `db_close` | Existing history SQL and connection close respectively; a close may also perform SQLite work. |
+
+In the bounded normal-round fixture, a new spin records eight `ticket_read`
+invocations and four `manifest_prepare` invocations. A completed replay records
+five and three respectively. These are fixture expectations, not universal
+counts for expiry, rejection, pending recovery or failure paths. Repeated
+manifest construction is observed as it exists; this patch does not remove it.
+The new spans overlap their containing state/worker spans. Summing every phase
+would double-count time. Uninstrumented preparation, serialization, Python work
+and telemetry overhead still exist; no complete exclusive worker partition is
+claimed.
+
+The phase-label set is fixed. The existing 1,024 capture slots, bounded arrays,
+nesting limit, counters and histogram buckets remain. No per-request samples or
+dynamic labels are added. Registry identity must match across valid quiescent
+before/after boundaries, with the same source, deployment, process and reset
+identity. A rollout starts a fresh registry; old and new phase totals are not a
+before/after performance experiment.
+
+### Source and rollout scope
+
+This candidate starts from deployed Mahjong commit
+`1740a12a3a3cc845990b1df1d41a9a69cb8bc8f2`. It changes telemetry, its call-site
+wrappers, tests, documentation and the exact CI branch trigger
+`feat/mahjong-admission-20261110`. Production requirements, 40-token configuration,
+callback pool size, SQLite pragmas, queries, durable ordering, wallet protocol,
+RNG, UI and approved source-lock inputs are unchanged. Trio `0.35.0` is a test
+dependency for the alternate AnyIO delegation path; it is not added to the
+production requirements or image. Publication, deployment, load and soak are
+separate gated steps; local tests do not establish a latency improvement.
+
 ## Focused validation
 
 Run `python -m pytest -q tests/test_native_observability.py` in the repository.
@@ -78,6 +180,19 @@ collector. Identity tests verify request-slot reuse, collector replacement,
 fresh subprocesses, entropy failure, and snapshot failure. The real native
 health/round/replay test verifies identity continuity alongside exactly one
 debit and one credit for the round.
+
+The admission tests use the real 40-token default limiter on asyncio, uvloop
+and Trio: 40 occupied workers plus five queued requests, cancellation while
+queued/admitted/running, a controlled delay after admission, and execution with
+only one default token remaining. They verify context propagation, original
+return/exception identity, no duplicate calls, cleanup and response headers.
+Telemetry lookup/setup/recording/clock failures are injected without leaking
+tokens. Asyncio/uvloop also exercise failure to start a worker thread. Install
+the CI test dependencies, including `trio==0.35.0`, to run all backend cases.
+The ticket-read probe verifies execute/fetch boundaries and original exception
+identity without retaining query content. Actual round/replay tests verify the
+new phase counts, unchanged SQL durability and exactly-once wallet movement.
+Existing fixed-memory and worst-case health-response bounds remain enforced.
 
 ## API references
 
