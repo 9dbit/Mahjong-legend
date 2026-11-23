@@ -21,6 +21,11 @@ Date: 2026-11-24. Scope: 9dbit/Mahjong-legend and Railway project Mahjong Legend
 - `.github/workflows/security.yml`: Read-only Python pip-audit and Studio npm audit for high severity dependency findings, with failing gates.
 These changes are confined to a new audit branch and require GitHub PR review and green CI before any controlled promotion. They **do not turn on native wallet mode**.
 
+## Initial dependency scan (2026-11-24)
+- First security workflow [45248752211](https://github.com/9dbit/Mahjong-legend/actions/runs/45248752211) found **47 vulnerability advisories across 2 Python packages**: Pillow 12.3.0 (recommended 13.0.0) and transitive Starlette 0.50.0 (recommended at least 1.3.1). The JavaScript dependency job passed.
+- Proposed upgrades on this draft branch: Pillow 13.0.0 (runtime and artwork build), FastAPI 0.165.0 and explicitly pinned Starlette 1.10.0. These versions require successful dependency rescanning plus full engine/Studio/browser CI before merge; an update commit itself is not proof of remediation.
+- Do not ignore or suppress findings in the security workflow to obtain a green badge.
+
 ## Remaining production gates (blocking)
 1. **Release provenance (P0)**: merge/reconcile PR #16 after full review; protect main, require PR reviews and required tests, deploy exact signed/verified release SHA to staging first, then promote by controlled process. Never silently repoint existing production during audit.
 2. **Environment isolation (P0)**: create separate staging services/database/bucket/keys/domain, plus *verified* mounted persistent volume for native intent; test restart, redeploy, volume detach, host loss and backup restoration. Avoid sharing production credentials or wallet accounts.
