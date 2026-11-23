@@ -1,0 +1,49 @@
+name: Public demo embedding
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/qa-public-demo.yml'
+      - 'game_studio/**'
+      - 'studio_server/**'
+      - 'web/**'
+      - 'tools/build_*'
+      - 'tools/runtime_*'
+      - 'tools/qa_public_demo_worker.mjs'
+      - 'requirements.txt'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mahjong-public-demo-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  public-demo:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      STUDIO_PRODUCTION: '0'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Install application dependencies
+        run: python -m pip install -r requirements.txt
+      - name: Verify demo routing, headers, assets, API, and Studio boundaries
+        run: |
+          python manage.py test \
+            game_studio.test_public_demo \
+            game_studio.tests.StudioApiTests.test_anonymous_cannot_read_or_edit_studio \
+            game_studio.tests.StudioApiTests.test_csrf_is_required_for_authenticated_writes \
+            game_studio.tests.StudioApiTests.test_public_spin_requires_ticket_key_and_same_origin \
+            game_studio.tests.StudioApiTests.test_signed_preview_is_bound_to_editor \
+            --verbosity 2
+      - name: Verify service worker preserves document navigation
+        run: node tools/qa_public_demo_worker.mjs
