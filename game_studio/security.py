@@ -12,11 +12,19 @@ class ResponseHeaders:
         response['X-Content-Type-Options']='nosniff'
         response['Referrer-Policy']='same-origin'
         response['Permissions-Policy']='camera=(), microphone=(), geolocation=()'
-        response['X-Frame-Options']='SAMEORIGIN' if request.path.startswith('/studio/preview/') else 'DENY'
+        studio_preview=request.path.startswith('/studio/preview/')
+        frame_ancestors="'self'" if studio_preview else "'none'"
+        # Only the successful public demo document can be embedded by XDPLAY.
+        # Root play, Studio, APIs, errors, and lookalike paths keep their policy.
+        if request.path=='/play/' and response.status_code==200:
+            frame_ancestors='https://xd-play.com'
+            response.headers.pop('X-Frame-Options',None)
+        else:
+            response['X-Frame-Options']='SAMEORIGIN' if studio_preview else 'DENY'
         response['Content-Security-Policy']=("default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; "
             "img-src 'self' data: blob:; media-src 'self' blob:; connect-src 'self'; worker-src 'self' blob:; "
             "font-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'; frame-src 'self'; frame-ancestors "
-            +("'self'" if request.path.startswith('/studio/preview/') else "'none'"))
+            +frame_ancestors)
         return response
 
 @transaction.atomic

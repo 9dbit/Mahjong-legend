@@ -18,6 +18,9 @@ urlpatterns=[
     path('media/<uuid:asset_id>/<str:sha>',v.published_media),
     path('api/audio-live',v.live_audio),
     path('api/preview/<str:preview_token>/audio-live',v.live_audio),
+    # Reuse the compiled, approved game document. Its assets and API URLs are
+    # rooted at this runtime origin, so no alternate renderer or API is needed.
+    path('play/',v.static_page,{'path':''},name='public_demo'),
     path('studio/preview/<str:token>',v.preview_page),
     re_path(r'^api/preview/(?P<preview_token>[^/]+)/(?P<operation>state|spin|reset|verify|last-round)$',v.public_api),
     re_path(r'^api/(?P<operation>state|spin|reset|verify|last-round|diagnostics/spin)$',v.public_api),
