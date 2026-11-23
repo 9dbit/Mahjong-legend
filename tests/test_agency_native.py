@@ -53,3 +53,56 @@ def test_durable_recovery(native,monkeypatch):
  with pytest.raises(HTTPException):m.spin(db,s,actor,{**p,'bet':'2'})
  assert m.verify_round(a['round'],m.GameConfig())['valid']
  db.close()
+
+def test_production_native_wallet_refuses_missing_volume(tmp_path,monkeypatch):
+    monkeypatch.setenv('STUDIO_PRODUCTION','1')
+    monkeypatch.setenv('MAHJONG_AGENCY_DB_PATH',str(tmp_path/'agency.sqlite3'))
+    monkeypatch.delenv('RAILWAY_VOLUME_MOUNT_PATH',raising=False)
+    with pytest.raises(RuntimeError,match='persistent Railway volume'):
+        m.checked_storage_path()
+    assert not (tmp_path/'agency.sqlite3').exists()
+
+
+def test_production_native_wallet_refuses_db_outside_volume(tmp_path,monkeypatch):
+    volume=tmp_path/'volume'
+    volume.mkdir()
+    monkeypatch.setenv('STUDIO_PRODUCTION','1')
+    monkeypatch.setenv('RAILWAY_VOLUME_MOUNT_PATH',str(volume))
+    monkeypatch.setenv('MAHJONG_AGENCY_DB_PATH',str(tmp_path/'outside.sqlite3'))
+    with pytest.raises(RuntimeError,match='inside its persistent volume'):
+        m.checked_storage_path()
+
+
+def test_production_native_wallet_refuses_unmounted_directory(tmp_path,monkeypatch):
+    volume=tmp_path/'not-a-real-mount'
+    volume.mkdir()
+    monkeypatch.setenv('STUDIO_PRODUCTION','1')
+    monkeypatch.setenv('RAILWAY_VOLUME_MOUNT_PATH',str(volume))
+    monkeypatch.setenv('MAHJONG_AGENCY_DB_PATH',str(volume/'agency.sqlite3'))
+    monkeypatch.setattr(m.os.path,'ismount',lambda p:False)
+    with pytest.raises(RuntimeError,match='not mounted'):
+        m.checked_storage_path()
+
+
+def test_production_native_wallet_accepts_mounted_volume(tmp_path,monkeypatch):
+    volume=tmp_path/'persistent'
+    volume.mkdir()
+    monkeypatch.setenv('STUDIO_PRODUCTION','1')
+    monkeypatch.setenv('RAILWAY_VOLUME_MOUNT_PATH',str(volume))
+    monkeypatch.setenv('MAHJONG_AGENCY_DB_PATH',str(volume/'agency.sqlite3'))
+    monkeypatch.setattr(m.os.path,'ismount',lambda p:True)
+    assert m.checked_storage_path()==volume/'agency.sqlite3'
+
+
+def test_production_native_wallet_refuses_symlink_escape(tmp_path,monkeypatch):
+    volume=tmp_path/'persistent'
+    outside=tmp_path/'outside'
+    volume.mkdir()
+    outside.mkdir()
+    (volume/'jump').symlink_to(outside,target_is_directory=True)
+    monkeypatch.setenv('STUDIO_PRODUCTION','1')
+    monkeypatch.setenv('RAILWAY_VOLUME_MOUNT_PATH',str(volume))
+    monkeypatch.setenv('MAHJONG_AGENCY_DB_PATH',str(volume/'jump'/'agency.sqlite3'))
+    monkeypatch.setattr(m.os.path,'ismount',lambda p:True)
+    with pytest.raises(RuntimeError,match='inside its persistent volume'):
+        m.checked_storage_path()
