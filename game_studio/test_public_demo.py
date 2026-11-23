@@ -16,10 +16,10 @@ RUNTIME_ORIGIN = 'https://mahjong.xd-play.com'
 
 
 def content(response):
-    try:
-        return b''.join(response.streaming_content) if response.streaming else response.content
-    finally:
-        response.close()
+    # Django's test client closes streamed responses while protecting its test
+    # transaction. Closing again emits request_finished a second time and can
+    # close the PostgreSQL connection inside TestCase's atomic block.
+    return b''.join(response.streaming_content) if response.streaming else response.content
 
 
 def policy(response):
