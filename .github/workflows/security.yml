@@ -1,0 +1,43 @@
+name: Security checks
+# Read-only dependency vulnerability gates for PRs and main.
+# No production credentials, network scans, or deployment steps run here.
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: mahjong-security-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+jobs:
+  python-dependencies:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install pinned dependency auditor
+        run: python -m pip install 'pip-audit==2.9.0'
+      - name: Audit Python runtime requirements
+        run: python -m pip_audit --requirement requirements.txt
+  studio-js-dependencies:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: studio_ui
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: studio_ui/package-lock.json
+      - name: Install exact locked packages without lifecycle scripts
+        run: npm ci --ignore-scripts --no-fund
+      - name: Audit runtime and build dependencies
+        run: npm audit --audit-level=high
