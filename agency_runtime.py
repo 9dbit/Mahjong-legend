@@ -25,10 +25,32 @@ LOCK=threading.RLock()
 def wallet():
     return AgencyWallet(os.environ['AGENCY_WALLET_ORIGIN'],os.environ['AGENCY_WALLET_KEY_ID'],os.environ['AGENCY_WALLET_SECRET'],allow_local=os.getenv('AGENCY_WALLET_LOCAL_QA')=='1')
 
+def checked_storage_path():
+    """Fail closed rather than silently creating an ephemeral wallet database.
+
+    Native wallet state includes reserved/settled intents, original outcomes and
+    replay identifiers. Losing the file can produce unrecoverable uncertainty.
+    This check runs before SQLite creates any path or file.
+    """
+    raw=os.environ.get('MAHJONG_AGENCY_DB_PATH','')
+    path=Path(raw)
+    if not raw or not path.is_absolute():
+        raise RuntimeError('Native wallet requires an absolute MAHJONG_AGENCY_DB_PATH')
+    if os.environ.get('STUDIO_PRODUCTION')=='1' or os.environ.get('RAILWAY_ENVIRONMENT_ID'):
+        volume=os.environ.get('RAILWAY_VOLUME_MOUNT_PATH','')
+        if not volume or not Path(volume).is_absolute():
+            raise RuntimeError('Production native wallet requires a persistent Railway volume mount')
+        root=Path(volume).resolve()
+        target=path.resolve()
+        if target==root or not target.is_relative_to(root):
+            raise RuntimeError('Native wallet database must be inside its persistent volume')
+        if not root.is_dir() or not os.path.ismount(root):
+            raise RuntimeError('Native wallet persistent volume is not mounted')
+    return path
+
 def connect():
-    path=os.environ['MAHJONG_AGENCY_DB_PATH']
-    if not Path(path).is_absolute(): raise RuntimeError('Persistent absolute database path required')
-    Path(path).parent.mkdir(parents=True,exist_ok=True)
+    path=checked_storage_path()
+    path.parent.mkdir(parents=True,exist_ok=True)
     db=sqlite3.connect(path,timeout=30,isolation_level=None);db.row_factory=sqlite3.Row
     db.execute('PRAGMA foreign_keys=ON');db.execute('PRAGMA busy_timeout=30000');db.execute('PRAGMA synchronous=FULL')
     return db
