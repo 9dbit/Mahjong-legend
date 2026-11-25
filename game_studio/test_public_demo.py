@@ -1,7 +1,9 @@
 """Public demo embedding without widening Studio or game API access."""
 from html.parser import HTMLParser
 import json
+import os
 from pathlib import Path
+import runpy
 import tempfile
 from unittest.mock import patch
 from urllib.parse import urljoin, urlsplit
@@ -12,7 +14,24 @@ from django.test import Client, SimpleTestCase, TestCase, override_settings
 from .releases import bootstrap
 
 
-RUNTIME_ORIGIN = 'https://mahjong.xd-play.com'
+RUNTIME_HOST = 'mahjongwild.xd-play.com'
+RUNTIME_ORIGIN = 'https://' + RUNTIME_HOST
+LEGACY_HOST = 'mahjong.xd-play.com'
+SERVICE_HOST = 'mahjong-legend-web-production.up.railway.app'
+
+
+def production_hosts():
+    # Exercise the actual production settings parser with the previously
+    # configured hosts. No database or object-storage connection is opened.
+    environment = {
+        'STUDIO_PRODUCTION': '1', 'DJANGO_SECRET_KEY': 'isolated-host-test-only',
+        'DATABASE_URL': 'postgresql://test:test@localhost/test',
+        'STUDIO_S3_BUCKET': 'isolated-host-test-only',
+        'ALLOWED_HOSTS': ','.join((LEGACY_HOST, SERVICE_HOST)),
+    }
+    with patch.dict(os.environ, environment, clear=True):
+        return runpy.run_path(str(Path(__file__).resolve().parents[1] /
+                                  'studio_server/settings.py'))['ALLOWED_HOSTS']
 
 
 def content(response):
@@ -40,10 +59,10 @@ class DocumentAssets(HTMLParser):
             self.urls.append(url)
 
 
-@override_settings(ALLOWED_HOSTS=['mahjong.xd-play.com', 'testserver'])
+@override_settings(ALLOWED_HOSTS=[RUNTIME_HOST, 'testserver'])
 class PublicDemoDocumentTests(SimpleTestCase):
     def setUp(self):
-        self.client = Client(HTTP_HOST='mahjong.xd-play.com')
+        self.client = Client(HTTP_HOST=RUNTIME_HOST)
 
     def test_demo_reuses_approved_root_document_and_only_changes_ancestor_policy(self):
         root = self.client.get('/', secure=True)
@@ -118,11 +137,36 @@ class PublicDemoDocumentTests(SimpleTestCase):
             self.assertEqual(policy(missing)['frame-ancestors'], "'none'")
 
 
-@override_settings(ALLOWED_HOSTS=['mahjong.xd-play.com', 'testserver'], PRODUCTION=True)
+@override_settings(PRODUCTION=True)
 class PublicDemoApiTests(TestCase):
     def setUp(self):
         bootstrap()
-        self.client = Client(HTTP_HOST='mahjong.xd-play.com')
+        hosts = override_settings(ALLOWED_HOSTS=production_hosts())
+        hosts.enable()
+        self.addCleanup(hosts.disable)
+        self.client = Client(HTTP_HOST=RUNTIME_HOST)
+
+    def test_production_hosts_preserve_configured_names_and_add_only_canonical_demo(self):
+        self.assertEqual(set(production_hosts()),
+                         {LEGACY_HOST, SERVICE_HOST, 'healthcheck.railway.app', RUNTIME_HOST})
+
+    def test_unknown_host_is_rejected_before_a_public_write(self):
+        with self.assertLogs('django.security.DisallowedHost', level='ERROR'):
+            rejected = self.client.post('/api/diagnostics/spin', '{}',
+                content_type='application/json', secure=True,
+                HTTP_HOST='untrusted.example', HTTP_ORIGIN='https://untrusted.example',
+                HTTP_X_ML_REQUEST='local-demo', HTTP_SEC_FETCH_SITE='same-origin')
+        self.assertEqual(rejected.status_code, 400)
+
+    def test_configured_legacy_and_service_hosts_remain_available(self):
+        for host in (LEGACY_HOST, SERVICE_HOST):
+            with self.subTest(host=host):
+                response = self.client.post('/api/diagnostics/spin', '{}',
+                    content_type='application/json', secure=True,
+                    HTTP_HOST=host, HTTP_ORIGIN='https://' + host,
+                    HTTP_X_ML_REQUEST='local-demo', HTTP_SEC_FETCH_SITE='same-origin')
+                self.assertEqual(response.status_code, 202, response.content)
+                self.assertEqual(response.json(), {'accepted': True})
 
     def test_embedded_game_keeps_same_origin_api_and_existing_session_contract(self):
         content(self.client.get('/play/', secure=True))
@@ -149,7 +193,13 @@ class PublicDemoApiTests(TestCase):
                                     HTTP_SEC_FETCH_SITE='same-origin', **headers)
         self.assertEqual(accepted.status_code, 200, accepted.content)
         self.assertEqual(accepted.json()['state']['spin_count'], 1)
+        self.assertTrue(accepted.json()['state']['virtual_credits_only'])
         self.assertEqual(accepted['X-Frame-Options'], 'DENY')
+        repeated = self.client.post('/api/spin', json.dumps(data), content_type='application/json',
+                                    secure=True, HTTP_ORIGIN=RUNTIME_ORIGIN,
+                                    HTTP_SEC_FETCH_SITE='same-origin', **headers)
+        self.assertEqual(repeated.status_code, 200, repeated.content)
+        self.assertEqual(repeated.json(), accepted.json())
         content(self.client.get('/', secure=True))
         root_state = self.client.get('/api/state', secure=True)
         self.assertEqual(root_state.json()['spin_count'], 1)
