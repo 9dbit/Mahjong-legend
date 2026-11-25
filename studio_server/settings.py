@@ -12,6 +12,10 @@ if not SECRET_KEY:
     SECRET_KEY = 'local-development-only-never-use-on-public-host'
 DEBUG = False
 ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', 'localhost,127.0.0.1,testserver').split(',') + ['healthcheck.railway.app']
+# The XDPLAY public demo uses this exact canonical host. Keep configured legacy
+# and service hosts while allowing the POST origin check to validate this host.
+if PRODUCTION:
+    ALLOWED_HOSTS.append('mahjongwild.xd-play.com')
 CSRF_TRUSTED_ORIGINS = [v for v in os.environ.get('CSRF_TRUSTED_ORIGINS', '').split(',') if v]
 ROOT_URLCONF = 'studio_server.urls'
 WSGI_APPLICATION = 'studio_server.wsgi.application'

@@ -24,6 +24,7 @@ COPY --from=artwork /app/web/ /app/web/
 COPY --from=studio /app/web/studio/ /app/web/studio/
 COPY studio_server/ /app/studio_server/
 COPY game_studio/ /app/game_studio/
+COPY agency_runtime.py agency_wallet.py agency_studio.py agency-client.js agency-navigation.js /app/
 COPY manage.py /app/manage.py
 COPY tools/start_studio.py /app/tools/start_studio.py
 EXPOSE 8080

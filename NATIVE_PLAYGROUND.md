@@ -1,0 +1,54 @@
+# Mahjong Wild — native wallet Playground
+
+Branch `feat/agency-native-wallet-20261108`, 8 November 2026. Opt-in sandbox; mode guest/Studio semula tetap default ketika AGENCY_WALLET_MODE tidak diisi. Live mode ditolak.
+
+FastAPI memakai engine Python asli dan renderer Studio yang dibangun dari source. Konfigurasi baseline dan hash engine dipatok per tiket; editor Studio asli tetap terpisah.
+
+## Menjalankan
+
+Gunakan image Dockerfile repo dan satu instance. Sediakan persistent volume `/data`, lalu set:
+
+- `AGENCY_WALLET_MODE=sandbox`
+- `AGENCY_WALLET_ORIGIN` ke origin HTTPS backend Playground sandbox
+- `AGENCY_WALLET_KEY_ID` dan `AGENCY_WALLET_SECRET` khusus game/environment, server-side
+- `MAHJONG_AGENCY_DB_PATH=/data/agency.sqlite3`
+
+Start: `python tools/start_studio.py`. `/health` memeriksa database serta melaporkan mode dan source commit. Entry point menyiapkan mount Railway lalu menurunkan UID/GID ke 1000. Single replica, tanpa overlap deployment; SQLite tidak boleh dibagikan ke beberapa instance. Simpan volume dan signing key lintas deployment. Cadangkan volume sebelum migrasi atau penghapusan service.
+
+## Kontrak saldo
+
+Buka dari tombol Play storefront agen: token fragment sekali pakai → redeem HMAC → cookie HttpOnly → sesi canonical tenant/player. Tidak ada fallback ke saldo demo, reset saldo, seed pilihan browser, atau payout yang dikirim browser.
+
+Satuan agen tidak diubah. Stake dan biaya harus persis sesuai `coin_scale` (0–12); pilihan pecahan yang tidak sesuai ditolak. Payout total sesudah seluruh free spins/bonus dibulatkan **half-up satu kali** ke presisi agen, dan reserve liability dibulatkan ke atas. Contoh coin_scale 0: payout 0.5 → 1; 0.49 → 0. Kebijakan terlihat di informasi game. Paytable, bobot, multiplier dan batas win tidak diubah. Pembulatan dapat memengaruhi return efektif; sandbox ini bukan persetujuan ekonomi/RTP untuk live.
+
+Intent, payload idempotency, hasil, payout dan sesi disimpan SQLite FULL/WAL sebelum reserve. Retry memakai ronde dan hasil yang sama. Settlement terjadi di server sebelum animasi. Timeout sesudah reserve/settle tidak menyebabkan refund lokal atau reroll. Worker 30 detik memulihkan intent tertunda walau browser ditutup; restart juga memulihkan melalui request state. Session baru milik actor yang sama dapat membaca riwayat. Jangan hapus database untuk mengatasi timeout: cek koneksi/key/risk pool dan pulihkan intent.
+
+## Validasi
+
+- Fault injection setelah reserve dan setelah settle, restart storage, replay request, payload berubah, integer precision, penolakan field payout browser.
+- UAT lintas repo di `Playground/tests/agency-native-slots.cjs`: UI 64COR asli → login → tombol Play → mobile Chromium → spin native → restart → retry → kembali ke 64COR; saldo cocok dan settlement journal tepat sekali.
+- Skygate juga menguji tombol BUY SPIN dan Bonus Booster dengan biaya dari server.
+- Database UAT terisolasi PGlite dan saldo sintetis; bukan transfer bank. Bukti deployment tersimpan dalam dokumen Playground.
+
+Backend pusat tetap berwenang terhadap saldo, batas player, pilihan game agen, environment, settlement dan risk pool. Runtime native tidak memiliki akses master atau konfigurasi payment gateway.
+
+## Navigasi dan pemulihan sesi
+
+Runtime native menampilkan tombol kembali putih/ungu dan tautan menu ke storefront agen. Tujuan berasal dari metadata Playground yang ditandatangani server, tidak dari referrer atau parameter player. `/api/agency/context` membutuhkan cookie native dan hanya mengembalikan metadata navigasi/expiry tersimpan; state wallet menyegarkannya dari pusat. Sesi kedaluwarsa memberi petunjuk membuka ulang melalui agen. Klik kembali menghentikan autoplay/animasi tetapi tidak membatalkan ronde yang sudah diterima. Retry membaca/memulihkan hasil yang sama.
+
+UAT browser memeriksa kembali saat respons spin ditahan, saldo di akun 64COR, tepat satu settlement, dan pesan expired. Modul `agency-navigation.js` diselaraskan byte-for-byte dengan sumber `Playground/adapters/agency-navigation.js` (pada Skygate di direktori `play/`).
+# Central Studio publication
+
+With `AGENCY_STUDIO_SYNC=1`, the native sandbox registers its bundled configuration
+and accepts signed, master-approved Studio generations from Playground. Use the
+master **Manage Games → Rilis Studio** page. Staging does not activate a package;
+the runtime validates it, then the owner explicitly publishes or rolls it back.
+Configuration/media, receipts and active generation persist alongside the wallet
+database on the existing volume. Keep one replica. Existing tickets and outcomes
+remain pinned, and publication never changes wallet balances.
+
+Studio publishers can export a non-preview release using **Export Playground** in
+release history. The package includes published derivative media and engine hash;
+disabled, unpublished sound references are omitted. Agent accounts cannot publish
+game settings. The original Studio needs its own deployment to expose this export
+button; central master animation/audio editing works without it.

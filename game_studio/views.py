@@ -1,6 +1,7 @@
 from copy import deepcopy
 from functools import wraps
 import json
+import base64
 import mimetypes
 import os
 from pathlib import Path
@@ -285,6 +286,25 @@ def releases(request):
 def release_activate(request,release_id):
     data=body(request);r=activate(Release.objects.get(pk=release_id),request.user,data.get('reason',''))
     return reply({'release':release_data(r,r.id)})
+
+@api('publish')
+def release_export(request,release_id):
+    from .domain import asset_refs,BASELINE_REFS
+    release=Release.objects.get(pk=release_id,preview=False)
+    config=json.loads(json.dumps(release.config))
+    # Disabled sounds are not published by Studio and must not expose draft media.
+    for event in config['audio']['events'].values():
+        if not event.get('enabled'):event['asset']=None
+    assets={};size=0
+    for ref,_,_ in asset_refs(config):
+        if ref in BASELINE_REFS or str(ref) in assets:continue
+        a=Asset.objects.get(pk=ref,status='ready',published=True,is_derivative=True)
+        raw=content_store().get(a.object_key);size+=len(raw)
+        if size>24*1024*1024:raise ValueError('Playground package media exceeds 24 MB')
+        assets[str(ref)]={'mime':a.mime,'data':base64.b64encode(raw).decode()}
+    bundle={'format':'playground.studio.v1','game':'mahjong-wild','name':release.name,
+      'payload':{'config':config,'assets':assets,'engine_sha256':release.engine_hash}}
+    response=reply(bundle);response['Content-Disposition']='attachment; filename="mahjong-studio-'+str(release.id)+'.json"';return response
 
 def preview_release(request,token):
     if not request.user.is_authenticated or not request.user.has_perm('game_studio.test_studio'): raise game.GameError('Studio preview sign-in required',403)
